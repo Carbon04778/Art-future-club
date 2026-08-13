@@ -1,0 +1,147 @@
+{
+  "name": "CollectorProfile",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "Collector",
+        "Gallery",
+        "Curator",
+        "Institution",
+        "Foundation"
+      ],
+      "default": "Collector"
+    },
+    "partnership_type": {
+      "type": "string",
+      "enum": [
+        "Paid Member",
+        "Charitable Member"
+      ]
+    },
+    "based_in": {
+      "type": "string"
+    },
+    "bio": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "instagram": {
+      "type": "string"
+    },
+    "facebook": {
+      "type": "string"
+    },
+    "linkedin": {
+      "type": "string"
+    },
+    "avatar_url": {
+      "type": "string"
+    },
+    "cover_image_url": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string"
+    },
+    "opening_hours": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "space_images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          }
+        }
+      },
+      "default": []
+    },
+    "interests": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "Painting",
+          "Sculpture",
+          "Photography",
+          "Installation",
+          "Video Art",
+          "Performance",
+          "Drawing",
+          "Ceramics",
+          "Digital Art",
+          "Mixed Media"
+        ]
+      }
+    },
+    "budget_range": {
+      "type": "string",
+      "enum": [
+        "Under $1k",
+        "$1k\u2013$5k",
+        "$5k\u2013$20k",
+        "$20k\u2013$100k",
+        "$100k+"
+      ]
+    },
+    "seeking": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "Emerging Artists",
+          "Established Artists",
+          "Commissions",
+          "Editions",
+          "Gallery Partnerships"
+        ]
+      }
+    },
+    "seo_title": {
+      "type": "string"
+    },
+    "seo_description": {
+      "type": "string"
+    },
+    "seo_keywords": {
+      "type": "string"
+    },
+    "geo_placename": {
+      "type": "string"
+    },
+    "geo_region": {
+      "type": "string"
+    },
+    "geo_lat": {
+      "type": "number"
+    },
+    "geo_lng": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "display_name",
+    "type"
+  ]
+}

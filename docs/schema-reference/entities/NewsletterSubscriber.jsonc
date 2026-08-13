@@ -1,0 +1,21 @@
+{
+  "name": "NewsletterSubscriber",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "consent": {
+      "type": "boolean",
+      "default": true
+    },
+    "source": {
+      "type": "string",
+      "default": "article"
+    }
+  },
+  "required": [
+    "email"
+  ]
+}

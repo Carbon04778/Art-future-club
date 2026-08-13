@@ -1,0 +1,25 @@
+{
+  "name": "Like",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "target_id": {
+      "type": "string"
+    },
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "artist_profile",
+        "portfolio_work",
+        "gallery_work"
+      ]
+    }
+  },
+  "required": [
+    "user_id",
+    "target_id",
+    "target_type"
+  ]
+}

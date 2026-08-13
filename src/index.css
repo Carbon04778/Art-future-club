@@ -1,0 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Anchored — black canvas, magenta primary, cyan accent, pale-yellow highlights.
+       Most faithful to the logo: #000 bg, #E91E63 primary, #00BFFF accent, #FCEB82 highlight. */
+    --background: 240 18% 4%;
+    --foreground: 40 14% 95%;
+    --card: 240 16% 7%;
+    --card-foreground: 40 14% 95%;
+    --popover: 240 16% 7%;
+    --popover-foreground: 40 14% 95%;
+    --primary: 195 95% 50%;
+    --primary-foreground: 240 18% 5%;
+    --secondary: 240 14% 12%;
+    --secondary-foreground: 40 14% 95%;
+    --muted: 240 14% 12%;
+    --muted-foreground: 240 10% 62%;
+    --accent: 339 82% 56%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 12% 20%;
+    --input: 240 12% 20%;
+    --ring: 195 95% 50%;
+    --highlight: 52 95% 75%;
+    --radius: 0.25rem;
+    --font-heading: 'Fraunces', ui-serif, Georgia, serif;
+    --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Fraunces', ui-serif, Georgia, serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sidebar-background: 240 18% 4%;
+    --sidebar-foreground: 40 14% 95%;
+    --sidebar-primary: 195 95% 50%;
+    --sidebar-primary-foreground: 240 18% 5%;
+    --sidebar-accent: 339 82% 56%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 240 12% 20%;
+    --sidebar-ring: 195 95% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground font-body;
+    cursor: none;
+  }
+  ::selection {
+    background: hsl(var(--primary));
+    color: hsl(var(--background));
+  }
+}
+
+@layer utilities {
+  .font-mono-caps {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .outlined-text {
+    -webkit-text-stroke: 1px hsl(var(--foreground));
+    color: transparent;
+  }
+  .outlined-text-light {
+    -webkit-text-stroke: 1px hsl(var(--muted-foreground));
+    color: transparent;
+  }
+  .vertical-rl {
+    writing-mode: vertical-rl;
+  }
+  .atmospheric-space {
+    padding-top: clamp(6rem, 18vh, 14rem);
+    padding-bottom: clamp(6rem, 18vh, 14rem);
+  }
+  .dense-cluster {
+    padding-top: 2.5rem;
+    padding-bottom: 2.5rem;
+  }
+}
+
+/* custom cursor — hide default on touch devices */
+@media (hover: none) {
+  body { cursor: auto; }
+  .l-frame-cursor { display: none !important; }
+}

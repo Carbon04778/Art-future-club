@@ -1,0 +1,54 @@
+{
+  "name": "GalleryWork",
+  "type": "object",
+  "properties": {
+    "artist_id": {
+      "type": "string"
+    },
+    "artist_name": {
+      "type": "string"
+    },
+    "artist_discipline": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "year": {
+      "type": "string"
+    },
+    "medium": {
+      "type": "string"
+    },
+    "dimensions": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "available_for_sale": {
+      "type": "boolean",
+      "default": false
+    },
+    "price": {
+      "type": "string"
+    },
+    "currency": {
+      "type": "string",
+      "default": "USD"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "title",
+    "image_url"
+  ]
+}

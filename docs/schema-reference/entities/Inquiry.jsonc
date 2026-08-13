@@ -1,0 +1,56 @@
+{
+  "name": "Inquiry",
+  "type": "object",
+  "properties": {
+    "artist_id": {
+      "type": "string"
+    },
+    "artist_name": {
+      "type": "string"
+    },
+    "work_title": {
+      "type": "string"
+    },
+    "work_image_url": {
+      "type": "string"
+    },
+    "price": {
+      "type": "string"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "buyer_name": {
+      "type": "string"
+    },
+    "buyer_email": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "replied",
+        "closed"
+      ],
+      "default": "new"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "purchase",
+        "commission"
+      ],
+      "default": "purchase"
+    }
+  },
+  "required": [
+    "artist_id",
+    "buyer_name",
+    "buyer_email",
+    "message"
+  ]
+}

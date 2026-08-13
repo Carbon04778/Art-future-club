@@ -1,0 +1,17 @@
+Art Future Club — Phase 1 build
+Base44 decoupled · provider data layer · Netlify ready
+
+IDENTIFY THIS VERSION
+---------------------
+Run `npm run dev` and check the browser tab title:
+
+  "Art Future Club — Global Artist Community"   <- correct, this build
+  "Base44 APP"                                   <- WRONG, that is the old export
+
+Other markers unique to this build:
+  - netlify.toml exists at the root
+  - docs/ folder exists
+  - src/api/providers/mock.js exists
+  - package.json has NO "@base44/..." dependencies
+
+See DEPLOY.md before deploying.

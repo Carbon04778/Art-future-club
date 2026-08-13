@@ -1,0 +1,33 @@
+{
+  "name": "Message",
+  "type": "object",
+  "properties": {
+    "sender_id": {
+      "type": "string"
+    },
+    "sender_name": {
+      "type": "string"
+    },
+    "recipient_id": {
+      "type": "string"
+    },
+    "recipient_name": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "read": {
+      "type": "boolean",
+      "default": false
+    },
+    "thread_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "sender_id",
+    "recipient_id",
+    "body"
+  ]
+}

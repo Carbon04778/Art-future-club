@@ -1,0 +1,68 @@
+{
+  "name": "OpenCall",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "Open Call",
+        "Residency",
+        "Grant",
+        "Fellowship",
+        "Competition",
+        "Exhibition",
+        "Other"
+      ],
+      "default": "Open Call"
+    },
+    "organizer": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date"
+    },
+    "fee": {
+      "type": "string"
+    },
+    "is_free": {
+      "type": "boolean",
+      "default": true
+    },
+    "prize": {
+      "type": "string"
+    },
+    "external_link": {
+      "type": "string"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "disciplines": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "posted_by_id": {
+      "type": "string"
+    },
+    "posted_by_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "type",
+    "organizer"
+  ]
+}

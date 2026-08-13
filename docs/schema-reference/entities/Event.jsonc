@@ -1,0 +1,78 @@
+{
+  "name": "Event",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "Exhibition",
+        "Opening",
+        "Talk",
+        "Workshop",
+        "Screening",
+        "Performance",
+        "Social",
+        "Other"
+      ]
+    },
+    "chapter": {
+      "type": "string",
+      "enum": [
+        "Hong Kong",
+        "London",
+        "New York",
+        "Los Angeles",
+        "Bangkok",
+        "Milano",
+        "Toronto",
+        "Zurich",
+        "Online",
+        "Other"
+      ]
+    },
+    "venue": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "external_link": {
+      "type": "string"
+    },
+    "organizer_id": {
+      "type": "string"
+    },
+    "organizer_name": {
+      "type": "string"
+    },
+    "is_free": {
+      "type": "boolean",
+      "default": true
+    },
+    "ticket_price": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "start_date",
+    "event_type"
+  ]
+}

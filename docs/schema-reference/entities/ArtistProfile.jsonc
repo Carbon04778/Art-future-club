@@ -1,0 +1,204 @@
+{
+  "name": "ArtistProfile",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "discipline": {
+      "type": "string",
+      "enum": [
+        "Painting",
+        "Sculpture",
+        "Photography",
+        "Installation",
+        "Video Art",
+        "Performance",
+        "Drawing",
+        "Printmaking",
+        "Ceramics",
+        "Sound Art",
+        "Digital Art",
+        "Mixed Media",
+        "Other"
+      ]
+    },
+    "based_in": {
+      "type": "string"
+    },
+    "chapter": {
+      "type": "string",
+      "enum": [
+        "Hong Kong",
+        "London",
+        "New York",
+        "Los Angeles",
+        "Bangkok",
+        "Milano",
+        "Toronto",
+        "Zurich",
+        "Other"
+      ]
+    },
+    "bio": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "instagram": {
+      "type": "string"
+    },
+    "twitter": {
+      "type": "string"
+    },
+    "tiktok": {
+      "type": "string"
+    },
+    "linkedin": {
+      "type": "string"
+    },
+    "avatar_url": {
+      "type": "string"
+    },
+    "portfolio_works": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "year": {
+            "type": "string"
+          },
+          "medium": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "image_url": {
+            "type": "string"
+          },
+          "additional_images": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "available_for_sale": {
+            "type": "boolean",
+            "default": false
+          },
+          "price": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "default": "USD"
+          }
+        }
+      }
+    },
+    "cv": {
+      "type": "object",
+      "properties": {
+        "statement": {
+          "type": "string"
+        },
+        "exhibitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "year": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "venue": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "education": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "year": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "venue": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "awards": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "year": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "venue": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "seeking": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "Exhibition Opportunities",
+          "Collectors",
+          "Collaborators",
+          "Residencies",
+          "Representation",
+          "Press"
+        ]
+      }
+    },
+    "open_to_commissions": {
+      "type": "boolean"
+    },
+    "is_premium": {
+      "type": "boolean",
+      "default": false
+    },
+    "is_featured": {
+      "type": "boolean",
+      "default": false
+    },
+    "featured_until": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "display_name",
+    "discipline"
+  ]
+}

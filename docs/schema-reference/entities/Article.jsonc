@@ -1,0 +1,144 @@
+{
+  "name": "Article",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "author_name": {
+      "type": "string"
+    },
+    "author_id": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "Interview",
+        "Essay",
+        "Review",
+        "Open Call",
+        "News",
+        "Feature"
+      ],
+      "default": "Feature"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "cover_image_url": {
+      "type": "string"
+    },
+    "cover_image_alt": {
+      "type": "string"
+    },
+    "cover_image_caption": {
+      "type": "string"
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          }
+        }
+      },
+      "default": []
+    },
+    "layout": {
+      "type": "string",
+      "enum": [
+        "cover_top",
+        "image_after_intro",
+        "gallery_middle",
+        "intro_middle",
+        "image_before_close"
+      ],
+      "default": "cover_top"
+    },
+    "closing_image_url": {
+      "type": "string"
+    },
+    "closing_image_alt": {
+      "type": "string"
+    },
+    "closing_image_caption": {
+      "type": "string"
+    },
+    "slug": {
+      "type": "string"
+    },
+    "seo_title": {
+      "type": "string"
+    },
+    "seo_description": {
+      "type": "string"
+    },
+    "seo_keywords": {
+      "type": "string"
+    },
+    "canonical_url": {
+      "type": "string"
+    },
+    "og_image_url": {
+      "type": "string"
+    },
+    "geo_placename": {
+      "type": "string"
+    },
+    "geo_region": {
+      "type": "string"
+    },
+    "geo_lat": {
+      "type": "number"
+    },
+    "geo_lng": {
+      "type": "number"
+    },
+    "publish_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "published": {
+      "type": "boolean",
+      "default": false
+    },
+    "featured": {
+      "type": "boolean",
+      "default": false
+    },
+    "reading_time_mins": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "title",
+    "body",
+    "author_name"
+  ]
+}

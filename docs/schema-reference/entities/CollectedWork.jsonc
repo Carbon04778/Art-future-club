@@ -1,0 +1,51 @@
+{
+  "name": "CollectedWork",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "collector_profile_id": {
+      "type": "string"
+    },
+    "artist_id": {
+      "type": "string"
+    },
+    "artist_name": {
+      "type": "string"
+    },
+    "work_ref": {
+      "type": "string"
+    },
+    "work_title": {
+      "type": "string"
+    },
+    "work_image_url": {
+      "type": "string"
+    },
+    "work_medium": {
+      "type": "string"
+    },
+    "work_dimensions": {
+      "type": "string"
+    },
+    "work_year": {
+      "type": "string"
+    },
+    "work_description": {
+      "type": "string"
+    },
+    "work_price": {
+      "type": "string"
+    },
+    "work_currency": {
+      "type": "string",
+      "default": "USD"
+    }
+  },
+  "required": [
+    "user_id",
+    "artist_id",
+    "work_ref"
+  ]
+}

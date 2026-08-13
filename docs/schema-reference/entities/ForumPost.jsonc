@@ -1,0 +1,48 @@
+{
+  "name": "ForumPost",
+  "type": "object",
+  "properties": {
+    "author_id": {
+      "type": "string"
+    },
+    "author_name": {
+      "type": "string"
+    },
+    "author_discipline": {
+      "type": "string"
+    },
+    "author_chapter": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "Open Call",
+        "Critique Request",
+        "Collaboration",
+        "Advice",
+        "Exhibition News",
+        "Opportunities",
+        "General"
+      ]
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "reply_count": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "title",
+    "body",
+    "category"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "follow",
+        "like",
+        "comment",
+        "inquiry",
+        "commission"
+      ]
+    },
+    "from_user_name": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "link": {
+      "type": "string"
+    },
+    "read": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "user_id",
+    "type",
+    "message"
+  ]
+}
