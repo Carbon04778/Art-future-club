@@ -1,23 +1,36 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { ZoomIn, ZoomOut, Crop } from "lucide-react";
 
-const OUTPUT_SIZE = 1000; // square canvas resolution for the cropped file
+const OUTPUT_WIDTH = 1600; // rendered width of the cropped file, in pixels
 
 /**
- * Square image crop box with white background and zoom/pan controls.
+ * Image crop box with drag-to-reposition and zoom controls.
  *
  * Props:
- *  - file: a newly selected File (when present, shows zoom controls and emits a cropped square file)
- *  - src: an existing image URL to display read-only (object-contain on white)
- *  - onChange: (croppedFile | null) => void  — emits a square PNG File whenever the crop changes
+ *  - file: a newly selected File. When present, shows the controls and emits a
+ *          cropped file whenever the crop changes.
+ *  - src: an existing image URL, shown read-only.
+ *  - onChange: (croppedFile | null) => void
+ *  - aspect: output width / height. Defaults to 1 (square) so every existing
+ *          caller is unaffected. Editorial passes 16/9 and 4/3, because a
+ *          square crop would have its sides cut off again when displayed wide.
  */
-export default function ImageCropBox({ file, src, alt, onChange }) {
+export default function ImageCropBox({ file, src, alt, onChange, aspect = 1 }) {
+  // Output dimensions follow the requested ratio.
+  const OUT_W = OUTPUT_WIDTH;
+  const OUT_H = Math.round(OUTPUT_WIDTH / (aspect || 1));
   const [img, setImg] = useState(null);   // HTMLImageElement of selected file
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(null); // { startX, startY, origOffset }
   const boxRef = useRef(null);
   const canvasRef = useRef(null);
+  // Parents usually pass an inline arrow function, so `onChange` is a new
+  // identity on every render. Holding it in a ref keeps emitCropped stable —
+  // otherwise the emit effect re-ran continuously, producing a new File and a
+  // new object URL each pass, which made the live preview flicker.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
 
   // load the selected File into an image
   useEffect(() => {
@@ -37,10 +50,11 @@ export default function ImageCropBox({ file, src, alt, onChange }) {
     const r = boxRef.current?.getBoundingClientRect();
     return Math.max(r?.width || 1, 1);
   };
+  const boxHeight = () => boxSize() / (aspect || 1);
 
-  // cover scale at zoom = 1 (image fully covers the square)
-  const coverScale = img ? Math.max(OUTPUT_SIZE / img.width, OUTPUT_SIZE / img.height) : 1;
-  const displayScale = img ? Math.max(boxSize() / img.width, boxSize() / img.height) : 1;
+  // cover scale at zoom = 1 — the image fully covers the frame
+  const coverScale = img ? Math.max(OUT_W / img.width, OUT_H / img.height) : 1;
+  const displayScale = img ? Math.max(boxSize() / img.width, boxHeight() / img.height) : 1;
 
   // clamp offset so image always covers the square
   const clampOffset = useCallback((ox, oy, z) => {
@@ -48,37 +62,41 @@ export default function ImageCropBox({ file, src, alt, onChange }) {
     const w = img.width * displayScale * z;
     const h = img.height * displayScale * z;
     const maxX = Math.max(0, (w - boxSize()) / 2);
-    const maxY = Math.max(0, (h - boxSize()) / 2);
+    const maxY = Math.max(0, (h - boxHeight()) / 2);
     return { x: Math.max(-maxX, Math.min(maxX, ox)), y: Math.max(-maxY, Math.min(maxY, oy)) };
   }, [img, displayScale]);
 
   // render the cropped square to canvas and emit a file
   const emitCropped = useCallback(() => {
-    if (!img) { onChange?.(null); return; }
+    if (!img) { onChangeRef.current?.(null); return; }
     const canvas = canvasRef.current || (canvasRef.current = document.createElement("canvas"));
-    canvas.width = OUTPUT_SIZE;
-    canvas.height = OUTPUT_SIZE;
+    canvas.width = OUT_W;
+    canvas.height = OUT_H;
     const ctx = canvas.getContext("2d");
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+    ctx.fillRect(0, 0, OUT_W, OUT_H);
     const scale = coverScale * zoom;
     const w = img.width * scale;
     const h = img.height * scale;
     // map display offset (px in box) to output offset (px in OUTPUT_SIZE)
-    const ratio = OUTPUT_SIZE / boxSize();
-    const dx = (OUTPUT_SIZE - w) / 2 + offset.x * ratio;
-    const dy = (OUTPUT_SIZE - h) / 2 + offset.y * ratio;
+    const ratio = OUT_W / boxSize();
+    const dx = (OUT_W - w) / 2 + offset.x * ratio;
+    const dy = (OUT_H - h) / 2 + offset.y * ratio;
     ctx.drawImage(img, dx, dy, w, h);
     canvas.toBlob((blob) => {
       if (!blob) return;
-      const cropped = new File([blob], "work-square.png", { type: "image/png" });
-      onChange?.(cropped);
+      const cropped = new File([blob], "cropped.png", { type: "image/png" });
+      onChangeRef.current?.(cropped);
     }, "image/png", 0.92);
-  }, [img, zoom, offset, coverScale, onChange]);
+  }, [img, zoom, offset, coverScale, OUT_W, OUT_H]);
 
-  // emit whenever crop changes
+  // Emit once the crop settles rather than on every pointer move. Encoding a
+  // 1600px canvas on each mousemove was both wasteful and the second cause of
+  // the flicker.
   useEffect(() => {
-    if (img) emitCropped();
+    if (!img) return;
+    const t = setTimeout(emitCropped, 150);
+    return () => clearTimeout(t);
   }, [img, zoom, offset, emitCropped]);
 
   const onPointerDown = (e) => {
@@ -101,13 +119,14 @@ export default function ImageCropBox({ file, src, alt, onChange }) {
   const dispW = img ? img.width * displayScale * zoom : 0;
   const dispH = img ? img.height * displayScale * zoom : 0;
   const dispX = img ? (boxSize() - dispW) / 2 + offset.x : 0;
-  const dispY = img ? (boxSize() - dispH) / 2 + offset.y : 0;
+  const dispY = img ? (boxHeight() - dispH) / 2 + offset.y : 0;
 
   return (
     <div className="w-full">
       <div
         ref={boxRef}
-        className="relative aspect-square w-full overflow-hidden border border-border bg-white select-none touch-none"
+        className="relative w-full overflow-hidden border border-border bg-white select-none touch-none"
+        style={{ aspectRatio: String(aspect) }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

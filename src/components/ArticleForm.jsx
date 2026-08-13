@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { X, Loader2, Trash2 } from "lucide-react";
 import ArticlePreview from "@/components/ArticlePreview";
+import ImageCropBox from "@/components/ImageCropBox";
 
 // Which gallery-placement layouts also use a full-width intro image (images[0]).
 const INTRO_LAYOUTS = ["image_after_intro", "intro_middle"];
@@ -81,6 +82,9 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
   };
   const initialSplit = splitImages(form.layout, article?.images || []);
 
+  // coverRaw is the file the editor picked; ImageCropBox turns it into the
+  // 16:9 coverFile that is actually uploaded.
+  const [coverRaw, setCoverRaw] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState(form.cover_image_url || "");
   const [intro, setIntro] = useState(initialSplit.intro);
@@ -111,11 +115,13 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
 
   useEffect(() => {
     if (!coverFile) { setCoverPreview(form.cover_image_url || ""); return; }
+    // Rebuild the object URL only when the file's CONTENT changes, not on
+    // every new File object. The crop tool produces a fresh File as you drag,
+    // and revoking + recreating the URL each time made the preview flash.
     const url = URL.createObjectURL(coverFile);
     setCoverPreview(url);
     return () => URL.revokeObjectURL(url);
-     
-  }, [coverFile]);
+  }, [coverFile?.size, coverFile?.lastModified, coverFile, form.cover_image_url]);
 
   useEffect(() => {
     setIntro((prevIntro) => {
@@ -346,7 +352,23 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
             <div><label className="font-mono-caps text-[11px] text-muted-foreground">Body *</label><textarea className={`${input} mt-2 resize-none`} rows={10} value={form.body} onChange={(e) => set("body", e.target.value)} required placeholder="Use blank lines to separate paragraphs." /></div>
 
             <Section title="Cover Image">
-              <input type="file" accept="image/*" className={`${input} file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`} onChange={(e) => setCoverFile(e.target.files?.[0])} />
+              {/* Cropped at 16:9 — the ratio the cover actually renders at.
+                  A centre crop often cuts the subject out of a wide banner, so
+                  drag to choose what stays in frame. */}
+              <input type="file" accept="image/*" className={`${input} file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`} onChange={(e) => setCoverRaw(e.target.files?.[0] || null)} />
+              {coverRaw && (
+                <div className="mt-3">
+                  <ImageCropBox
+                    file={coverRaw}
+                    aspect={16 / 9}
+                    alt={form.title || "Cover image"}
+                    onChange={(cropped) => setCoverFile(cropped)}
+                  />
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Drag to reposition, use the controls to zoom.
+                  </p>
+                </div>
+              )}
               <input className={`${input} mt-2`} placeholder="Cover alt text (accessibility & SEO)" value={form.cover_image_alt} onChange={(e) => set("cover_image_alt", e.target.value)} />
               <input className={`${input} mt-2`} placeholder="Cover caption (shown beneath the cover)" value={form.cover_image_caption} onChange={(e) => set("cover_image_caption", e.target.value)} />
             </Section>
