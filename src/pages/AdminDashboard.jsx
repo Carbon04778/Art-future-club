@@ -6,8 +6,10 @@ import SlimFooter from "@/components/SlimFooter";
 import { Image } from "@/components/ui/image";
 import AdminCreatePanel from "@/components/AdminCreatePanel";
 import AdminMembersPanel from "@/components/AdminMembersPanel";
+import AdminArticlesPanel from "@/components/AdminArticlesPanel";
+import AdminSubscribersPanel from "@/components/AdminSubscribersPanel";
 
-const TABS = ["Add Listing", "Members", "Artists", "Inquiries", "Forum", "Open Calls", "Subscriptions"];
+const TABS = ["Add Listing", "Members", "Editorial", "Artists", "Inquiries", "Forum", "Open Calls", "Newsletter", "Subscriptions"];
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState("Add Listing");
@@ -16,6 +18,34 @@ export default function AdminDashboard() {
   const [posts, setPosts] = useState([]);
   const [openCalls, setOpenCalls] = useState([]);
   const [subs, setSubs] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [subBusy, setSubBusy] = useState(null);
+  const [subError, setSubError] = useState("");
+
+  /**
+   * Mark a subscription cancelled and remove the features it granted.
+   *
+   * This is the record-keeping side only. The Stripe subscription itself must
+   * be cancelled in the Stripe dashboard, otherwise billing continues and the
+   * next payment webhook will reactivate this row.
+   */
+  const deactivateSub = async (s) => {
+    setSubError("");
+    setSubBusy(s.id);
+    try {
+      await base44.entities.Subscription.update(s.id, { status: "cancelled" });
+      setSubs((prev) => prev.map((x) => (x.id === s.id ? { ...x, status: "cancelled" } : x)));
+    } catch (e) {
+      const msg = String(e?.message || e);
+      setSubError(
+        /row-level security|policy|coerce/i.test(msg)
+          ? "Subscriptions are written by the Stripe webhook only. Cancel it in Stripe instead — the webhook will update this automatically."
+          : msg
+      );
+    } finally {
+      setSubBusy(null);
+    }
+  };
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,7 +59,10 @@ export default function AdminDashboard() {
         base44.entities.ForumPost.list("-created_date", 100),
         base44.entities.OpenCall.list("-created_date", 100),
         base44.entities.Subscription.list("-created_date", 100),
-      ]).then(([a, i, p, oc, s]) => { setArtists(a); setInquiries(i); setPosts(p); setOpenCalls(oc); setSubs(s); setLoading(false); });
+        // Subscriptions store only a user_id. Without the profiles the tab
+        // showed a raw uuid, which tells an admin nothing about who paid.
+        base44.entities.Profile.list("-created_date", 500).catch(() => []),
+      ]).then(([a, i, p, oc, s, pr]) => { setArtists(a); setInquiries(i); setPosts(p); setOpenCalls(oc); setSubs(s); setProfiles(pr || []); setLoading(false); });
     }).catch(() => setLoading(false));
   }, []);
 
@@ -113,6 +146,10 @@ export default function AdminDashboard() {
         )}
 
         {tab === "Members" && <AdminMembersPanel />}
+
+        {tab === "Editorial" && <AdminArticlesPanel user={user} />}
+
+        {tab === "Newsletter" && <AdminSubscribersPanel />}
 
         {tab === "Artists" && (
           <div>
@@ -234,13 +271,38 @@ export default function AdminDashboard() {
         {/* Subscriptions tab */}
         {tab === "Subscriptions" && (
           <div className="space-y-2">
+            {subError && <p className="pb-3 text-sm text-destructive">{subError}</p>}
             {subs.map((s) => (
               <div key={s.id} className="flex items-center justify-between border-b border-border py-4">
                 <div>
                   <p className="font-mono-caps text-[11px]">{s.plan}</p>
-                  <p className="font-mono-caps text-[10px] text-muted-foreground">User: {s.user_id} · Status: {s.status}</p>
+                  <p className="font-mono-caps text-[10px] text-muted-foreground">
+                    {(() => {
+                      const who = profiles.find((x) => x.id === s.user_id);
+                      return who ? (who.full_name || who.email) : `Unknown member (${String(s.user_id).slice(0, 8)}…)`;
+                    })()}
+                    {s.expires_at ? ` · expires ${new Date(s.expires_at).toLocaleDateString()}` : ""}
+                  </p>
                 </div>
-                <span className={`font-mono-caps text-[10px] border px-2 py-0.5 ${s.status === "active" ? "border-green-600 text-green-600" : "border-border text-muted-foreground"}`}>{s.status}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`font-mono-caps text-[10px] border px-2 py-0.5 ${s.status === "active" ? "border-green-600 text-green-600" : "border-border text-muted-foreground"}`}>{s.status}</span>
+                  {/*
+                    Marks the record inactive here only. It does NOT cancel the
+                    Stripe subscription, so the member may still be billed —
+                    cancel in Stripe as well, or the webhook will set it back
+                    to active on the next successful payment.
+                  */}
+                  {s.status === "active" && (
+                    <button
+                      type="button"
+                      onClick={() => deactivateSub(s)}
+                      disabled={subBusy === s.id}
+                      className="border border-border px-3 py-1 font-mono-caps text-[10px] text-muted-foreground transition-colors hover:border-destructive hover:text-destructive disabled:opacity-50"
+                    >
+                      {subBusy === s.id ? "Working…" : "Mark inactive"}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
             {subs.length === 0 && <p className="font-mono-caps text-[11px] text-muted-foreground py-8 text-center">No subscriptions.</p>}

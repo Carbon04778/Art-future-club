@@ -76,6 +76,16 @@ export default function AdminMembersPanel() {
         People must have an account before they appear here. Invite them from
         Supabase → Authentication → Users, or ask them to register.
       </p>
+      {/*
+        Deleting an account is deliberately not offered here. It requires the
+        service role, and a key with that power must never be present in a
+        browser — the same key can read every record in the database.
+      */}
+      <p className="mt-2 text-xs text-muted-foreground">
+        To remove an account entirely, use Supabase → Authentication → Users.
+        Deleting one also removes their profile, posts, messages and enquiries,
+        and cannot be undone.
+      </p>
 
       <div className="relative mt-6">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
