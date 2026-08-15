@@ -93,27 +93,15 @@ function ChapterBlock({ chapter, events }) {
                     </Link>
                   </li>
                 ))
-              : chapter.gatherings.slice(0, 2).map((g) => (
-                  <li key={g.title}>
-                    <Link
-                      to={`/chapter/${chapter.slug}#programme`}
-                      className="group flex items-baseline justify-between gap-4 py-4 transition-colors hover:text-primary"
-                    >
-                      <div>
-                        <span className="font-mono-caps text-[11px] text-primary">{g.date}</span>
-                        <p className="mt-1 font-heading text-xl tracking-[-0.01em]">{g.title}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">{g.venue}</p>
-                      </div>
-                      <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-all group-hover:text-primary" />
-                    </Link>
-                  </li>
-                ))}
+              : null}
           </ul>
+          {/* Straight to the events page, already filtered to this chapter,
+              rather than an anchor on the chapter page. */}
           <Link
-            to={`/chapter/${chapter.slug}#programme`}
+            to={`/events?chapter=${encodeURIComponent(chapter.city)}`}
             className="mt-5 inline-flex items-center gap-2 font-mono-caps text-[11px] text-muted-foreground transition-colors hover:text-primary"
           >
-            Full programme <ArrowUpRight className="h-3 w-3" />
+            All {chapter.city} events <ArrowUpRight className="h-3 w-3" />
           </Link>
         </div>
 

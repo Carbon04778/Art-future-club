@@ -35,6 +35,7 @@ const fmtEventDate = (d) => {
 };
 
 const SPOTLIGHT_LIMIT = 10;
+const VENUE_LIMIT = 6;
 const EVENT_LIMIT = 10;
 
 export default function CityChapterDetail() {
@@ -45,6 +46,7 @@ export default function CityChapterDetail() {
   const [events, setEvents] = useState([]);
   const [eventTotal, setEventTotal] = useState(0);
   const [artistTotal, setArtistTotal] = useState(0);
+  const [venues, setVenues] = useState([]);
 
   useEffect(() => {
     if (!chapter) return;
@@ -65,8 +67,20 @@ export default function CityChapterDetail() {
           if (r.display_name) map[r.display_name.trim().toLowerCase()] = r.id;
         });
         setVenueLinks(map);
+
+        // Galleries, institutions and other partner spaces belonging to this
+        // chapter. Matched on based_in/address because collector_profile has
+        // no chapter column — the same rule the venues page filters by.
+        const city = chapter.city.toLowerCase();
+        setVenues(
+          rows.filter((r) => {
+            if (r.type === 'Collector') return false;
+            const where = `${r.based_in || ''} ${r.address || ''}`.toLowerCase();
+            return where.includes(city);
+          })
+        );
       })
-      .catch(() => setVenueLinks({}));
+      .catch(() => { setVenueLinks({}); setVenues([]); });
 
     base44.entities.Event.filter({ chapter: chapter.city }, 'start_date', 200)
       .then((rows) => {
@@ -233,14 +247,15 @@ export default function CityChapterDetail() {
             ))}
           </ul>
         )}
-        {eventTotal > EVENT_LIMIT && (
-          <Link
-            to={`/events?chapter=${encodeURIComponent(chapter.city)}`}
-            className="mt-10 inline-flex items-center gap-2 border border-border px-6 py-3 font-mono-caps text-[11px] text-foreground transition-colors hover:border-primary hover:text-primary"
-          >
-            See all {eventTotal} gatherings <ArrowUpRight className="h-3 w-3" />
-          </Link>
-        )}
+        {/* Always shown, matching the venues section — a consistent way
+            through to the full listing rather than a button that appears
+            only once there are enough items. */}
+        <Link
+          to={`/events?chapter=${encodeURIComponent(chapter.city)}`}
+          className="mt-10 inline-flex items-center gap-2 border border-border px-6 py-3 font-mono-caps text-[11px] text-foreground transition-colors hover:border-primary hover:text-primary"
+        >
+          All {chapter.city} gatherings <ArrowUpRight className="h-3 w-3" />
+        </Link>
       </section>
 
       {/* ── ARTIST SPOTLIGHTS ────────────────────────────── */}
@@ -296,33 +311,45 @@ export default function CityChapterDetail() {
         <h2 className="mt-4 font-heading text-3xl font-medium tracking-[-0.02em] md:text-5xl">
           Where We Gather
         </h2>
-        <div className="mt-12 grid grid-cols-1 gap-px bg-border md:grid-cols-2">
-          {chapter.venues.map((v) => {
-            const pid = venueLinks[v.name.toLowerCase()];
-            const inner = (
-              <>
-                <p className="font-mono-caps text-[10px] text-primary">{v.partnership}</p>
-                <h3 className="mt-2 font-heading text-2xl tracking-[-0.01em]">{v.name}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{v.type}</p>
-                <p className="mt-3 flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  {v.address}
-                </p>
-              </>
-            );
-            // A venue with a matching profile opens that profile; one without
-            // still links to the venues directory rather than being a dead card.
-            return (
-              <Link
-                key={v.name}
-                to={pid ? `/venues/${pid}` : "/venues"}
-                className="block bg-background p-8 transition-colors hover:bg-muted/40"
-              >
-                {inner}
+        {/*
+          Venues come from the database, filtered to this chapter — they used
+          to be a hardcoded list in chaptersData.js, which meant the page
+          advertised partners that might no longer exist and could never be
+          updated without a developer.
+        */}
+        {venues.length > 0 && (
+          <div className="mt-12 grid grid-cols-1 gap-px bg-border md:grid-cols-2">
+            {venues.slice(0, VENUE_LIMIT).map((v) => (
+                <Link
+                  key={v.id}
+                  to={`/venues/${v.id}`}
+                  className="block bg-background p-8 transition-colors hover:bg-muted/40"
+                >
+                  {v.partnership_type && (
+                    <p className="font-mono-caps text-[10px] text-primary">{v.partnership_type}</p>
+                  )}
+                  <h3 className="mt-2 font-heading text-2xl tracking-[-0.01em]">{v.display_name}</h3>
+                  {v.bio && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{v.bio}</p>}
+                  {(v.address || v.based_in) && (
+                    <p className="mt-3 flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      {v.address || v.based_in}
+                    </p>
+                  )}
               </Link>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
+
+        {/* Always shown, whether or not any venues are listed here — the
+            directory is the answer either way, and an empty section with a
+            way through reads better than a message saying there is nothing. */}
+        <Link
+          to={`/venues?chapter=${encodeURIComponent(chapter.city)}`}
+          className="mt-10 inline-flex items-center gap-2 border border-border px-6 py-3 font-mono-caps text-[11px] text-foreground transition-colors hover:border-primary hover:text-primary"
+        >
+          All {chapter.city} venues <ArrowUpRight className="h-3 w-3" />
+        </Link>
       </section>
 
       {/* ── REQUEST INVITATION CTA ───────────────────────── */}
