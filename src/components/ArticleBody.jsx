@@ -65,9 +65,31 @@ export default function ArticleBody({ article }) {
     blocks.push({ kind: "gallery", images: gallery });
   }
   if (closing && blocks.length) {
-    let lastPara = -1;
-    blocks.forEach((b, i) => { if (b.kind === "para") lastPara = i; });
-    if (lastPara >= 0) blocks.splice(lastPara, 0, { kind: "full", image: closing });
+    // The closing image sits before the final paragraph — but only when that
+    // paragraph is actual prose.
+    //
+    // Articles often end with a short sign-off block: a venue address on one
+    // line and the dates on the next. Inserting the image before "the last
+    // paragraph" split those apart, putting the picture between an address
+    // and its date. Anything short, or containing a date or address-like
+    // detail, is treated as part of that sign-off and kept together with what
+    // precedes it — the image goes above the whole block instead.
+    const SIGN_OFF_MAX = 180;
+    const looksLikeSignOff = (t) =>
+      t.length < SIGN_OFF_MAX &&
+      /\d{1,2}[\s\-–—/]|\b(19|20)\d{2}\b|,\s*[A-Z]/.test(t);
+
+    const paraIdx = [];
+    blocks.forEach((b, i) => { if (b.kind === "para") paraIdx.push(i); });
+
+    let target = paraIdx[paraIdx.length - 1];
+    // Walk back past any trailing sign-off lines so the image lands above
+    // the whole closing block rather than inside it.
+    for (let n = paraIdx.length - 1; n >= 1; n--) {
+      if (looksLikeSignOff(blocks[paraIdx[n]].text)) target = paraIdx[n - 1] + 1;
+      else break;
+    }
+    if (target >= 0) blocks.splice(target, 0, { kind: "full", image: closing });
   }
 
   return (

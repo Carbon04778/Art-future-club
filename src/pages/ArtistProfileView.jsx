@@ -297,12 +297,29 @@ export default function ArtistProfileView() {
                       single row cannot fit like + collect + comment + four
                       share icons, and without wrapping they overlapped the
                       labels and ran past the card edge. */}
+                  {/*
+                    Three rows, in order of prominence: the actions that relate
+                    to the work itself, then sharing, then comments last.
+
+                    Comments used to sit inline with Like and Collect, which
+                    pulled attention away from the artwork — the main focus of
+                    the page. Moving the discussion below the actions keeps the
+                    work first and the conversation available underneath.
+                  */}
                   <div className="mt-4 border-t border-border pt-4">
                     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
                       <LikeButton targetId={`${id}-work-${i}`} targetType="portfolio_work" userId={currentUser?.id} />
                       {!isOwner && (
                         <CollectButton userId={currentUser?.id} artistId={id} artistName={profile.display_name} work={work} workRef={`${id}-work-${i}`} />
                       )}
+                    </div>
+                    {/* Share keeps its own row. Four icons alongside Like and
+                        Collect is what overflowed the narrow grid column
+                        originally, and that has not changed. */}
+                    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3">
+                      <ShareButtons url={`${window.location.href}#work-${i}`} title={`${work.title} by ${profile.display_name}`} compact />
+                    </div>
+                    <div className="mt-3 border-t border-border/50 pt-3">
                       <CommentsSection
                         targetId={`${id}-work-${i}`}
                         targetType="portfolio_work"
@@ -311,9 +328,6 @@ export default function ArtistProfileView() {
                         ownerId={profile.user_id}
                         ownerLabel={work.title ? `"${work.title}"` : "your work"}
                       />
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3">
-                      <ShareButtons url={`${window.location.href}#work-${i}`} title={`${work.title} by ${profile.display_name}`} compact />
                     </div>
                   </div>
                 </motion.div>

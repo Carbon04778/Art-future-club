@@ -218,8 +218,17 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
     setGeoError("");
     try {
       const res = await base44.functions.invoke("geocodeAddress", { address: geoAddress });
-      const d = res?.data || {};
+      // The provider returns the function's payload DIRECTLY, so the result is
+      // res.lat / res.lng. Reading res.data gave an empty object every time,
+      // which set every geo field to undefined — the location appeared to be
+      // found and then saved as nothing. GeoAddressField already handled both
+      // shapes, which is why the same button worked on gallery profiles.
+      const d = res?.data || res || {};
       if (d.error) { setGeoError(d.error); return; }
+      if (d.lat == null || d.lng == null) {
+        setGeoError("No location found for that address.");
+        return;
+      }
       set("geo_lat", d.lat);
       set("geo_lng", d.lng);
       if (d.region) set("geo_region", d.region);
@@ -316,9 +325,13 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
       closing_image_caption,
       author_id: user.id,
       reading_time_mins,
-      geo_lat: form.geo_lat === "" ? undefined : Number(form.geo_lat),
-      geo_lng: form.geo_lng === "" ? undefined : Number(form.geo_lng),
-      publish_date: form.publish_date ? new Date(form.publish_date).toISOString() : undefined,
+      // null, not undefined. `undefined` is dropped when the payload is
+      // serialised to JSON, so the column is never sent and the previous
+      // value survives — clearing a location or a publish date could not be
+      // saved, and an edit appeared to do nothing. null explicitly clears it.
+      geo_lat: form.geo_lat === "" || form.geo_lat == null ? null : Number(form.geo_lat),
+      geo_lng: form.geo_lng === "" || form.geo_lng == null ? null : Number(form.geo_lng),
+      publish_date: form.publish_date ? new Date(form.publish_date).toISOString() : null,
     };
     if (isEdit) {
       await base44.entities.Article.update(article.id, payload);

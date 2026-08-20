@@ -240,6 +240,11 @@ export const auth = {
     return clone(user);
   },
 
+  async claimMyProfile() {
+    // The demo provider has no pre-made profiles to claim.
+    return [];
+  },
+
   onAuthStateChange() {
     // No live session events in the demo provider; return the same shape the
     // Supabase client returns so callers can unsubscribe unconditionally.

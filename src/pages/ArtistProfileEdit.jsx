@@ -23,6 +23,26 @@ function Field({ label, children }) {
   );
 }
 
+/**
+ * Dimensions are free text because real ones are: "180 × 140 cm",
+ * "70 × 40 × 40 cm", "60 × 40 cm, ed. 5". Restricting the field to digits
+ * would block every one of those.
+ *
+ * Instead we strip what spam actually looks like — URLs, markup, contact
+ * details — and prompt when the value contains no numbers at all.
+ */
+const cleanDimensions = (v) =>
+  v
+    .replace(/https?:\/\/\S+/gi, "")   // links
+    .replace(/www\.\S+/gi, "")          // bare domains
+    .replace(/<[^>]*>/g, "")            // markup
+    .replace(/[\w.+-]+@[\w-]+\.\w+/g, "") // email addresses
+    .replace(/\s{2,}/g, " ")
+    .slice(0, 60);
+
+/** A plausible dimension contains at least one number. */
+const looksLikeDimensions = (v) => /\d/.test(v);
+
 export default function ArtistProfileEdit() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -82,7 +102,10 @@ export default function ArtistProfileEdit() {
 
   const addWork = () => {
     if (form.portfolio_works.length >= 4) { setUpgradePrompt(true); return; }
-    set("portfolio_works", [...form.portfolio_works, { title: "", year: "", medium: "", dimensions: "", description: "", image_url: "", additional_images: [] }]);
+    // Prepended, not appended: a new work appears at the top of the list where
+    // it can be filled in immediately, rather than below everything already
+    // there. Display order follows this array, so newest also shows first.
+    set("portfolio_works", [{ title: "", year: "", medium: "", dimensions: "", description: "", image_url: "", additional_images: [] }, ...form.portfolio_works]);
   };
   const updateWork = (i, key, val) => {
     const works = [...form.portfolio_works];
@@ -154,10 +177,22 @@ export default function ArtistProfileEdit() {
 
   return (
     <>
-      <div className="flex items-center justify-between px-6 py-3 md:px-10 border-b border-border">
-        <span className="font-mono-caps text-[11px] text-foreground">Artist Profile</span>
-        <div className="flex flex-wrap items-center gap-4">
-          <Link to="/upgrade" className="font-mono-caps text-[11px] text-primary border border-primary/50 px-3 py-1 hover:bg-primary hover:text-primary-foreground transition-colors">Upgrade ↑</Link>
+      {/*
+        Upgrade is given its own line on mobile rather than sharing a wrapping
+        row with four other actions, where it ended up buried mid-block and
+        easy to miss. From `sm` upward everything sits on one line as before.
+      */}
+      <div className="border-b border-border px-6 py-3 md:px-10">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="font-mono-caps text-[11px] text-foreground">Artist Profile</span>
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Full width on the smallest screens so it is impossible to miss. */}
+            <Link
+              to="/upgrade"
+              className="order-first w-full text-center sm:order-none sm:w-auto font-mono-caps text-[11px] text-primary border border-primary/50 px-3 py-1.5 hover:bg-primary hover:text-primary-foreground transition-colors"
+            >
+              Upgrade ↑
+            </Link>
           {profileId && <PortfolioPDFExport profile={{ ...form, id: profileId }} />}
           {profileId && <Link to={`/artists/${profileId}`} className="font-mono-caps text-[11px] text-primary">View Profile →</Link>}
           <button
@@ -167,6 +202,7 @@ export default function ArtistProfileEdit() {
           >
             <LogOut className="h-3 w-3" /> Log Out
           </button>
+          </div>
         </div>
       </div>
 
@@ -294,7 +330,19 @@ export default function ArtistProfileEdit() {
                   <input className={input} value={work.medium} onChange={(e) => updateWork(i, "medium", e.target.value)} placeholder="Oil on canvas" />
                 </Field>
                 <Field label="Dimensions">
-                  <input className={input} value={work.dimensions} onChange={(e) => updateWork(i, "dimensions", e.target.value)} placeholder="120 × 90 cm" />
+                  <input
+              className={input}
+              value={work.dimensions}
+              onChange={(e) => updateWork(i, "dimensions", cleanDimensions(e.target.value))}
+              placeholder="120 × 90 cm"
+              maxLength={60}
+            />
+            {work.dimensions && !looksLikeDimensions(work.dimensions) && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Use measurements, for example &ldquo;120 × 90 cm&rdquo; or
+                &ldquo;70 × 40 × 40 cm&rdquo;.
+              </p>
+            )}
                 </Field>
               </div>
               <div className="flex flex-wrap items-center gap-4 pt-1">

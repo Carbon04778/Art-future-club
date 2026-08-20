@@ -214,6 +214,22 @@ export const auth = {
    * has finished turning a recovery link into a session — the URL fragment is
    * consumed and cleared before React renders, so it cannot be read directly.
    */
+  /**
+   * Attach any profile that was pre-made for this member's email address.
+   *
+   * Runs a SECURITY DEFINER function rather than an update: linking a profile
+   * means setting user_id, which members are rightly forbidden from doing.
+   * The function performs that one narrow action after checking the caller's
+   * own verified email. Requires migration 013.
+   *
+   * Returns the kinds claimed, e.g. ["artist"], or [] when there was nothing.
+   */
+  async claimMyProfile() {
+    const { data, error } = await client().rpc("claim_my_profile");
+    if (error) return [];   // not fatal: the member simply has nothing to claim
+    return (data || []).map((r) => r.claimed).filter(Boolean);
+  },
+
   onAuthStateChange(callback) {
     return client().auth.onAuthStateChange((event) => callback(event));
   },

@@ -200,6 +200,30 @@ check("no target type the app sends is rejected by the database",
   rejected.length === 0,
   rejected.length ? `${rejected.join(", ")} — add migration 011` : "");
 
+/* --------------------------------------------------------------------------
+   8. No source file may be empty, and every component file must export
+      something.
+
+      An empty .jsx file imports cleanly and returns `undefined`, which React
+      renders as nothing — producing a blank white page with no build error
+      and no lint warning. That is exactly what happened when a new component
+      was created but never pasted into.
+-------------------------------------------------------------------------- */
+
+const empties = files.filter((f) => readFileSync(f, "utf8").trim().length === 0);
+check("no source file is empty", empties.length === 0,
+  empties.map((f) => f.replace(SRC, "")).join(", "));
+
+const noExport = files.filter((f) => {
+  // main.jsx is the entry point: it mounts the app and exports nothing.
+  if (f.endsWith("main.jsx")) return false;
+  const src = readFileSync(f, "utf8");
+  if (!src.trim()) return false;           // already reported above
+  return !/export\s+(default|const|function|class|\{)/.test(src);
+});
+check("every source file exports something", noExport.length === 0,
+  noExport.map((f) => f.replace(SRC, "")).join(", "));
+
 console.log(`\n  passed: ${pass}`);
 if (failures.length) {
   console.log(`  FAILED: ${failures.length}\n`);

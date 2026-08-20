@@ -22,6 +22,15 @@ export default function Onboarding() {
       if (!alive) return;
       setUser(u);
       setForm((f) => ({ ...f, display_name: u.full_name || "" }));
+      try {
+        // If an admin created a listing for this person's email before they
+        // registered, attach it to their new account first. They then land on
+        // a profile already filled in rather than an empty onboarding form.
+        await base44.auth.claimMyProfile?.();
+      } catch {
+        // Nothing to claim, or migration 013 not run — carry on as normal.
+      }
+
       // Skip onboarding for users who already have a profile — send them to it.
       try {
         const [artists, collectors] = await Promise.all([

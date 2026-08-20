@@ -18,7 +18,23 @@ const INTERESTS = [
   "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media",
 ];
 
+/** Mirrors the options on the artist profile editor. */
+const SEEKING_OPTIONS = [
+  "Gallery Representation", "Exhibition Opportunities", "Commissions",
+  "Residencies", "Collaborations", "Collectors", "Press & Features",
+];
+
 const PARTNERSHIP_TYPES = ["", "Paid Member", "Partner"];
+
+/** Strip links, markup and contact details from a dimensions value. */
+const cleanDimensions = (v) =>
+  v
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/www\.\S+/gi, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/[\w.+-]+@[\w-]+\.\w+/g, "")
+    .replace(/\s{2,}/g, " ")
+    .slice(0, 60);
 
 const CURRENCIES = ["USD", "HKD", "GBP", "EUR", "SGD", "AUD", "CAD"];
 
@@ -57,12 +73,19 @@ export default function AdminCreatePanel({ onCreated }) {
     discipline: "Painting",
     chapter: CHAPTER_OPTIONS[0],
     based_in: CHAPTER_OPTIONS[0],
+    claim_email: "",
+    instagram: "",
+    twitter: "",
+    linkedin: "",
+    tiktok: "",
     partnership_type: "",
     address: "",
     website: "",
     bio: "",
   });
   const [interests, setInterests] = useState([]);
+  const [seeking, setSeeking] = useState([]);
+  const [openToCommissions, setOpenToCommissions] = useState(false);
   // avatarRaw is the file the admin picked; ImageCropBox turns it into the
   // square avatarFile we actually upload.
   const [avatarRaw, setAvatarRaw] = useState(null);
@@ -128,6 +151,14 @@ export default function AdminCreatePanel({ onCreated }) {
         await base44.entities.ArtistProfile.create({
           display_name: form.display_name.trim(),
           avatar_url,
+          // Recorded so the real artist can claim this listing when they
+          // register with the same address. Creates no account by itself.
+          claim_email: form.claim_email.trim().toLowerCase() || null,
+          instagram: form.instagram.trim(),
+          twitter: form.twitter.trim(),
+          linkedin: form.linkedin.trim(),
+          tiktok: form.tiktok.trim(),
+          open_to_commissions: openToCommissions,
           discipline: form.discipline,
           chapter: form.chapter,
           based_in: form.based_in.trim(),
@@ -135,13 +166,17 @@ export default function AdminCreatePanel({ onCreated }) {
           bio: form.bio.trim(),
           portfolio_works,
           cv: {},
-          seeking: [],
+          seeking,
         });
       } else {
         await base44.entities.CollectorProfile.create({
           display_name: form.display_name.trim(),
           avatar_url,
           cover_image_url,
+          claim_email: form.claim_email.trim().toLowerCase() || null,
+          instagram: form.instagram.trim(),
+          twitter: form.twitter.trim(),
+          linkedin: form.linkedin.trim(),
           type: form.type,
           based_in: form.based_in.trim(),
           address: form.address.trim(),
@@ -154,8 +189,10 @@ export default function AdminCreatePanel({ onCreated }) {
         });
       }
       setDone(`${form.display_name.trim()} created.`);
-      setForm((f) => ({ ...f, display_name: "", based_in: "", address: "", website: "", bio: "" }));
+      setForm((f) => ({ ...f, display_name: "", based_in: "", address: "", website: "", bio: "", claim_email: "", instagram: "", twitter: "", linkedin: "", tiktok: "" }));
       setInterests([]);
+      setSeeking([]);
+      setOpenToCommissions(false);
       setWorks([]);
       setAvatarRaw(null);
       setAvatarFile(null);
@@ -421,7 +458,9 @@ export default function AdminCreatePanel({ onCreated }) {
                     className={field}
                     placeholder="Dimensions, e.g. 180 x 140 cm"
                     value={w.dimensions}
-                    onChange={(e) => updateWork(i, "dimensions", e.target.value)}
+                    maxLength={60}
+                    // Same spam stripping as the artist profile editor.
+                    onChange={(e) => updateWork(i, "dimensions", cleanDimensions(e.target.value))}
                   />
                 </div>
 
@@ -486,6 +525,91 @@ export default function AdminCreatePanel({ onCreated }) {
               <Plus className="h-3 w-3" /> Add work
             </button>
           </div>
+        )}
+
+        {/*
+          The email this listing is FOR. When that person registers with the
+          same address, the profile attaches to their new account and they
+          arrive at something already filled in.
+
+          ⚠️ This does not create an account and sends nothing — invite them
+          from Supabase → Authentication → Users, or ask them to register.
+        */}
+        <div className="md:col-span-2">
+          <label className="font-mono-caps text-[11px] text-muted-foreground">
+            Their email — so they can claim this listing
+          </label>
+          <input
+            type="email"
+            className={`${field} mt-2`}
+            value={form.claim_email}
+            onChange={(e) => set("claim_email", e.target.value)}
+            placeholder="artist@example.com"
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Optional. No account is created and no email is sent — when they
+            register with this address, this profile becomes theirs.
+          </p>
+        </div>
+
+        <div className="md:col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="font-mono-caps text-[11px] text-muted-foreground">Instagram</label>
+            <input className={`${field} mt-2`} value={form.instagram} onChange={(e) => set("instagram", e.target.value)} placeholder="@handle" />
+          </div>
+          <div>
+            <label className="font-mono-caps text-[11px] text-muted-foreground">X / Twitter</label>
+            <input className={`${field} mt-2`} value={form.twitter} onChange={(e) => set("twitter", e.target.value)} placeholder="@handle" />
+          </div>
+          <div>
+            <label className="font-mono-caps text-[11px] text-muted-foreground">LinkedIn</label>
+            <input className={`${field} mt-2`} value={form.linkedin} onChange={(e) => set("linkedin", e.target.value)} placeholder="Profile URL" />
+          </div>
+          {kind === "Artist" && (
+            <div>
+              <label className="font-mono-caps text-[11px] text-muted-foreground">TikTok</label>
+              <input className={`${field} mt-2`} value={form.tiktok} onChange={(e) => set("tiktok", e.target.value)} placeholder="@handle" />
+            </div>
+          )}
+        </div>
+
+        {kind === "Artist" && (
+          <>
+            <div className="md:col-span-2">
+              <label className="font-mono-caps text-[11px] text-muted-foreground">
+                Looking for
+              </label>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {SEEKING_OPTIONS.map((o) => {
+                  const on = seeking.includes(o);
+                  return (
+                    <button
+                      key={o}
+                      type="button"
+                      onClick={() =>
+                        setSeeking((prev) => (on ? prev.filter((x) => x !== o) : [...prev, o]))
+                      }
+                      className={`border px-3 py-1.5 font-mono-caps text-[10px] transition-colors ${
+                        on ? "border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {o}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={openToCommissions}
+                  onChange={(e) => setOpenToCommissions(e.target.checked)}
+                />
+                Open to commissions
+              </label>
+            </div>
+          </>
         )}
 
         <div className="md:col-span-2">

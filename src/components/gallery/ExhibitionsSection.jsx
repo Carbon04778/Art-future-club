@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
-import { Plus, X, Loader2, MapPin, ExternalLink } from "lucide-react";
+import { Plus, X, Loader2, MapPin, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -13,6 +13,30 @@ const fmt = (d) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", mon
  */
 export default function ExhibitionsSection({ profile, isOwner, events, onReload }) {
   const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [confirmId, setConfirmId] = useState(null);
+  const [error, setError] = useState("");
+
+  /**
+   * Remove an exhibition. Row-level security already allowed the organiser to
+   * delete their own events; there was simply no way to do it from the page,
+   * so a mistaken entry was permanent.
+   */
+  const remove = async (ev) => {
+    if (confirmId !== ev.id) { setConfirmId(ev.id); return; }
+    setError("");
+    setDeletingId(ev.id);
+    try {
+      await base44.entities.Event.delete(ev.id);
+      onReload();
+    } catch (e) {
+      setError(String(e?.message || e) || "Could not delete.");
+    } finally {
+      setDeletingId(null);
+      setConfirmId(null);
+    }
+  };
   const upcoming = events.filter((e) => new Date(e.start_date) >= new Date());
   const past = events.filter((e) => new Date(e.start_date) < new Date());
 
@@ -39,13 +63,17 @@ export default function ExhibitionsSection({ profile, isOwner, events, onReload 
       ) : (
         <>
           {upcoming.length > 0 && (
-            <ExhibitionGroup title="Upcoming" events={upcoming} />
+            <ExhibitionGroup title="Upcoming" events={upcoming} isOwner={isOwner}
+              onEdit={setEditing} onDelete={remove} deletingId={deletingId} confirmId={confirmId} />
           )}
           {past.length > 0 && (
-            <ExhibitionGroup title="Past" events={past} faded />
+            <ExhibitionGroup title="Past" events={past} faded isOwner={isOwner}
+              onEdit={setEditing} onDelete={remove} deletingId={deletingId} confirmId={confirmId} />
           )}
         </>
       )}
+
+      {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
       {showAdd && isOwner && (
         <AddExhibitionModal
@@ -55,11 +83,21 @@ export default function ExhibitionsSection({ profile, isOwner, events, onReload 
           onCreated={() => { setShowAdd(false); onReload(); }}
         />
       )}
+
+      {editing && isOwner && (
+        <AddExhibitionModal
+          profile={profile}
+          events={events}
+          exhibition={editing}
+          onClose={() => setEditing(null)}
+          onCreated={() => { setEditing(null); onReload(); }}
+        />
+      )}
     </div>
   );
 }
 
-function ExhibitionGroup({ title, events, faded }) {
+function ExhibitionGroup({ title, events, faded, isOwner, onEdit, onDelete, deletingId, confirmId }) {
   return (
     <div className="mt-10">
       <p className="font-mono-caps text-[11px] text-muted-foreground border-b border-border pb-3 mb-6">{title}</p>
@@ -93,6 +131,34 @@ function ExhibitionGroup({ title, events, faded }) {
                   <ExternalLink className="h-3 w-3" /> Details
                 </a>
               )}
+              {isOwner && (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(ev)}
+                    className="flex items-center gap-1 border border-border px-3 py-1.5 font-mono-caps text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                  >
+                    <Pencil className="h-3 w-3" /> Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(ev)}
+                    disabled={deletingId === ev.id}
+                    className={`flex items-center gap-1 border px-3 py-1.5 font-mono-caps text-[10px] transition-colors disabled:opacity-50 ${
+                      confirmId === ev.id
+                        ? "border-destructive text-destructive"
+                        : "border-border text-muted-foreground hover:border-destructive hover:text-destructive"
+                    }`}
+                  >
+                    {deletingId === ev.id
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : <Trash2 className="h-3 w-3" />}
+                    {/* One click arms it, the second confirms — deleting an
+                        exhibition cannot be undone. */}
+                    {confirmId === ev.id ? "Confirm delete" : "Delete"}
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         ))}
@@ -101,22 +167,43 @@ function ExhibitionGroup({ title, events, faded }) {
   );
 }
 
-function AddExhibitionModal({ profile, events, onClose, onCreated }) {
+/**
+ * Posts a new exhibition, or edits an existing one when `exhibition` is given.
+ *
+ * Editing was previously impossible: the modal only ever created, so a typo in
+ * a posted exhibition could not be corrected and a mistaken entry could not be
+ * removed. Row-level security already permitted both — only the interface was
+ * missing.
+ */
+function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated }) {
+  const isEdit = !!exhibition;
+  // datetime-local needs "YYYY-MM-DDTHH:mm", so trim the stored ISO string.
+  const forInput = (d) => (d ? String(d).slice(0, 16) : "");
   const [form, setForm] = useState({
-    title: "", description: "", event_type: "Exhibition",
-    start_date: "", end_date: "", address: "", external_link: "", image_url: "",
-    is_free: true, ticket_price: "",
+    title: exhibition?.title || "",
+    description: exhibition?.description || "",
+    event_type: exhibition?.event_type || "Exhibition",
+    start_date: forInput(exhibition?.start_date),
+    end_date: forInput(exhibition?.end_date),
+    address: exhibition?.address || "",
+    external_link: exhibition?.external_link || "",
+    image_url: exhibition?.image_url || "",
+    is_free: exhibition?.is_free ?? true,
+    ticket_price: exhibition?.ticket_price || "",
   });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const [error, setError] = useState("");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const input = "w-full border border-border bg-transparent px-4 py-3 text-base outline-none focus:border-foreground";
 
   const submit = async (e) => {
     e.preventDefault();
     const start = new Date(form.start_date);
-    if (!isNaN(start)) {
+    if (!isNaN(start) && !isEdit) {
+      // The one-per-month limit applies to NEW exhibitions only — editing an
+      // existing one would otherwise collide with itself.
       const ym = `${start.getFullYear()}-${start.getMonth()}`;
       const conflict = (events || []).some((ev) => {
         const d = new Date(ev.start_date);
@@ -127,7 +214,7 @@ function AddExhibitionModal({ profile, events, onClose, onCreated }) {
     setSaving(true);
     let image_url = form.image_url;
     if (file) { const r = await base44.integrations.Core.UploadFile({ file: file }); image_url = r.file_url; }
-    await base44.entities.Event.create({
+    const payload = {
       ...form,
       image_url,
       start_date: new Date(form.start_date).toISOString(),
@@ -137,7 +224,15 @@ function AddExhibitionModal({ profile, events, onClose, onCreated }) {
       address: form.address || profile.address || "",
       organizer_id: profile.user_id,
       organizer_name: profile.display_name,
-    });
+    };
+    try {
+      if (isEdit) await base44.entities.Event.update(exhibition.id, payload);
+      else await base44.entities.Event.create(payload);
+    } catch (err) {
+      setSaving(false);
+      setError(String(err?.message || err) || "Could not save.");
+      return;
+    }
     setSaving(false);
     onCreated();
   };
@@ -146,7 +241,7 @@ function AddExhibitionModal({ profile, events, onClose, onCreated }) {
     <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-6" onClick={onClose}>
       <div className="bg-card border border-border w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-5 border-b border-border">
-          <p className="font-mono-caps text-[11px]">Post Exhibition</p>
+          <p className="font-mono-caps text-[11px]">{isEdit ? "Edit Exhibition" : "Post Exhibition"}</p>
           <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
@@ -189,6 +284,9 @@ function AddExhibitionModal({ profile, events, onClose, onCreated }) {
               <label className="font-mono-caps text-[11px] text-muted-foreground">Ticket Price</label>
               <input className={`${input} mt-2`} value={form.ticket_price} onChange={(e) => set("ticket_price", e.target.value)} placeholder="e.g. £10" />
             </div>
+          )}
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
           )}
           {blocked && (
             <div className="border border-accent p-4">
