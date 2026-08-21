@@ -11,13 +11,14 @@
     "lint:fix": "eslint . --fix",
     "verify": "node scripts/verify-provider.mjs",
     "verify:render": "vite-node --mode test scripts/verify-render.mjs",
-    "verify:all": "npm run verify && npm run verify:backend && npm run verify:supabase && npm run verify:images && npm run verify:layout && npm run verify:adminpanel && npm run verify:render && npm run build",
+    "verify:all": "npm run verify && npm run verify:backend && npm run verify:supabase && npm run verify:images && npm run verify:layout && npm run verify:adminpanel && npm run verify:modals && npm run verify:render && npm run build",
     "verify:supabase": "node scripts/verify-supabase.mjs",
     "localise-images": "node scripts/localise-images.mjs",
     "verify:backend": "node scripts/verify-backend.mjs",
     "verify:images": "vite-node --mode test scripts/verify-images.mjs",
     "verify:adminpanel": "vite-node --mode test scripts/verify-adminpanel.mjs",
-    "verify:layout": "node scripts/verify-layout.mjs"
+    "verify:layout": "node scripts/verify-layout.mjs",
+    "verify:modals": "vite-node --mode test scripts/verify-modals.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.2",

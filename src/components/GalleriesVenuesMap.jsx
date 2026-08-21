@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { isVenueType } from "@/lib/venueTypes";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { X } from "lucide-react";
@@ -118,7 +119,7 @@ export default function GalleriesVenuesMap() {
               </div>
               <div className="divide-y divide-border">
                 {selectedProfiles.map((p) => {
-                  const to = p.type === "Institution" ? `/venues/${p.id}` : `/gallery/${p.id}`;
+                  const to = isVenueType(p.type) ? `/venues/${p.id}` : `/gallery/${p.id}`;
                   return (
                     <Link
                       key={p.id}
@@ -136,7 +137,7 @@ export default function GalleriesVenuesMap() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-body text-sm font-medium truncate">{p.display_name}</p>
-                        <p className="font-mono-caps text-[10px] text-primary truncate">{p.type === "Institution" ? "Venue" : "Gallery"}</p>
+                        <p className="font-mono-caps text-[10px] text-primary truncate">{p.type && p.type !== "Gallery" ? p.type : "Gallery"}</p>
                         {p.based_in && <p className="font-mono-caps text-[10px] text-muted-foreground truncate">{p.based_in}</p>}
                       </div>
                     </Link>

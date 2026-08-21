@@ -4,6 +4,7 @@ import { Image } from "@/components/ui/image";
 import { Plus, X, Loader2, MapPin, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 
 const fmt = (d) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
@@ -37,8 +38,16 @@ export default function ExhibitionsSection({ profile, isOwner, events, onReload 
       setConfirmId(null);
     }
   };
-  const upcoming = events.filter((e) => new Date(e.start_date) >= new Date());
-  const past = events.filter((e) => new Date(e.start_date) < new Date());
+  // Upcoming reads soonest-first; past reads most-recent-first. Previously
+  // neither was sorted, so exhibitions appeared in whatever order the
+  // database returned and the newest often sat at the bottom.
+  const byDate = (a, b) => new Date(a.start_date) - new Date(b.start_date);
+  const upcoming = events
+    .filter((e) => new Date(e.start_date) >= new Date())
+    .sort(byDate);
+  const past = events
+    .filter((e) => new Date(e.start_date) < new Date())
+    .sort((a, b) => byDate(b, a));
 
   return (
     <div>
@@ -190,6 +199,15 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
     image_url: exhibition?.image_url || "",
     is_free: exhibition?.is_free ?? true,
     ticket_price: exhibition?.ticket_price || "",
+    chapter:
+      exhibition?.chapter ||
+      // Fall back to the chapter this gallery sits in, matched on its city.
+      CHAPTER_OPTIONS.find((c) =>
+        `${profile?.based_in || ""} ${profile?.address || ""}`
+          .toLowerCase()
+          .includes(c.toLowerCase())
+      ) ||
+      "Other",
   });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -219,7 +237,10 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
       image_url,
       start_date: new Date(form.start_date).toISOString(),
       end_date: form.end_date ? new Date(form.end_date).toISOString() : undefined,
-      chapter: "Other",
+      // Was hardcoded to "Other", so every exhibition was invisible on the
+      // chapter pages. Defaults to the gallery's own chapter and can be
+      // overridden per exhibition — a gallery may show elsewhere.
+      chapter: form.chapter || "Other",
       venue: profile.display_name,
       address: form.address || profile.address || "",
       organizer_id: profile.user_id,
@@ -249,6 +270,31 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
             <label className="font-mono-caps text-[11px] text-muted-foreground">Exhibition Title *</label>
             <input className={`${input} mt-2`} value={form.title} onChange={(e) => set("title", e.target.value)} required placeholder="Material Traces" />
           </div>
+          <div>
+            <label className="font-mono-caps text-[11px] text-muted-foreground">AFC Chapter</label>
+            <select
+              className={`${input} mt-2 bg-background text-foreground`}
+              value={form.chapter}
+              onChange={(e) => set("chapter", e.target.value)}
+            >
+              {/* Options need their colours set explicitly: the browser draws
+                  the dropdown list itself and does not inherit the parent's
+                  dark background, leaving pale text on white.
+
+                  CHAPTER_OPTIONS already ends with "Other" — adding another
+                  here is what produced the duplicate entry. */}
+              {CHAPTER_OPTIONS.map((c) => (
+                <option key={c} value={c} className="bg-background text-foreground">
+                  {c}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Which chapter this belongs to — it will appear on that
+              chapter&rsquo;s page and in the events filter.
+            </p>
+          </div>
+
           <div>
             <label className="font-mono-caps text-[11px] text-muted-foreground">Description</label>
             <textarea className={`${input} mt-2 resize-none`} rows={3} value={form.description} onChange={(e) => set("description", e.target.value)} />

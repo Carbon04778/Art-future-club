@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { isVenueType } from "@/lib/venueTypes";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Loader2, ChevronRight } from "lucide-react";
@@ -40,7 +41,7 @@ export default function Onboarding() {
         if (!alive) return;
         if (artists.length > 0) return navigate(`/artists/${artists[0].id}`, { replace: true });
         const gallery = collectors.find((c) => c.type === "Gallery");
-        const venue = collectors.find((c) => c.type === "Institution");
+        const venue = collectors.find((c) => isVenueType(c.type));
         if (gallery) return navigate(`/gallery/${gallery.id}`, { replace: true });
         if (venue) return navigate(`/venues/${venue.id}`, { replace: true });
         if (collectors.length > 0) return navigate("/collector-profile/view", { replace: true });

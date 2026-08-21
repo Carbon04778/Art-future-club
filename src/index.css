@@ -97,3 +97,15 @@
   body { cursor: auto; }
   .l-frame-cursor { display: none !important; }
 }
+/*
+ * Dropdown options.
+ *
+ * A browser draws the open <select> list itself and does NOT inherit the
+ * page's dark background, so options rendered as pale text on white and were
+ * effectively unreadable. Setting them here fixes every dropdown on the site
+ * at once rather than one class at a time — there are twenty of them.
+ */
+select option {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}

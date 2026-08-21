@@ -224,6 +224,36 @@ const noExport = files.filter((f) => {
 check("every source file exports something", noExport.length === 0,
   noExport.map((f) => f.replace(SRC, "")).join(", "));
 
+/* --------------------------------------------------------------------------
+   9. Venue types must be defined once.
+
+      "Institution" was hardcoded in seven places. Adding a new type — Museum,
+      Restaurant, Event Space — would have offered it in the editors and then
+      silently hidden those venues everywhere else, because each page tested
+      `type === "Institution"` directly.
+-------------------------------------------------------------------------- */
+
+const hardcoded = [];
+for (const f of files) {
+  // src/pages/components/ holds stale duplicates that nothing imports. They
+  // are excluded here rather than fixed; the folder should be deleted.
+  if (f.includes("pages/components/")) continue;
+  const src = readFileSync(f, "utf8");
+  if (/===\s*"Institution"/.test(src)) hardcoded.push(f.replace(SRC, ""));
+}
+check("no page tests for \"Institution\" directly", hardcoded.length === 0,
+  hardcoded.join(", "));
+
+const venueTypes = readFileSync(join(SRC, "lib/venueTypes.js"), "utf8");
+check("venue types are defined in one place", /export const VENUE_TYPES/.test(venueTypes));
+check("Museum is its own type", /"Museum"/.test(venueTypes));
+check("a shared helper decides what is a venue", /export const isVenueType/.test(venueTypes));
+
+const venuesPage = readFileSync(join(SRC, "pages/Venues.jsx"), "utf8");
+check("the venues page uses the helper, not a single type",
+  /isVenueType\(r\.type\)/.test(venuesPage) && !/filter\(\{ type: "Institution" \}/.test(venuesPage));
+check("the venues page shows each venue's real type", /\{v\.type \|\| "Venue"\}/.test(venuesPage));
+
 console.log(`\n  passed: ${pass}`);
 if (failures.length) {
   console.log(`  FAILED: ${failures.length}\n`);

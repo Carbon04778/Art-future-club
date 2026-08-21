@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+// Single source of truth, shared with the venues page so a new type cannot
+// be offered here and then silently filtered out there.
+import { COLLECTOR_TYPES } from "@/lib/venueTypes";
 import { base44 } from "@/api/base44Client";
 import { Plus, Loader2, Check, X } from "lucide-react";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
@@ -51,7 +54,7 @@ const emptyWork = () => ({
   file: null,          // local only — replaced by image_url before saving
 });
 
-const COLLECTOR_TYPES = ["Gallery", "Institution", "Collector", "Curator", "Advisor", "Foundation"];
+
 
 /**
  * Lets an admin create listings on behalf of others.

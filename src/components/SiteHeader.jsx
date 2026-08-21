@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { isVenueType } from "@/lib/venueTypes";
 import { Link, useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Menu, X, ChevronDown } from "lucide-react";
@@ -37,7 +38,7 @@ export default function SiteHeader() {
         if (!alive) return;
         // "My Profile" links to the public preview of the user's profile.
         const gallery = collectors.find((c) => c.type === "Gallery");
-        const venue = collectors.find((c) => c.type === "Institution");
+        const venue = collectors.find((c) => isVenueType(c.type));
         if (gallery) setProfileLink(`/gallery/${gallery.id}`);
         else if (venue) setProfileLink(`/venues/${venue.id}`);
         else if (artists.length > 0) setProfileLink(`/artists/${artists[0].id}`);

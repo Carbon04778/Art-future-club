@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { COLLECTOR_TYPES as TYPES } from "@/lib/venueTypes";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import ImageCropBox from "@/components/ImageCropBox";
@@ -6,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Image } from "@/components/ui/image";
 import SlimFooter from "@/components/SlimFooter";
 
-const TYPES = ["Collector", "Curator", "Institution", "Foundation"];
+
 const INTERESTS = ["Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media"];
 const SEEKING = ["Emerging Artists", "Established Artists", "Commissions", "Editions", "Gallery Partnerships"];
 const BUDGETS = ["Under $1k", "$1k–$5k", "$5k–$20k", "$20k–$100k", "$100k+"];
@@ -42,7 +43,7 @@ export default function CollectorProfilePage() {
           // if any of the user's profiles is a Gallery (even if a Collector one exists too).
           const gallery = res.find((p) => p.type === "Gallery");
           if (gallery) { navigate(`/gallery/${gallery.id}`, { replace: true }); return; }
-          const venue = res.find((p) => p.type === "Institution");
+          const venue = res.find((p) => isVenueType(p.type));
           if (venue) { navigate(`/venues/${venue.id}`, { replace: true }); return; }
           // Use the most recently created collector profile.
           const p = res.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0];

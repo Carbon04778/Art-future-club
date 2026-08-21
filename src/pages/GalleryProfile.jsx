@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { isVenueType } from "@/lib/venueTypes";
 import { Link, useParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -79,8 +80,8 @@ export default function GalleryProfile() {
     <>
 
       <div className="px-6 pt-10 md:px-10">
-        <Link to={profile.type === "Institution" ? "/venues" : "/gallery"} className="inline-flex items-center gap-1 font-mono-caps text-[11px] text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-3 w-3" /> {profile.type === "Institution" ? "All Venues" : "All Galleries"}
+        <Link to={isVenueType(profile.type) ? "/venues" : "/gallery"} className="inline-flex items-center gap-1 font-mono-caps text-[11px] text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-3 w-3" /> {isVenueType(profile.type) ? "All Venues" : "All Galleries"}
         </Link>
       </div>
 

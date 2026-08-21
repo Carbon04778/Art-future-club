@@ -184,7 +184,10 @@ check("panel collects partnership_type", /partnership_type: form\.partnership_ty
 check("panel sets type Gallery for the Gallery tab", /set\("type", "Gallery"\)/.test(src));
 check("panel sets type Institution for the Venue tab", /set\("type", "Institution"\)/.test(src));
 check("galleries page queries type Gallery", /type: "Gallery"/.test(showcase));
-check("venues page queries type Institution", /type: "Institution"/.test(venues));
+// The venues page no longer queries a single type: Museum, Restaurant and
+// Event Space are venues too, so it loads all of them and filters with the
+// shared isVenueType helper.
+check("venues page includes every venue type", /isVenueType\(r\.type\)/.test(venues));
 
 /* ================================================================ report === */
 

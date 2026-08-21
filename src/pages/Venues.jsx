@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { VENUE_TYPES, isVenueType } from "@/lib/venueTypes";
 import { Link, useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -14,18 +15,31 @@ export default function Venues() {
   const [searchParams] = useSearchParams();
   // Honour ?chapter= from chapter-page venue cards.
   const [chapter, setChapter] = useState(searchParams.get("chapter") || "All");
+  const [typeFilter, setTypeFilter] = useState("All");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.CollectorProfile.filter({ type: "Institution" }, "-updated_date", 200)
-      .then(setVenues)
+    // Every venue type, not just "Institution". Filtering on that one value
+    // meant a Museum, Restaurant or Event Space never appeared here at all.
+    base44.entities.CollectorProfile.list("-updated_date", 400)
+      .then((rows) => setVenues(rows.filter((r) => isVenueType(r.type))))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = venues.filter((v) =>
-    chapter === "All" ? true : (v.based_in || "").includes(chapter) || (v.address || "").includes(chapter)
-  );
+  // Two independent filters: where it is, and what kind of space it is.
+  const filtered = venues.filter((v) => {
+    const inChapter =
+      chapter === "All" ||
+      (v.based_in || "").includes(chapter) ||
+      (v.address || "").includes(chapter);
+    const isType = typeFilter === "All" || v.type === typeFilter;
+    return inChapter && isType;
+  });
+
+  // Only offer the types actually present, so the row is not full of filters
+  // that return nothing.
+  const availableTypes = VENUE_TYPES.filter((t) => venues.some((v) => v.type === t));
 
   return (
     <>
@@ -51,6 +65,27 @@ export default function Venues() {
             </button>
           ))}
         </div>
+
+        {/* Type filter — so museums can be found on their own rather than
+            being mixed in with every other kind of space. Hidden when there
+            is only one kind, where it would do nothing. */}
+        {availableTypes.length > 1 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {["All", ...availableTypes].map((t) => (
+              <button
+                key={t}
+                onClick={() => setTypeFilter(t)}
+                className={`font-mono-caps text-[10px] px-3 py-1.5 border transition-colors ${
+                  typeFilter === t
+                    ? "border-primary text-primary"
+                    : "border-border text-muted-foreground hover:border-foreground"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-32">
@@ -88,7 +123,7 @@ export default function Venues() {
                   </div>
                   <div className="mt-3">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-mono-caps text-[10px] text-primary">Institution</p>
+                      <p className="font-mono-caps text-[10px] text-primary">{v.type || "Venue"}</p>
                       {v.partnership_type && (
                         <span className={`font-mono-caps text-[8px] px-1.5 py-0.5 ${v.partnership_type === 'Paid Member' ? 'border border-primary text-primary' : 'border border-highlight text-highlight'}`}>
                           {v.partnership_type}
