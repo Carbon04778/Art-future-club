@@ -7,6 +7,11 @@
  *
  * VENUE_TYPES are the kinds that appear on the Venues page. Gallery has its
  * own page, and Collector / Curator / Advisor are people rather than places.
+ *
+ * "Other" is deliberately NOT a venue type. It was, and the result was that a
+ * collector or curator saved as "Other" turned up on the venues page as
+ * though they were a building. A space of uncertain kind should be filed as
+ * Event Space or Institution; "Other" belongs to the people categories only.
  */
 export const VENUE_TYPES = [
   "Institution",
@@ -14,13 +19,12 @@ export const VENUE_TYPES = [
   "Foundation",
   "Event Space",
   "Restaurant",
-  "Other",
 ];
 
 /** Everything a collector_profile may be. */
 export const COLLECTOR_TYPES = [
   "Gallery",
-  ...VENUE_TYPES.filter((t) => t !== "Other"),
+  ...VENUE_TYPES,
   "Collector",
   "Curator",
   "Advisor",

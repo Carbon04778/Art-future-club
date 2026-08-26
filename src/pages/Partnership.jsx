@@ -39,14 +39,30 @@ const PARTNERSHIP_TYPES = [
       "Support the work without a transactional agenda. Patrons of the Arts fund residencies, commissions, open calls and community programming. Your contribution is acknowledged, not advertised — unless you prefer otherwise.",
     examples: ["Fund emerging artist commissions", "Sponsor open calls & residencies", "Support community programming", "Named patronage or anonymous giving"],
   },
+  {
+    // "Start a chapter →" on the home page links straight to this form, but
+    // none of the five partnership types described starting one. Someone
+    // arrived with a clear intent and had nothing to select.
+    code: "06",
+    title: "Start a Chapter",
+    description:
+      "Open Art Future Club in a city we are not yet in. Chapter leads host gatherings, build a local membership and connect their city to the wider network. Tell us where you are and what the scene there looks like.",
+    examples: ["Host gatherings in your city", "Build a local membership", "Connect local galleries & venues", "Represent your city in the network"],
+  },
 ];
 
 export default function Partnership() {
+  // Preselected from ?type= so arriving via "Start a chapter →" lands on that
+  // option already chosen, rather than making the visitor find it again.
+  const preselected = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("type") || ""
+    : "";
+
   const [form, setForm] = useState({
     name: "",
     organisation: "",
     email: "",
-    type: "",
+    type: preselected,
     message: "",
   });
   const [sending, setSending] = useState(false);

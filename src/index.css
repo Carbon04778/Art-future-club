@@ -97,6 +97,7 @@
   body { cursor: auto; }
   .l-frame-cursor { display: none !important; }
 }
+
 /*
  * Dropdown options.
  *
@@ -108,4 +109,26 @@
 select option {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+}
+
+/*
+ * Leaflet maps sit under dialogs.
+ *
+ * Leaflet gives its own panes and controls a z-index of 400-1000 internally,
+ * which beats every modal in the app (z-50 in Tailwind's scale). The result
+ * was a map drawing OVER the form it sits behind, covering the input boxes
+ * while adding gallery images.
+ *
+ * Tailwind's z-50 resolves to 50, so anything below that keeps the map
+ * beneath dialogs while leaving it above ordinary page content.
+ */
+.leaflet-container,
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 10 !important;
+}
+
+.leaflet-control {
+  z-index: 11 !important;
 }

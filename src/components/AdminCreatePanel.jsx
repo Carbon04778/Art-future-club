@@ -96,6 +96,8 @@ export default function AdminCreatePanel({ onCreated }) {
   const [coverFile, setCoverFile] = useState(null);
   const [works, setWorks] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [duplicate, setDuplicate] = useState("");
+  const [dupConfirmed, setDupConfirmed] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
 
@@ -104,12 +106,37 @@ export default function AdminCreatePanel({ onCreated }) {
   const updateWork = (i, k, v) =>
     setWorks((prev) => prev.map((w, x) => (x === i ? { ...w, [k]: v } : w)));
 
-  const submit = async () => {
+  const submit = async (skipDupCheck = false) => {
     setError("");
     setDone("");
     if (!form.display_name.trim()) {
       setError("A name is required.");
       return;
+    }
+
+    /*
+     * Warn before creating a second listing with the same name.
+     *
+     * Two identical "Oi!" venues were created three hours apart — not a
+     * double-click, but someone adding it again without realising the first
+     * had saved. One confirmation prevents that, while still allowing a
+     * genuine duplicate name to go through.
+     */
+    if (!skipDupCheck && !dupConfirmed) {
+      const name = form.display_name.trim().toLowerCase();
+      try {
+        const entity = kind === "Artist" ? "ArtistProfile" : "CollectorProfile";
+        const existing = await base44.entities[entity].list("-created_date", 500);
+        const clash = existing.find(
+          (p) => (p.display_name || "").trim().toLowerCase() === name
+        );
+        if (clash) {
+          setDuplicate(clash.display_name);
+          return;
+        }
+      } catch {
+        // If the check itself fails, do not block the create.
+      }
     }
     setSaving(true);
     try {
@@ -192,6 +219,8 @@ export default function AdminCreatePanel({ onCreated }) {
         });
       }
       setDone(`${form.display_name.trim()} created.`);
+      setDuplicate("");
+      setDupConfirmed(false);
       setForm((f) => ({ ...f, display_name: "", based_in: "", address: "", website: "", bio: "", claim_email: "", instagram: "", twitter: "", linkedin: "", tiktok: "" }));
       setInterests([]);
       setSeeking([]);
@@ -621,6 +650,32 @@ export default function AdminCreatePanel({ onCreated }) {
         </div>
       </div>
 
+      {duplicate && (
+        <div className="mt-4 border border-yellow-600/50 bg-yellow-500/10 p-4">
+          <p className="text-sm text-yellow-600">
+            A listing called <strong>{duplicate}</strong> already exists.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              // Pass the override directly: setDupConfirmed would not have
+              // applied by the time submit() reads it in the same tick.
+              onClick={() => { setDuplicate(""); submit(true); }}
+              className="border border-yellow-600 px-4 py-2 font-mono-caps text-[10px] text-yellow-600 transition-colors hover:bg-yellow-600 hover:text-background"
+            >
+              Create it anyway
+            </button>
+            <button
+              type="button"
+              onClick={() => setDuplicate("")}
+              className="font-mono-caps text-[10px] text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
       {done && (
         <p className="mt-4 flex items-center gap-2 text-sm text-primary">
@@ -629,7 +684,7 @@ export default function AdminCreatePanel({ onCreated }) {
       )}
 
       <button
-        onClick={submit}
+        onClick={() => submit()}
         disabled={saving}
         className="mt-6 inline-flex items-center gap-2 border border-primary px-6 py-3 font-mono-caps text-[11px] text-primary transition-colors hover:bg-primary hover:text-background disabled:opacity-50"
       >

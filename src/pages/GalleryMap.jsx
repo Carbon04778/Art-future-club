@@ -30,16 +30,20 @@ export default function GalleryMap() {
       base44.entities.ArtistProfile.list("-created_date", 200),
     ]).then(([galleryWorks, profiles]) => {
       setWorks(galleryWorks);
-      // Map artist_id -> chapter
+      // Keyed by BOTH profile id and user_id: a work now carries gallery_id,
+      // but older rows may still only have artist_id.
       const map = {};
-      profiles.forEach((p) => { map[p.user_id] = p; });
+      profiles.forEach((p) => {
+        if (p.id) map[p.id] = p;
+        if (p.user_id) map[p.user_id] = p;
+      });
       setArtists(map);
     });
   }, []);
 
   // Group works by chapter
   const byChapter = works.reduce((acc, w) => {
-    const profile = artists[w.artist_id];
+    const profile = artists[w.gallery_id] || artists[w.artist_id];
     const ch = profile?.chapter || "Other";
     if (!acc[ch]) acc[ch] = [];
     acc[ch].push({ ...w, _chapter: ch });

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import WordLimitedTextarea from "@/components/WordLimitedTextarea";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -278,7 +279,17 @@ export default function ArtistProfileEdit() {
             )}
           </Field>
           <Field label="Bio">
-            <textarea className={`${input} resize-none`} rows={5} value={form.bio} onChange={(e) => set("bio", e.target.value)} placeholder="Describe your practice, influences, and current focus…" />
+            {/* Capped at 300 words. Long statements ran for paragraphs and
+                pushed everything else off the profile. */}
+            <WordLimitedTextarea
+              className={input}
+              rows={5}
+              limit={300}
+              value={form.bio}
+              onChange={(v) => set("bio", v)}
+              placeholder="Describe your practice, influences, and current focus…"
+              label="Bio"
+            />
           </Field>
         </div>
 

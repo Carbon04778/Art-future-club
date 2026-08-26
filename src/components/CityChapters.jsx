@@ -14,16 +14,22 @@ const fmtEventDate = (iso) => {
 };
 
 function ChapterBlock({ chapter, events }) {
-  const indent = '';
+  /*
+   * The next three gatherings for this chapter.
+   *
+   * By DATE, not by when they were added: an event entered last week for next
+   * March should not outrank one happening tomorrow. Anything already past is
+   * excluded — a chapter advertising last month's opening looks abandoned.
+   */
   const upcoming = (events || [])
     .filter((e) => e.start_date && new Date(e.start_date) >= new Date())
     .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
-    .slice(0, 2);
+    .slice(0, 3);
   return (
     <div className="grid grid-cols-1 border-t border-border md:grid-cols-2">
       {/* fixed / sticky pulse */}
       <div className="relative md:sticky md:top-0 md:h-screen md:self-start">
-        <div className={`flex h-full flex-col justify-between p-6 md:p-10 ${indent}`}>
+        <div className="flex h-full flex-col justify-between p-6 md:p-10">
           <div>
             <p className="font-mono-caps text-[11px] text-muted-foreground">
               {chapter.chapter} — Chapter Portal
@@ -170,7 +176,7 @@ export default function CityChapters() {
       <div className="px-6 py-12 md:px-10">
         <p className="max-w-3xl text-lg text-muted-foreground leading-relaxed">
           Don't see your city among our chapters? If you're ready to lead and build a local community from the ground up, we'd love to hear from you.{' '}
-          <Link to="/partnership" className="text-primary hover:underline">Start a chapter →</Link>
+          <Link to="/partnership?type=Start%20a%20Chapter" className="text-primary hover:underline">Start a chapter →</Link>
         </p>
       </div>
     </section>

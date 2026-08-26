@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { isVenueType } from "@/lib/venueTypes";
+import { isVenueType, VENUE_TYPES } from "@/lib/venueTypes";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { X } from "lucide-react";
@@ -26,16 +26,28 @@ const matchChapter = (profile) => {
 export default function GalleriesVenuesMap() {
   const [profiles, setProfiles] = useState([]);
   const [selectedChapter, setSelectedChapter] = useState(null);
+  // One map, filtered — rather than a separate page per kind of place.
+  const [typeFilter, setTypeFilter] = useState("All");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.CollectorProfile.filter({ type: { $in: ["Gallery", "Institution"] } }, "-updated_date", 300)
-      .then(setProfiles)
+    // Every kind of space, not just Gallery and Institution — a Museum,
+    // Restaurant or Event Space was silently missing from the map.
+    base44.entities.CollectorProfile.list("-updated_date", 400)
+      .then((rows) => setProfiles(rows.filter((r) => r.type === "Gallery" || isVenueType(r.type))))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const byChapter = profiles.reduce((acc, p) => {
+  const visible = profiles.filter((p) =>
+    typeFilter === "All"
+      ? true
+      : typeFilter === "Galleries"
+      ? p.type === "Gallery"
+      : p.type === typeFilter
+  );
+
+  const byChapter = visible.reduce((acc, p) => {
     const ch = matchChapter(p);
     if (!acc[ch]) acc[ch] = [];
     acc[ch].push(p);
@@ -48,6 +60,25 @@ export default function GalleriesVenuesMap() {
   return (
     <section>
       <p className="font-mono-caps text-[11px] text-muted-foreground">AFC — Spaces on the Map</p>
+
+      {/* Filter by kind of space. Only the kinds actually present are offered,
+          so the row is not full of filters that return nothing. */}
+      <div className="mt-4 flex flex-wrap gap-2">
+        {["All", "Galleries", ...VENUE_TYPES.filter((t) => profiles.some((p) => p.type === t))].map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => { setTypeFilter(t); setSelectedChapter(null); }}
+            className={`border px-3 py-1.5 font-mono-caps text-[10px] transition-colors ${
+              typeFilter === t
+                ? "border-primary text-primary"
+                : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
       <h2 className="mt-3 font-heading text-4xl font-medium tracking-[-0.02em] md:text-5xl mb-3">Galleries &amp; Venues Map</h2>
       <p className="font-mono-caps text-[11px] text-muted-foreground mb-8">
         {loading ? "Loading…" : `${profiles.length} galleries & venues across the network`}

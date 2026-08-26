@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Image } from '@/components/ui/image';
 import { base44 } from '@/api/base44Client';
+import { isVenueType } from '@/lib/venueTypes';
 
 const FALLBACK = '/images/placeholder.png';
 
@@ -13,12 +14,19 @@ export default function CollectiveRegistry() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [featuredArtists, recentArtists, galleries, events] = await Promise.all([
+      const [featuredArtists, recentArtists, profiles] = await Promise.all([
         base44.entities.ArtistProfile.filter({ is_featured: true }, '-updated_date', 5).catch(() => []),
         base44.entities.ArtistProfile.list('-updated_date', 6).catch(() => []),
-        base44.entities.CollectorProfile.filter({ type: 'Gallery' }, '-created_date', 5).catch(() => []),
-        base44.entities.Event.list('-created_date', 5).catch(() => []),
+        // Every collector profile, split into galleries and venues below.
+        // The third list used to be Event.list() — so an EVENT held at a
+        // gallery appeared as though it were a venue, carrying the event's
+        // image, the event's chapter as its city, and linking to /events.
+        // That is why "10 Chancery Lane Gallery" showed up as VENUE / OTHER.
+        base44.entities.CollectorProfile.list('-created_date', 100).catch(() => []),
       ]);
+
+      const galleries = profiles.filter((p) => p.type === 'Gallery');
+      const venues = profiles.filter((p) => isVenueType(p.type));
 
       const artistMap = new Map();
       // featured artists win priority; fall back to most recent non-featured
@@ -44,13 +52,15 @@ export default function CollectiveRegistry() {
         to: `/gallery/${g.id}`,
       }));
 
-      const venueEntries = events.slice(0, 4).map((e) => ({
-        id: e.id,
-        name: e.venue || e.title,
-        type: 'Venue',
-        city: e.chapter || '—',
-        image: e.image_url || FALLBACK,
-        to: `/events/${e.id}`,
+      // Real venue profiles — labelled with their actual kind, so a museum
+      // reads "Museum" rather than being flattened to "Venue".
+      const venueEntries = venues.slice(0, 4).map((v) => ({
+        id: v.id,
+        name: v.display_name,
+        type: v.type || 'Venue',
+        city: v.based_in || '—',
+        image: v.avatar_url || FALLBACK,
+        to: `/venues/${v.id}`,
       }));
 
       const combined = [...artistEntries, ...galleryEntries, ...venueEntries].slice(0, 9);

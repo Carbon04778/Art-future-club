@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import ExpandableText from "@/components/ExpandableText";
+import MyCollection from "@/components/MyCollection";
 import { useParams, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -167,7 +169,13 @@ export default function ArtistProfileView() {
         {profile.bio && (
           <div className="mt-16 border-t border-border pt-12 grid grid-cols-1 gap-6 md:grid-cols-[160px_1fr]">
             <p className="font-mono-caps text-[11px] text-muted-foreground">Practice</p>
-            <p className="text-lg leading-relaxed">{profile.bio}</p>
+            {/* Collapsed to six lines — an artist statement can run to
+                several hundred words and buried the portfolio below it. */}
+            <ExpandableText
+              text={profile.bio}
+              lines={6}
+              className="text-lg leading-relaxed"
+            />
           </div>
         )}
 
@@ -230,22 +238,24 @@ export default function ArtistProfileView() {
           </div>
         )}
 
-        {/* comments on profile */}
-        <div className="mt-12 border-t border-border pt-8">
-          <CommentsSection
-            targetId={id}
-            targetType="artist_profile"
-            userId={currentUser?.id}
-            userName={currentUserName}
-          />
-        </div>
-
         {/* portfolio */}
         {profile.portfolio_works?.length > 0 && (
           <div className="mt-16 border-t border-border pt-12">
             <p className="font-mono-caps text-[11px] text-muted-foreground mb-10">Portfolio</p>
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-              {profile.portfolio_works.map((work, i) => (
+              {/*
+                Newest first. The index is NOT reversed with it: `i` is the
+                identity used for likes, comments and collected works
+                (`<id>-work-<i>`), so reordering it would silently reattach
+                every comment to a different artwork.
+
+                The original index is captured first, then the list is
+                reversed for display only.
+              */}
+              {profile.portfolio_works
+                .map((work, i) => ({ work, i }))
+                .reverse()
+                .map(({ work, i }) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, y: 16 }}
@@ -335,7 +345,25 @@ export default function ArtistProfileView() {
             </div>
           </div>
         )}
+
+        {/*
+          Comments sit AFTER the portfolio. Above it, the discussion was the
+          first thing a visitor met and pushed the artwork — the point of the
+          page — below the fold.
+        */}
+        <div className="mt-16 border-t border-border pt-8">
+          <CommentsSection
+            targetId={id}
+            targetType="artist_profile"
+            userId={currentUser?.id}
+            userName={currentUserName}
+          />
+        </div>
       </div>
+
+      {/* Works this member collected from others. Visitors can see it;
+          only the owner can remove anything. */}
+      <MyCollection userId={profile.user_id} isOwner={isOwner} />
 
       <SlimFooter />
 
@@ -356,6 +384,7 @@ export default function ArtistProfileView() {
               ...(profile.portfolio_works[lightbox.workIndex].additional_images || []),
             ].filter(Boolean)}
             startIndex={lightbox.start}
+            work={profile.portfolio_works[lightbox.workIndex]}
             onClose={() => setLightbox(null)}
           />
         )}

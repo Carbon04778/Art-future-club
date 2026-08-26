@@ -19,7 +19,10 @@ export default function TrendingSection() {
       base44.entities.Like.filter({ target_type: "gallery_work" }, "-created_date", 200),
       base44.entities.ArtistProfile.list("-created_date", 100),
       base44.entities.GalleryWork.list("-created_date", 100),
-    ]).then(([artistLikes, workLikes, artists, works]) => {
+      // Artist portfolio works were never included, so the section could only
+      // ever show gallery pieces.
+      base44.entities.Like.filter({ target_type: "portfolio_work" }, "-created_date", 200),
+    ]).then(([artistLikes, workLikes, artists, works, portfolioLikes]) => {
       // Count likes per target in the last 7 days
       const recentArtistLikes = artistLikes.filter((l) => !l.created_date || l.created_date >= since);
       const recentWorkLikes = workLikes.filter((l) => !l.created_date || l.created_date >= since);
@@ -33,11 +36,43 @@ export default function TrendingSection() {
         .sort((a, b) => b.likeCount - a.likeCount)
         .slice(0, 4);
 
-      const sortedWorks = works
-        .map((w) => ({ ...w, likeCount: workLikeCounts[w.id] || 0 }))
-        .filter((w) => w.likeCount > 0)
-        .sort((a, b) => b.likeCount - a.likeCount)
-        .slice(0, 4);
+      // Portfolio works are liked as "<profileId>-work-<n>", so unpack that
+      // reference back into the artist's own work.
+      const recentPortfolioLikes = portfolioLikes.filter((l) => !l.created_date || l.created_date >= since);
+      const portfolioCounts = recentPortfolioLikes.reduce((acc, l) => {
+        acc[l.target_id] = (acc[l.target_id] || 0) + 1;
+        return acc;
+      }, {});
+
+      const portfolioWorks = artists.flatMap((a) =>
+        (a.portfolio_works || []).map((w, i) => ({
+          ...w,
+          id: `${a.id}-work-${i}`,
+          artist_id: a.id,
+          artist_name: a.display_name,
+          likeCount: portfolioCounts[`${a.id}-work-${i}`] || 0,
+        }))
+      );
+
+      const galleryWorks = works.map((w) => ({ ...w, likeCount: workLikeCounts[w.id] || 0 }));
+
+      /*
+       * Most-liked first, then the newest to make up the numbers.
+       *
+       * Previously this required at least one like in the last seven days, so
+       * on a young site the whole section collapsed to a single item — or
+       * disappeared entirely. Filling the remaining slots keeps the grid full
+       * while still leading with whatever is genuinely popular.
+       */
+      const liked = [...portfolioWorks, ...galleryWorks]
+        .filter((w) => w.likeCount > 0 && w.image_url)
+        .sort((a, b) => b.likeCount - a.likeCount);
+
+      const filler = [...portfolioWorks, ...galleryWorks]
+        .filter((w) => w.likeCount === 0 && w.image_url)
+        .filter((w) => !liked.some((l) => l.id === w.id));
+
+      const sortedWorks = [...liked, ...filler].slice(0, 4);
 
       setTopArtists(sortedArtists);
       setTopWorks(sortedWorks);

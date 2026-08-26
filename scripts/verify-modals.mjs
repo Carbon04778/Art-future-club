@@ -131,6 +131,17 @@ await openAndCheck({
   expect: "Material Traces",
 });
 
+// Gallery space photos — now a multi-file upload.
+const SpaceGallery = (await import("../src/components/gallery/SpaceGallery.jsx")).default;
+
+await openAndCheck({
+  name: "Add Space Photos",
+  Component: SpaceGallery,
+  props: { profile: galleryProfile, isOwner: true, onUpdated() {} },
+  openLabel: "Add",
+  expect: "select as many",
+});
+
 console.log(`\n  passed: ${pass}`);
 if (failures.length) {
   console.log(`  FAILED: ${failures.length}\n`);

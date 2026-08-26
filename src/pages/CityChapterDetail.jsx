@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isVenueType } from "@/lib/venueTypes";
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Image } from '@/components/ui/image';
@@ -74,7 +75,9 @@ export default function CityChapterDetail() {
         const city = chapter.city.toLowerCase();
         setVenues(
           rows.filter((r) => {
-            if (r.type === 'Collector') return false;
+            // Venues only. Galleries have their own page and their own
+            // section; listing them under "Where We Gather" mixed the two.
+            if (!isVenueType(r.type)) return false;
             const where = `${r.based_in || ''} ${r.address || ''}`.toLowerCase();
             return where.includes(city);
           })
@@ -274,9 +277,26 @@ export default function CityChapterDetail() {
               <li key={a.id} className="py-6">
                 <Link
                   to={`/artists/${a.id}`}
-                  className="group flex items-baseline justify-between gap-6"
+                  className="group flex flex-wrap items-center justify-between gap-6"
                 >
-                  <div>
+                  <div className="flex min-w-0 items-center gap-4">
+                    {/* The chapter list was names only. A directory of artists
+                        with no faces gives a visitor nothing to look at. */}
+                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
+                      {a.avatar_url ? (
+                        <Image
+                          src={a.avatar_url}
+                          alt={a.display_name}
+                          fittingType="fill"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center font-heading text-xl text-muted-foreground">
+                          {(a.display_name || "?").charAt(0)}
+                        </span>
+                      )}
+                    </div>
+                  <div className="min-w-0">
                     <span className="font-mono-caps text-[11px] text-muted-foreground">
                       {String(i + 1).padStart(2, '0')}
                     </span>
@@ -286,6 +306,7 @@ export default function CityChapterDetail() {
                     <p className="mt-1 text-sm text-muted-foreground">
                       {a.based_in || 'New member'}
                     </p>
+                  </div>
                   </div>
                   <span className="font-mono-caps text-[11px] text-muted-foreground">
                     {a.discipline} <ArrowUpRight className="inline h-3 w-3 text-primary" />

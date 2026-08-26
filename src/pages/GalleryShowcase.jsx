@@ -24,15 +24,17 @@ export default function GalleryShowcase() {
     base44.entities.GalleryWork.list("-created_date", 500).then(setWorks);
   }, []);
 
+  // Grouped by gallery_id. artist_id is null for every unclaimed gallery, so
+  // using it here lumped them all together into one bucket.
   const saleByGallery = works.reduce((acc, w) => {
-    if (w.available_for_sale) acc.add(w.artist_id);
+    if (w.available_for_sale && w.gallery_id) acc.add(w.gallery_id);
     return acc;
   }, new Set());
 
   const filtered = galleries.filter((g) => {
     if (filter !== "All" && !(g.interests || []).includes(filter)) return false;
     if (chapter !== "All Chapters" && g.based_in && !g.based_in.includes(chapter)) return false;
-    if (forSaleOnly && !saleByGallery.has(g.user_id)) return false;
+    if (forSaleOnly && !saleByGallery.has(g.id)) return false;
     if (search) {
       const q = search.toLowerCase();
       if (!g.display_name?.toLowerCase().includes(q) && !g.based_in?.toLowerCase().includes(q) && !g.bio?.toLowerCase().includes(q)) return false;

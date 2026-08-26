@@ -8,8 +8,10 @@ import AdminCreatePanel from "@/components/AdminCreatePanel";
 import AdminMembersPanel from "@/components/AdminMembersPanel";
 import AdminArticlesPanel from "@/components/AdminArticlesPanel";
 import AdminSubscribersPanel from "@/components/AdminSubscribersPanel";
+import AdminEditListingsPanel from "@/components/AdminEditListingsPanel";
+import AdminEventsPanel from "@/components/AdminEventsPanel";
 
-const TABS = ["Add Listing", "Members", "Editorial", "Artists", "Inquiries", "Forum", "Open Calls", "Newsletter", "Subscriptions"];
+const TABS = ["Add Listing", "Edit Listings", "Events", "Members", "Editorial", "Artists", "Inquiries", "Forum", "Open Calls", "Newsletter", "Subscriptions"];
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState("Add Listing");
@@ -144,6 +146,10 @@ export default function AdminDashboard() {
         {tab === "Add Listing" && (
           <AdminCreatePanel onCreated={() => window.location.reload()} />
         )}
+
+        {tab === "Edit Listings" && <AdminEditListingsPanel />}
+
+        {tab === "Events" && <AdminEventsPanel />}
 
         {tab === "Members" && <AdminMembersPanel />}
 

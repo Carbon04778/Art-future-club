@@ -127,7 +127,13 @@ export default function EventDetail() {
       {event.image_url && (
         <section className="px-6 md:px-10">
           <div className="overflow-hidden" data-artwork>
-            <Image src={event.image_url} alt={event.title} fittingType="fill" className="aspect-[16/9] w-full" />
+            <Image
+              src={event.image_url}
+              alt={event.title}
+              fittingType="fill"
+              className="aspect-[16/9] w-full"
+              style={{ objectPosition: `${event.image_focal_x ?? 50}% ${event.image_focal_y ?? 50}%` }}
+            />
           </div>
         </section>
       )}

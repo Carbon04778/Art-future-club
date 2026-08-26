@@ -48,10 +48,17 @@ export default function EventCalendar() {
 
   const loadEvents = () =>
     base44.entities.Event.list("start_date", 200).then((evs) => {
-      // show upcoming first
+      // Upcoming: soonest first, so the next thing to attend leads.
+      // Past: MOST RECENT first — the query returns ascending, which put the
+      // oldest event at the top of the past section.
       const now = new Date();
-      const upcoming = evs.filter((e) => new Date(e.start_date) >= now);
-      const past = evs.filter((e) => new Date(e.start_date) < now);
+      const byDate = (a, b) => new Date(a.start_date) - new Date(b.start_date);
+      const upcoming = evs
+        .filter((e) => new Date(e.start_date) >= now)
+        .sort(byDate);
+      const past = evs
+        .filter((e) => new Date(e.start_date) < now)
+        .sort((a, b) => byDate(b, a));
       setEvents([...upcoming, ...past]);
     });
 
@@ -173,7 +180,12 @@ export default function EventCalendar() {
                           </p>
                         )}
                         {ev.description && (
-                          <p className="mt-3 text-sm text-muted-foreground leading-relaxed max-w-lg">{ev.description}</p>
+                          <p className="mt-3 line-clamp-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
+                            {/* Two lines here, in full on the event page —
+                                a whole exhibition text in the list made every
+                                other event impossible to scan. */}
+                            {ev.description}
+                          </p>
                         )}
                         {ev.organizer_name && (
                           <p className="mt-2 font-mono-caps text-[10px] text-muted-foreground">Organised by {ev.organizer_name}</p>

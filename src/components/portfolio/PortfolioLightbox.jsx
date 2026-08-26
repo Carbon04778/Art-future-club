@@ -5,7 +5,15 @@ import { motion, AnimatePresence } from "framer-motion";
 /**
  * Full-screen artwork viewer. Scrolls through multiple views of a single work.
  */
-export default function PortfolioLightbox({ images, startIndex = 0, onClose }) {
+/**
+ * `work` is optional. When given, its details are shown beside the enlarged
+ * image — beside on a wide screen, below on a narrow one.
+ *
+ * The description used to sit only under the small grid thumbnail, where it
+ * was squeezed into a narrow column and hard to read. Here there is room for
+ * it, and it is the moment someone is actually looking at the piece.
+ */
+export default function PortfolioLightbox({ images, startIndex = 0, work, onClose }) {
   const [idx, setIdx] = useState(startIndex || 0);
   const total = images.length;
 
@@ -44,7 +52,12 @@ export default function PortfolioLightbox({ images, startIndex = 0, onClose }) {
         </span>
       )}
 
-      <div className="relative max-w-5xl w-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`relative w-full flex flex-col items-center justify-center gap-6 lg:flex-row lg:items-start ${
+          work ? "max-w-6xl" : "max-w-5xl"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {total > 1 && (
           <>
             <button className="absolute left-0 top-1/2 -translate-y-1/2 p-2 hover:text-primary" onClick={() => setIdx((i) => (i - 1 + total) % total)} aria-label="Previous">
@@ -64,9 +77,28 @@ export default function PortfolioLightbox({ images, startIndex = 0, onClose }) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="max-h-[82vh] max-w-full object-contain"
+            className={`max-w-full object-contain ${work ? "max-h-[70vh] lg:max-h-[82vh]" : "max-h-[82vh]"}`}
           />
         </AnimatePresence>
+
+        {work && (
+          <div className="w-full shrink-0 overflow-y-auto lg:max-h-[82vh] lg:w-72">
+            <h3 className="font-heading text-2xl tracking-[-0.01em]">{work.title}</h3>
+            <p className="mt-2 font-mono-caps text-[11px] text-muted-foreground">
+              {[work.medium, work.dimensions, work.year].filter(Boolean).join(" · ")}
+            </p>
+            {work.available_for_sale && work.price && (
+              <p className="mt-3 font-mono-caps text-[13px] text-primary">
+                {work.currency || "USD"} {work.price}
+              </p>
+            )}
+            {work.description && (
+              <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
+                {work.description}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {total > 1 && (

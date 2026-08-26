@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import ExpandableText from "@/components/ExpandableText";
+import MyCollection from "@/components/MyCollection";
+import FocalPointPicker from "@/components/FocalPointPicker";
 import { isVenueType } from "@/lib/venueTypes";
 import { Link, useParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -39,7 +42,10 @@ export default function GalleryProfile() {
   useEffect(() => {
     base44.entities.CollectorProfile.get(id).then((p) => {
       setProfile(p);
-      base44.entities.GalleryWork.filter({ artist_id: p.user_id }).then(setWorks);
+      // Keyed on the gallery's PROFILE id, not user_id. Unclaimed galleries
+      // have no user_id, so every one of them was matching artist_id = null
+      // and therefore showing every other gallery's works.
+      base44.entities.GalleryWork.filter({ gallery_id: p.id }).then(setWorks);
       base44.entities.Event.filter({ organizer_id: p.user_id }, "start_date").then((list) => setEvents(list.filter((e) => (p.user_id && e.organizer_id === p.user_id) || (!e.organizer_id && e.organizer_name === p.display_name)))).catch(() => setEvents([]));
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -48,7 +54,7 @@ export default function GalleryProfile() {
 
   const isOwner = user?.id === profile?.user_id || user?.role === "admin";
 
-  const reloadWorks = () => base44.entities.GalleryWork.filter({ artist_id: profile.user_id }).then(setWorks);
+  const reloadWorks = () => base44.entities.GalleryWork.filter({ gallery_id: profile.id }).then(setWorks);
   const reloadEvents = () => base44.entities.Event.filter({ organizer_id: profile.user_id }, "start_date").then((list) => setEvents(list.filter((e) => (profile.user_id && e.organizer_id === profile.user_id) || (!e.organizer_id && e.organizer_name === profile.display_name)))).catch(() => setEvents([]));
   const onProfileSaved = (p) => { setProfile(p); setEditMode(false); };
   const onProfileUpdated = (p) => setProfile(p);
@@ -259,6 +265,10 @@ export default function GalleryProfile() {
         </div>
       )}
 
+      {/* Works this member collected from others. Visitors can see it;
+          only the owner can remove anything. */}
+      <MyCollection userId={profile.user_id} isOwner={isOwner} />
+
       <SlimFooter />
     </>
   );
@@ -271,7 +281,16 @@ function ProfileHeader({ profile, isOwner, onEdit }) {
       {profile.cover_image_url && (
         <div className="px-6 md:px-10 mt-8">
           <div className="relative h-56 md:h-72 w-full overflow-hidden bg-muted">
-            <Image src={profile.cover_image_url} alt={profile.display_name} fittingType="fill" className="h-full w-full object-cover" data-artwork />
+            <Image
+              src={profile.cover_image_url}
+              alt={profile.display_name}
+              fittingType="fill"
+              className="h-full w-full object-cover"
+              // Honour the point chosen when the cover was uploaded, rather
+              // than always cropping from the centre.
+              style={{ objectPosition: `${profile.cover_focal_x ?? 50}% ${profile.cover_focal_y ?? 50}%` }}
+              data-artwork
+            />
           </div>
         </div>
       )}
@@ -300,7 +319,17 @@ function ProfileHeader({ profile, isOwner, onEdit }) {
                 <button onClick={onEdit} className="font-mono-caps text-[11px] border border-foreground px-4 py-2 hover:bg-foreground hover:text-background">Edit Profile</button>
               )}
             </div>
-            {profile.bio && <p className="mt-5 text-base text-muted-foreground leading-relaxed max-w-2xl">{profile.bio}</p>}
+            {profile.bio && (
+              <div className="mt-5 max-w-2xl">
+                {/* Collapsed to four lines. A long gallery statement pushed
+                    the address, works and exhibitions below the fold. */}
+                <ExpandableText
+                  text={profile.bio}
+                  lines={4}
+                  className="text-base leading-relaxed text-muted-foreground"
+                />
+              </div>
+            )}
 
             {/* contact & visit details */}
             <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 font-mono-caps text-[11px] text-muted-foreground">
@@ -349,6 +378,8 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
     linkedin: profile.linkedin || "",
     avatar_url: profile.avatar_url || "",
     cover_image_url: profile.cover_image_url || "",
+    cover_focal_x: profile.cover_focal_x ?? 50,
+    cover_focal_y: profile.cover_focal_y ?? 50,
     address: profile.address || "",
     opening_hours: profile.opening_hours || "",
     phone: profile.phone || "",
@@ -367,6 +398,11 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
   });
   const [avatarFile, setAvatarFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
+  // Preview the chosen file so the focal point can be set before uploading.
+  const coverPreview = React.useMemo(
+    () => (coverFile ? URL.createObjectURL(coverFile) : ""),
+    [coverFile]
+  );
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const toggle = (key, val) => set(key, form[key].includes(val) ? form[key].filter((x) => x !== val) : [...form[key], val]);
@@ -404,6 +440,18 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
       <div>
         <label className="font-mono-caps text-[11px] text-muted-foreground">Cover Photo</label>
         <input type="file" accept="image/*" className={`${input} mt-2 file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`} onChange={(e) => setCoverFile(e.target.files?.[0] || null)} />
+        {/* A cover is shown in a wide banner, so a tall photo has to be
+            cropped. Choosing the point here means the subject survives the
+            crop instead of the centre being taken every time. */}
+        {(coverPreview || form.cover_image_url) && (
+          <FocalPointPicker
+            src={coverPreview || form.cover_image_url}
+            aspect={21 / 9}
+            x={form.cover_focal_x ?? 50}
+            y={form.cover_focal_y ?? 50}
+            onChange={(x, y) => setForm((f) => ({ ...f, cover_focal_x: x, cover_focal_y: y }))}
+          />
+        )}
       </div>
       <div><label className="font-mono-caps text-[11px] text-muted-foreground">Address</label><input className={`${input} mt-2`} value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="12 Example St, London" /></div>
       <div><label className="font-mono-caps text-[11px] text-muted-foreground">Opening Hours</label><input className={`${input} mt-2`} value={form.opening_hours} onChange={(e) => set("opening_hours", e.target.value)} placeholder="Tue–Sat, 11:00–18:00" /></div>
@@ -474,6 +522,10 @@ function GalleryWorkModal({ profile, onClose, onCreated }) {
     const res = await base44.integrations.Core.UploadFile({ file });
     await base44.entities.GalleryWork.create({
       ...form, image_url: res.file_url,
+      // Which gallery is showing it — always present.
+      gallery_id: profile.id,
+      // Which artist made it. Kept for attribution and for collecting, but no
+      // longer used to decide which gallery a work belongs to.
       artist_id: profile.user_id,
       artist_name: form.artist_name?.trim() || profile.display_name,
     });

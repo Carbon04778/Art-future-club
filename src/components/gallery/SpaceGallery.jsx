@@ -79,42 +79,131 @@ export default function SpaceGallery({ profile, isOwner, onUpdated }) {
 }
 
 function AddSpacePhotoModal({ profile, onClose, onCreated, onUpdated }) {
-  const [caption, setCaption] = useState("");
-  const [file, setFile] = useState(null);
+  // Several photos at once. Adding one at a time meant reopening this dialog
+  // for every image, which is why it felt as though only one was allowed.
+  const [files, setFiles] = useState([]);
+  const [captions, setCaptions] = useState({});
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState("");
   const input = "w-full border border-border bg-transparent px-4 py-3 text-base outline-none focus:border-foreground";
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!file) return;
+    if (!files.length) return;
+    setError("");
     setSaving(true);
-    const res = await base44.integrations.Core.UploadFile({ file });
-    const next = [...(profile.space_images || []), { url: res.file_url, caption }];
-    const updated = await base44.entities.CollectorProfile.update(profile.id, { space_images: next });
-    setSaving(false);
-    onUpdated(updated);
-    onCreated();
+    setProgress(0);
+
+    try {
+      // Upload one after another rather than in parallel: a gallery uploading
+      // six photos at once would otherwise fire six concurrent requests, and
+      // a partial failure would be hard to reason about.
+      const added = [];
+      for (let i = 0; i < files.length; i++) {
+        const res = await base44.integrations.Core.UploadFile({ file: files[i] });
+        added.push({ url: res.file_url, caption: captions[i] || "" });
+        setProgress(i + 1);
+      }
+
+      // One write at the end, so the profile is saved once rather than once
+      // per photo.
+      const next = [...(profile.space_images || []), ...added];
+      const updated = await base44.entities.CollectorProfile.update(profile.id, {
+        space_images: next,
+      });
+      onUpdated(updated);
+      onCreated();
+    } catch (err) {
+      setError(String(err?.message || err) || "Could not upload.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-6" onClick={onClose}>
       <div className="bg-card border border-border w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-5 border-b border-border">
-          <p className="font-mono-caps text-[11px]">Add Space Photo</p>
+          <p className="font-mono-caps text-[11px]">Add Space Photos</p>
           <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
         </div>
         <form onSubmit={submit} className="p-6 space-y-5">
           <div>
-            <label className="font-mono-caps text-[11px] text-muted-foreground">Photo *</label>
-            <input type="file" accept="image/*" required className={`${input} mt-2 file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`} onChange={(e) => setFile(e.target.files?.[0])} />
+            <label className="font-mono-caps text-[11px] text-muted-foreground">
+              Photos * — select as many as you like
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              required
+              className={`${input} mt-2 file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`}
+              onChange={(e) => {
+                setFiles(Array.from(e.target.files || []));
+                setCaptions({});
+              }}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Hold Ctrl (or Cmd) to pick several at once.
+            </p>
           </div>
-          <div>
-            <label className="font-mono-caps text-[11px] text-muted-foreground">Caption</label>
-            <input className={`${input} mt-2`} value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Main exhibition hall, 2024" />
-          </div>
+
+          {/* A caption per photo, with a thumbnail so it is obvious which is
+              which when several are selected. */}
+          {files.length > 0 && (
+            <div className="space-y-3">
+              {files.map((f, i) => (
+                <div key={`${f.name}-${i}`} className="flex items-start gap-3 border border-border p-3">
+                  <div className="h-16 w-16 shrink-0 overflow-hidden bg-muted">
+                    <img
+                      src={URL.createObjectURL(f)}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-mono-caps text-[10px] text-muted-foreground">
+                      {f.name}
+                    </p>
+                    <input
+                      className={`${input} mt-2`}
+                      value={captions[i] || ""}
+                      onChange={(e) =>
+                        setCaptions((c) => ({ ...c, [i]: e.target.value }))
+                      }
+                      placeholder="Caption — e.g. Main exhibition hall, 2024"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFiles((prev) => prev.filter((_, x) => x !== i));
+                      setCaptions((c) => {
+                        const next = { ...c };
+                        delete next[i];
+                        return next;
+                      });
+                    }}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Remove ${f.name}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <button type="submit" disabled={saving} className="flex items-center gap-2 bg-primary px-8 py-4 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80 disabled:opacity-50">
-              {saving && <Loader2 className="h-3 w-3 animate-spin" />} Upload
+              {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+              {saving && files.length > 1
+                ? `Uploading ${progress} of ${files.length}`
+                : files.length > 1
+                ? `Upload ${files.length} photos`
+                : "Upload"}
             </button>
             <button type="button" onClick={onClose} className="font-mono-caps text-[11px] text-muted-foreground hover:text-foreground">Cancel</button>
           </div>
