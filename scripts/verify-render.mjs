@@ -111,6 +111,15 @@ for (const route of ROUTES) {
 
   const text = (container.textContent || "").replace(/\s+/g, " ").trim();
   const newErrors = errors.slice(before);
+  /*
+   * A profile page that renders the whole home page inside itself, or repeats
+   * a section eight times, is not caught by "did it error" — it renders
+   * perfectly, just enormously. An upper bound catches that class of fault.
+   */
+  const TOO_LARGE = 20000;
+  if (text.length > TOO_LARGE) {
+    newErrors.push(`renders ${text.length} chars — far larger than expected, likely duplicated content`);
+  }
   results.push({ route, chars: text.length, errors: newErrors });
 
   root.unmount();

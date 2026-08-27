@@ -29,9 +29,13 @@ export default function Editorial() {
   // had saved and then could not find it — the row existed, the page simply
   // filtered it out before row-level security was ever consulted.
   const load = (allowUnpublished) =>
+    // 500, not 50. She has more than fifty articles, so the older ones simply
+    // never arrived — they were visible in the admin panel, which loads 200,
+    // which is why they looked like they had "disappeared" from the public
+    // page only.
     (allowUnpublished
-      ? base44.entities.Article.list("-created_date", 50)
-      : base44.entities.Article.filter({ published: true }, "-created_date", 50)
+      ? base44.entities.Article.list("-created_date", 500)
+      : base44.entities.Article.filter({ published: true }, "-created_date", 500)
     ).then((arts) => {
       const now = new Date();
       const when = (a) => new Date(a.publish_date || a.created_date || 0);

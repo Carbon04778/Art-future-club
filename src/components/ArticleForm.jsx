@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { X, Loader2, Trash2 } from "lucide-react";
 import ArticlePreview from "@/components/ArticlePreview";
@@ -29,9 +29,22 @@ let entryId = 0;
 // a stored image may be {url,alt,caption} or a legacy string url
 const toEntry = (img) => {
   const o = typeof img === "string" ? { url: img } : (img || {});
-  return { id: ++entryId, url: o.url || o.image_url || "", alt: o.alt || "", caption: o.caption || "", file: null, preview: o.url || o.image_url || "" };
+  return {
+    id: ++entryId,
+    url: o.url || o.image_url || "",
+    alt: o.alt || "",
+    caption: o.caption || "",
+    // Read back when editing. This was missing, so opening an existing
+    // article dropped the flag: the tick appeared cleared, and saving then
+    // wrote full:false over a setting that had been made. That is the
+    // "expanding a photograph does not save" report — it saved, and was
+    // erased the next time the article was opened.
+    full: !!o.full,
+    file: null,
+    preview: o.url || o.image_url || "",
+  };
 };
-const entryForFile = (file) => ({ id: ++entryId, file, preview: URL.createObjectURL(file), url: "", alt: "", caption: "" });
+const entryForFile = (file) => ({ id: ++entryId, file, preview: URL.createObjectURL(file), url: "", alt: "", caption: "", full: false });
 
 const Section = ({ title, children }) => (
   <div className="border-t border-border pt-5">
@@ -123,16 +136,31 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
     return () => URL.revokeObjectURL(url);
   }, [coverFile?.size, coverFile?.lastModified, coverFile, form.cover_image_url]);
 
+  /*
+   * Re-split the images when the layout changes.
+   *
+   * Calling setGallery from inside a setIntro updater is unsafe: React may run
+   * an updater more than once, which would then push the same images into the
+   * gallery repeatedly. Both lists are now derived first and set separately.
+   *
+   * It also skips the first run. The images were already split correctly when
+   * the form was created, so re-splitting on mount achieved nothing and was
+   * one more chance to lose them.
+   */
+  const layoutSettled = useRef(false);
   useEffect(() => {
-    setIntro((prevIntro) => {
-      const all = [...prevIntro, ...gallery];
-      if (INTRO_LAYOUTS.includes(form.layout)) {
-        setGallery(all.slice(1));
-        return all.slice(0, 1);
-      }
+    if (!layoutSettled.current) {
+      layoutSettled.current = true;
+      return;
+    }
+    const all = [...intro, ...gallery];
+    if (INTRO_LAYOUTS.includes(form.layout)) {
+      setIntro(all.slice(0, 1));
+      setGallery(all.slice(1));
+    } else {
+      setIntro([]);
       setGallery(all);
-      return [];
-    });
+    }
      
   }, [form.layout]);
 
@@ -155,7 +183,7 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
     [form.layout, intro, gallery]
   );
   const previewImages = useMemo(
-    () => orderedImages.map((e) => ({ url: e.preview || e.url, alt: e.alt, caption: e.caption })).filter((o) => o.url),
+    () => orderedImages.map((e) => ({ url: e.preview || e.url, alt: e.alt, caption: e.caption, full: !!e.full })).filter((o) => o.url),
     [orderedImages]
   );
   const closingPreview = hasClosing && closing[0]
@@ -279,6 +307,18 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
                 </div>
                 <input className={`${input} mt-2`} placeholder="Alt text (accessibility & SEO)" value={e.alt} onChange={(ev) => updateMeta(key, e.id, "alt", ev.target.value)} />
                 <input className={`${input} mt-2`} placeholder="Caption (shown beneath the image)" value={e.caption} onChange={(ev) => updateMeta(key, e.id, "caption", ev.target.value)} />
+                {/* Gallery images sit two to a row by default. Ticking this
+                    gives one image the full width of the article instead. */}
+                {key === "gallery" && (
+                  <label className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={!!e.full}
+                      onChange={(ev) => updateMeta(key, e.id, "full", ev.target.checked)}
+                    />
+                    Show this image full width
+                  </label>
+                )}
               </div>
             ))}
           </div>
@@ -303,7 +343,7 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
         const r = await base44.integrations.Core.UploadFile({ file: entry.file });
         url = r.file_url;
       }
-      images.push({ url, alt: entry.alt || "", caption: entry.caption || "" });
+      images.push({ url, alt: entry.alt || "", caption: entry.caption || "", full: !!entry.full });
     }
     let closing_image_url = "", closing_image_alt = "", closing_image_caption = "";
     if (hasClosing && closing[0]) {

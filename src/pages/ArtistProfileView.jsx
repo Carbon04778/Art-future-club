@@ -169,11 +169,12 @@ export default function ArtistProfileView() {
         {profile.bio && (
           <div className="mt-16 border-t border-border pt-12 grid grid-cols-1 gap-6 md:grid-cols-[160px_1fr]">
             <p className="font-mono-caps text-[11px] text-muted-foreground">Practice</p>
-            {/* Collapsed to six lines — an artist statement can run to
-                several hundred words and buried the portfolio below it. */}
+            {/* Collapsed to three lines, matching the 50-word limit now set
+                on new bios. Longer statements written before that limit are
+                shown behind "Read more" rather than being cut. */}
             <ExpandableText
               text={profile.bio}
-              lines={6}
+              lines={3}
               className="text-lg leading-relaxed"
             />
           </div>

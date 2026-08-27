@@ -22,7 +22,15 @@ function ChapterBlock({ chapter, events }) {
    * excluded — a chapter advertising last month's opening looks abandoned.
    */
   const upcoming = (events || [])
-    .filter((e) => e.start_date && new Date(e.start_date) >= new Date())
+    .filter((e) => {
+      if (!e.start_date) return false;
+      // An exhibition that OPENED last month but runs until December is still
+      // on — and is the most relevant thing a chapter can show. Filtering on
+      // start_date alone treated it as past and hid it, which is why a chapter
+      // with a full programme could read "nothing scheduled".
+      const ends = e.end_date ? new Date(e.end_date) : new Date(e.start_date);
+      return ends >= new Date();
+    })
     .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
     .slice(0, 3);
   return (
@@ -99,7 +107,16 @@ function ChapterBlock({ chapter, events }) {
                     </Link>
                   </li>
                 ))
-              : null}
+              : (
+                  // Say so plainly. A blank gap under the heading reads as a
+                  // page that failed to load rather than a chapter with
+                  // nothing scheduled.
+                  <li className="py-4">
+                    <p className="text-sm text-muted-foreground">
+                      Nothing scheduled yet — see past gatherings.
+                    </p>
+                  </li>
+                )}
           </ul>
           {/* Straight to the events page, already filtered to this chapter,
               rather than an anchor on the chapter page. */}
@@ -133,13 +150,27 @@ export default function CityChapters() {
   const [events, setEvents] = useState([]);
 
   useEffect(() => {
-    base44.entities.Event.list().then(setEvents).catch(() => {});
+    // Sorted and bounded explicitly. An unsorted, unlimited list left it to
+    // the database which rows came back — so a chapter's next gathering could
+    // simply be absent from the page with nothing to indicate it.
+    base44.entities.Event.list("start_date", 500)
+      .then(setEvents)
+      .catch(() => setEvents([]));
   }, []);
 
+  /*
+   * Group events by chapter.
+   *
+   * Matched case-insensitively on the trimmed name: chapters set from a
+   * dropdown are exact, but anything typed by hand — or imported — could
+   * differ by case or a stray space, and an exact match dropped those events
+   * silently. A chapter with gatherings then looked as though it had none.
+   */
   const eventsByChapter = {};
   events.forEach((e) => {
     if (!e.chapter) return;
-    (eventsByChapter[e.chapter] ||= []).push(e);
+    const key = String(e.chapter).trim().toLowerCase();
+    (eventsByChapter[key] ||= []).push(e);
   });
 
   return (
@@ -168,7 +199,7 @@ export default function CityChapters() {
 
       <div>
         {CHAPTERS.map((ch) => (
-          <ChapterBlock key={ch.city} chapter={ch} events={eventsByChapter[ch.city]} />
+          <ChapterBlock key={ch.city} chapter={ch} events={eventsByChapter[ch.city.trim().toLowerCase()]} />
         ))}
       </div>
 

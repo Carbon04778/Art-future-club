@@ -59,10 +59,42 @@ export default function ArticleBody({ article }) {
   paragraphs.forEach((para, i) => {
     blocks.push({ kind: "para", text: para });
     if (hasIntro && i === 0 && intro) blocks.push({ kind: "full", image: intro });
-    if (middleGallery && i === midIndex && gallery.length) blocks.push({ kind: "gallery", images: gallery });
+    if (middleGallery && i === midIndex && gallery.length) {
+      // Same rule for a mid-article gallery.
+      let run = [];
+      gallery.forEach((img) => {
+        if (img.full) {
+          if (run.length) { blocks.push({ kind: "gallery", images: run }); run = []; }
+          blocks.push({ kind: "full", image: img });
+        } else {
+          run.push(img);
+        }
+      });
+      if (run.length) blocks.push({ kind: "gallery", images: run });
+    }
   });
   if ((layout === "cover_top" || layout === "image_after_intro") && gallery.length) {
-    blocks.push({ kind: "gallery", images: gallery });
+    /*
+     * Any image marked `full` is shown on its own, at full width, rather than
+     * squeezed into the two-column grid.
+     *
+     * Previously every gallery image was gridded with no way to enlarge one —
+     * so an editor could tick and save and see no difference, because nothing
+     * they touched controlled size.
+     *
+     * Consecutive gridded images stay together, so ticking one image in the
+     * middle does not break the rest into separate rows.
+     */
+    let run = [];
+    gallery.forEach((img) => {
+      if (img.full) {
+        if (run.length) { blocks.push({ kind: "gallery", images: run }); run = []; }
+        blocks.push({ kind: "full", image: img });
+      } else {
+        run.push(img);
+      }
+    });
+    if (run.length) blocks.push({ kind: "gallery", images: run });
   }
   if (closing && blocks.length) {
     // The closing image sits before the final paragraph — but only when that

@@ -42,12 +42,15 @@ export default function ExhibitionsSection({ profile, isOwner, events, onReload 
   // neither was sorted, so exhibitions appeared in whatever order the
   // database returned and the newest often sat at the bottom.
   const byDate = (a, b) => new Date(a.start_date) - new Date(b.start_date);
-  const upcoming = events
-    .filter((e) => new Date(e.start_date) >= new Date())
-    .sort(byDate);
-  const past = events
-    .filter((e) => new Date(e.start_date) < new Date())
-    .sort((a, b) => byDate(b, a));
+  // An exhibition that opened last month but runs until December belongs
+  // under "Upcoming", not "Past" — it is on now. Splitting on start_date put
+  // every currently-running show in the past section.
+  const isCurrent = (e) => {
+    const ends = e.end_date ? new Date(e.end_date) : new Date(e.start_date);
+    return ends >= new Date();
+  };
+  const upcoming = events.filter(isCurrent).sort(byDate);
+  const past = events.filter((e) => !isCurrent(e)).sort((a, b) => byDate(b, a));
 
   return (
     <div>

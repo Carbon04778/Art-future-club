@@ -279,12 +279,13 @@ export default function ArtistProfileEdit() {
             )}
           </Field>
           <Field label="Bio">
-            {/* Capped at 300 words. Long statements ran for paragraphs and
-                pushed everything else off the profile. */}
+            {/* Capped at 50 words. Existing longer bios are NOT truncated —
+                they collapse behind "Read more" on the profile instead, so
+                nobody loses writing they have already done. */}
             <WordLimitedTextarea
               className={input}
               rows={5}
-              limit={300}
+              limit={50}
               value={form.bio}
               onChange={(v) => set("bio", v)}
               placeholder="Describe your practice, influences, and current focus…"

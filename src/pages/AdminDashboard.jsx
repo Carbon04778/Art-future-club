@@ -68,15 +68,54 @@ export default function AdminDashboard() {
     }).catch(() => setLoading(false));
   }, []);
 
-  const featureArtist = async (artist) => {
-    await base44.entities.ArtistProfile.update(artist.id, { is_featured: !artist.is_featured });
-    setArtists((prev) => prev.map((a) => a.id === artist.id ? { ...a, is_featured: !a.is_featured } : a));
+  /*
+   * Grant or revoke a complimentary membership.
+   *
+   * These went through a direct update, which a database trigger refuses —
+   * is_premium and is_featured are set by billing only, and that is what
+   * makes the paywall real. There was no error handling either, so the
+   * buttons silently did nothing.
+   *
+   * Comping now runs through an Edge Function holding the service-role key,
+   * which checks the caller is an admin. The paywall stays intact for
+   * everyone else, and each grant is recorded so a comped membership is not
+   * mistaken for a sale.
+   */
+  const [compBusy, setCompBusy] = useState(null);
+  const [compError, setCompError] = useState("");
+
+  const comp = async (artist, kind) => {
+    setCompError("");
+    setCompBusy(`${artist.id}-${kind}`);
+    const currently = kind === "premium" ? artist.is_premium : artist.is_featured;
+    try {
+      const res = await base44.functions.invoke("grantMembership", {
+        profile_id: artist.id,
+        kind,
+        grant: !currently,
+      });
+      if (res?.error) throw new Error(res.error);
+      setArtists((prev) =>
+        prev.map((a) =>
+          a.id === artist.id
+            ? { ...a, [kind === "premium" ? "is_premium" : "is_featured"]: !currently }
+            : a
+        )
+      );
+    } catch (e) {
+      const msg = String(e?.message || e);
+      setCompError(
+        /Failed to send|non-2xx|not found|fetch/i.test(msg)
+          ? "Could not reach the membership service. Deploy the grantMembership function in Supabase → Edge Functions."
+          : msg
+      );
+    } finally {
+      setCompBusy(null);
+    }
   };
 
-  const premiumArtist = async (artist) => {
-    await base44.entities.ArtistProfile.update(artist.id, { is_premium: !artist.is_premium });
-    setArtists((prev) => prev.map((a) => a.id === artist.id ? { ...a, is_premium: !a.is_premium } : a));
-  };
+  const featureArtist = (artist) => comp(artist, "featured");
+  const premiumArtist = (artist) => comp(artist, "premium");
 
   const deletePost = async (id) => {
     if (!confirm("Delete this post?")) return;
@@ -159,6 +198,14 @@ export default function AdminDashboard() {
 
         {tab === "Artists" && (
           <div>
+            {compError && (
+              <p className="mb-4 text-sm text-destructive">{compError}</p>
+            )}
+            <p className="mb-4 text-xs text-muted-foreground">
+              Set Premium and Feature grant a complimentary membership. The
+              member gets the same features as a paying one, and it is recorded
+              separately so it is not counted as a sale.
+            </p>
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
