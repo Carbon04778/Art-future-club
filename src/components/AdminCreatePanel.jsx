@@ -676,7 +676,24 @@ export default function AdminCreatePanel({ onCreated }) {
         </div>
       )}
 
-      {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+      {/*
+        Errors need to be impossible to miss and readable by someone who will
+        never open a browser console. A one-line red sentence was being
+        overlooked, so failures were reported to us as "it just does not save"
+        with no clue as to why.
+      */}
+      {error && (
+        <div className="mt-4 border border-destructive bg-destructive/10 p-4">
+          <p className="font-mono-caps text-[11px] text-destructive">
+            Could not save
+          </p>
+          <p className="mt-2 text-sm text-destructive">{error}</p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            If this keeps happening, copy the message above and send it on —
+            it names the exact cause.
+          </p>
+        </div>
+      )}
       {done && (
         <p className="mt-4 flex items-center gap-2 text-sm text-primary">
           <Check className="h-4 w-4" /> {done}

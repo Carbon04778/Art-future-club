@@ -29,7 +29,13 @@ export default function ArtistsDirectory() {
 
   const filtered = artists.filter((a) => {
     if (filter !== "All" && a.discipline !== filter) return false;
-    if (chapter !== "All Chapters" && a.chapter !== chapter) return false;
+    // Matched on chapter OR based_in, the same rule the chapter page uses.
+    // Testing a.chapter alone meant "All Hong Kong artists" led to a shorter
+    // list than the chapter page it came from.
+    if (chapter !== "All Chapters") {
+      const where = `${a.chapter || ""} ${a.based_in || ""}`.toLowerCase();
+      if (!where.includes(chapter.trim().toLowerCase())) return false;
+    }
     if (seekingFilter && !(a.seeking || []).includes(seekingFilter)) return false;
     if (premiumOnly && !a.is_premium) return false;
     if (forSaleOnly && !a.portfolio_works?.some((w) => w.available_for_sale)) return false;

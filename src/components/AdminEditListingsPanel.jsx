@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import FocalPointPicker from "@/components/FocalPointPicker";
+import ImageCropBox from "@/components/ImageCropBox";
 import { base44 } from "@/api/base44Client";
 import { Loader2, Search, Trash2, Pencil, Check, X, Mail, UserCheck } from "lucide-react";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
@@ -241,8 +243,27 @@ export default function AdminEditListingsPanel() {
 
 /** Inline editor for one listing. */
 function EditForm({ row, onCancel, onSave, busy }) {
+  // Existing images are shown, and can be replaced. Editing was text-only, so
+  // a wrong logo or cover could not be corrected without deleting the whole
+  // listing and creating it again.
+  const [avatarRaw, setAvatarRaw] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [coverRaw, setCoverRaw] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  const coverPreview = React.useMemo(
+    () => (coverRaw ? URL.createObjectURL(coverRaw) : ""),
+    [coverRaw]
+  );
+
   const [form, setForm] = useState({
     display_name: row.display_name || "",
+    avatar_url: row.avatar_url || "",
+    cover_image_url: row.cover_image_url || "",
+    cover_focal_x: row.cover_focal_x ?? 50,
+    cover_focal_y: row.cover_focal_y ?? 50,
     claim_email: row.claim_email || "",
     based_in: row.based_in || CHAPTER_OPTIONS[0],
     website: row.website || "",
@@ -257,20 +278,124 @@ function EditForm({ row, onCancel, onSave, busy }) {
   const field =
     "w-full border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    onSave(row, {
-      ...form,
-      display_name: form.display_name.trim(),
-      // Normalised so it matches what claiming looks for. An empty field must
-      // be null rather than "", or every blank listing would match each other.
-      claim_email: form.claim_email.trim().toLowerCase() || null,
-    });
+    setUploading(true);
+    try {
+      // Only upload what actually changed. Re-uploading an unchanged image on
+      // every save would fill storage with duplicates.
+      let avatar_url = form.avatar_url;
+      if (avatarFile) {
+        const r = await base44.integrations.Core.UploadFile({ file: avatarFile });
+        avatar_url = r.file_url;
+      }
+      let cover_image_url = form.cover_image_url;
+      if (coverFile) {
+        const r = await base44.integrations.Core.UploadFile({ file: coverFile });
+        cover_image_url = r.file_url;
+      }
+
+      /*
+       * artist_profile has no cover columns — only collector_profile does.
+       * Sending them for an artist made Postgres reject the whole update,
+       * which (with no catch) left the button spinning.
+       */
+      const { cover_image_url: _c, cover_focal_x: _x, cover_focal_y: _y, ...common } = form;
+      const coverFields =
+        row._kind === "collector"
+          ? { cover_image_url, cover_focal_x: form.cover_focal_x, cover_focal_y: form.cover_focal_y }
+          : {};
+
+      onSave(row, {
+        ...common,
+        ...coverFields,
+        avatar_url,
+        display_name: form.display_name.trim(),
+        // Normalised so it matches what claiming looks for. An empty field
+        // must be null rather than "", or every blank listing would match
+        // each other.
+        claim_email: form.claim_email.trim().toLowerCase() || null,
+      });
+    } catch (err) {
+      /*
+       * There was no catch here at all.
+       *
+       * If an upload threw — an unsupported image, a file too large, a
+       * dropped connection — the error escaped, the parent's busy flag was
+       * never cleared, and the button span forever with nothing said. That is
+       * the "gets stuck when saving" report: not a slow save, a failed one
+       * with no way to know.
+       */
+      setUploadError(
+        String(err?.message || err) || "Could not save. Please try again."
+      );
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
     <form onSubmit={submit} className="mt-4 border border-border bg-background/40 p-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      {/* Images first, matching the order on the Add Listing form so the two
+          read the same way. */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[200px_1fr]">
+        <div>
+          <label className="font-mono-caps text-[10px] text-muted-foreground">
+            {row._kind === "artist" ? "Profile photo" : "Logo"}
+          </label>
+          {form.avatar_url && !avatarRaw && (
+            <img
+              src={form.avatar_url}
+              alt=""
+              className="mt-2 aspect-square w-full object-cover"
+            />
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            className={`${field} mt-2 file:mr-3 file:border-0 file:bg-muted file:px-2 file:py-1 file:font-mono-caps file:text-[10px]`}
+            onChange={(e) => setAvatarRaw(e.target.files?.[0] || null)}
+          />
+          {avatarRaw && (
+            <ImageCropBox
+              file={avatarRaw}
+              alt={form.display_name}
+              onChange={setAvatarFile}
+            />
+          )}
+        </div>
+
+        {/* Artists have no cover image — only galleries and venues do. Showing
+            the control anyway offered something that could never be saved. */}
+        <div className={row._kind === "collector" ? "" : "hidden"}>
+          <label className="font-mono-caps text-[10px] text-muted-foreground">Cover photo</label>
+          {form.cover_image_url && !coverRaw && (
+            <img
+              src={form.cover_image_url}
+              alt=""
+              className="mt-2 aspect-[21/9] w-full object-cover"
+              style={{ objectPosition: `${form.cover_focal_x}% ${form.cover_focal_y}%` }}
+            />
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            className={`${field} mt-2 file:mr-3 file:border-0 file:bg-muted file:px-2 file:py-1 file:font-mono-caps file:text-[10px]`}
+            onChange={(e) => setCoverRaw(e.target.files?.[0] || null)}
+          />
+          {(coverPreview || form.cover_image_url) && (
+            <FocalPointPicker
+              src={coverPreview || form.cover_image_url}
+              aspect={21 / 9}
+              x={form.cover_focal_x}
+              y={form.cover_focal_y}
+              onChange={(x, y) => setForm((f) => ({ ...f, cover_focal_x: x, cover_focal_y: y }))}
+            />
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
           <label className="font-mono-caps text-[10px] text-muted-foreground">Name</label>
           <input className={`${field} mt-1`} value={form.display_name} onChange={(e) => set("display_name", e.target.value)} required />
@@ -355,14 +480,21 @@ function EditForm({ row, onCancel, onSave, busy }) {
         </div>
       </div>
 
+      {uploadError && (
+        <div className="mt-4 border border-destructive bg-destructive/10 p-3">
+          <p className="font-mono-caps text-[10px] text-destructive">Could not save</p>
+          <p className="mt-1 text-sm text-destructive">{uploadError}</p>
+        </div>
+      )}
+
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || uploading}
           className="inline-flex items-center gap-2 border border-primary px-5 py-2 font-mono-caps text-[10px] text-primary transition-colors hover:bg-primary hover:text-background disabled:opacity-50"
         >
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-          Save changes
+          {busy || uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+          {uploading ? "Uploading…" : "Save changes"}
         </button>
         <button
           type="button"
@@ -375,3 +507,4 @@ function EditForm({ row, onCancel, onSave, busy }) {
     </form>
   );
 }
+

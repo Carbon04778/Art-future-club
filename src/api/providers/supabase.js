@@ -364,8 +364,67 @@ async function compressImage(file) {
     return new File([blob], file.name.replace(/\.\w+$/, "") + ".webp", {
       type: "image/webp",
     });
-  } catch {
-    return file; // never block an upload because compression failed
+  } catch (err) {
+    /*
+     * HEIC — the default iPhone and iPad photo format — cannot be decoded by
+     * createImageBitmap. Returning the original file then sent a .heic to
+     * storage, which rejects it, and the upload failed with an error that
+     * named neither the format nor the device.
+     *
+     * That is why adding images worked on a PC and failed on an iPad.
+     *
+     * Try once more through an <img> element, which Safari CAN decode, and
+     * draw that to a canvas as WebP. If even that fails, say plainly what is
+     * wrong rather than letting storage reject it.
+     */
+    const viaImg = await canvasFromImgElement(file).catch(() => null);
+    if (viaImg) return viaImg;
+
+    if (/heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name)) {
+      throw new Error(
+        "This looks like an iPhone HEIC photo, which cannot be uploaded. " +
+        "In Settings → Camera → Formats choose \"Most Compatible\", or " +
+        "export the picture as JPEG and try again."
+      );
+    }
+
+    console.warn("Image compression failed, uploading as-is:", err);
+    return file;
+  }
+}
+
+/**
+ * Decode via an <img> tag rather than createImageBitmap.
+ *
+ * Safari can render HEIC through an image element even though it cannot
+ * decode it as a bitmap, so this recovers most iPhone photos.
+ */
+async function canvasFromImgElement(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Could not decode image"));
+      el.src = url;
+    });
+
+    const scale = Math.min(1, MAX_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/webp", QUALITY)
+    );
+    if (!blob) return null;
+
+    return new File([blob], file.name.replace(/\.\w+$/, "") + ".webp", {
+      type: "image/webp",
+    });
+  } finally {
+    URL.revokeObjectURL(url);
   }
 }
 

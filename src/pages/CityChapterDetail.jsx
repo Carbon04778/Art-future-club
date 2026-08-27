@@ -51,9 +51,20 @@ export default function CityChapterDetail() {
 
   useEffect(() => {
     if (!chapter) return;
-    // Fetch more than we display so we know whether to offer "See all".
-    base44.entities.ArtistProfile.filter({ chapter: chapter.city }, '-created_date', 200)
-      .then((artists) => {
+    /*
+     * Match on chapter OR based_in, case-insensitively.
+     *
+     * Filtering on `chapter` alone missed any artist who set only `based_in`
+     * — which the artists directory itself filters by. A chapter with a dozen
+     * members could therefore show three, and nothing indicated why.
+     */
+    base44.entities.ArtistProfile.list('-created_date', 500)
+      .then((all) => {
+        const city = chapter.city.trim().toLowerCase();
+        const artists = all.filter((a) => {
+          const where = `${a.chapter || ''} ${a.based_in || ''}`.toLowerCase();
+          return where.includes(city);
+        });
         setArtistTotal(artists.length);
         setSpotlight(artists.slice(0, SPOTLIGHT_LIMIT));
       })
@@ -316,14 +327,15 @@ export default function CityChapterDetail() {
             ))
           )}
         </ul>
-        {artistTotal > SPOTLIGHT_LIMIT && (
-          <Link
-            to={`/artists?chapter=${encodeURIComponent(chapter.city)}`}
-            className="mt-10 inline-flex items-center gap-2 border border-border px-6 py-3 font-mono-caps text-[11px] text-foreground transition-colors hover:border-primary hover:text-primary"
-          >
-            See all {artistTotal} artists <ArrowUpRight className="h-3 w-3" />
-          </Link>
-        )}
+        {/* Always shown, matching the venues and gatherings sections. It used
+            to appear only once a chapter had more than ten artists, so on a
+            growing chapter there was no way through to the directory at all. */}
+        <Link
+          to={`/artists?chapter=${encodeURIComponent(chapter.city)}`}
+          className="mt-10 inline-flex items-center gap-2 border border-border px-6 py-3 font-mono-caps text-[11px] text-foreground transition-colors hover:border-primary hover:text-primary"
+        >
+          All {chapter.city} artists <ArrowUpRight className="h-3 w-3" />
+        </Link>
       </section>
 
       {/* ── VENUE PARTNERS ───────────────────────────────── */}
