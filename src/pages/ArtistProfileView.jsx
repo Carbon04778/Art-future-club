@@ -386,6 +386,26 @@ export default function ArtistProfileView() {
             ].filter(Boolean)}
             startIndex={lightbox.start}
             work={profile.portfolio_works[lightbox.workIndex]}
+            actions={
+              <>
+                <LikeButton
+                  targetId={`${id}-work-${lightbox.workIndex}`}
+                  targetType="portfolio_work"
+                  userId={currentUser?.id}
+                />
+                {/* Hidden on your own work, as everywhere else — you cannot
+                    collect a piece you made. */}
+                {!isOwner && (
+                  <CollectButton
+                    userId={currentUser?.id}
+                    artistId={id}
+                    artistName={profile.display_name}
+                    work={profile.portfolio_works[lightbox.workIndex]}
+                    workRef={`${id}-work-${lightbox.workIndex}`}
+                  />
+                )}
+              </>
+            }
             onClose={() => setLightbox(null)}
           />
         )}

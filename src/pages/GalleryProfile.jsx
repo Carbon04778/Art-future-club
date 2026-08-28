@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { atLimit, FREE_GALLERY_WORK_LIMIT } from "@/lib/featureLimits";
 import ExpandableText from "@/components/ExpandableText";
 import MyCollection from "@/components/MyCollection";
 import FocalPointPicker from "@/components/FocalPointPicker";
@@ -104,7 +105,7 @@ export default function GalleryProfile() {
         <div className="mt-16 flex items-end justify-between border-b border-border pb-4">
           <h2 className="font-heading text-3xl tracking-[-0.01em]">Works</h2>
           {isOwner && (
-            <button onClick={() => (works.length >= 4 ? setShowUpgrade(true) : setShowAdd(true))} className="flex items-center gap-2 bg-primary px-4 py-2 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">
+            <button onClick={() => (atLimit(works.length, FREE_GALLERY_WORK_LIMIT) ? setShowUpgrade(true) : setShowAdd(true))} className="flex items-center gap-2 bg-primary px-4 py-2 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">
               <Plus className="h-3 w-3" /> Add Work
             </button>
           )}
@@ -276,19 +277,29 @@ export default function GalleryProfile() {
 
 function ProfileHeader({ profile, isOwner, onEdit }) {
   const typeLabel = profile.type === "Gallery" ? "Gallery / Museum" : profile.type;
+  // 50/50 means untouched, not "centre chosen".
+  const coverPositioned =
+    (profile.cover_focal_x != null && profile.cover_focal_x !== 50) ||
+    (profile.cover_focal_y != null && profile.cover_focal_y !== 50);
+
   return (
     <div>
       {profile.cover_image_url && (
         <div className="px-6 md:px-10 mt-8">
-          <div className="relative h-56 md:h-72 w-full overflow-hidden bg-muted">
+          {/* Same rule as event headers: a cover nobody has positioned shows
+              in full rather than being cropped from the centre, so listings
+              created before the picker existed are not cut off. */}
+          <div className={`relative w-full overflow-hidden bg-muted ${coverPositioned ? "h-56 md:h-72" : ""}`}>
             <Image
               src={profile.cover_image_url}
               alt={profile.display_name}
               fittingType="fill"
-              className="h-full w-full object-cover"
-              // Honour the point chosen when the cover was uploaded, rather
-              // than always cropping from the centre.
-              style={{ objectPosition: `${profile.cover_focal_x ?? 50}% ${profile.cover_focal_y ?? 50}%` }}
+              className={coverPositioned
+                ? "h-full w-full object-cover"
+                : "mx-auto max-h-72 w-auto max-w-full object-contain"}
+              style={coverPositioned
+                ? { objectPosition: `${profile.cover_focal_x}% ${profile.cover_focal_y}%` }
+                : undefined}
               data-artwork
             />
           </div>

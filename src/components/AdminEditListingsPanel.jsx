@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import FocalPointPicker from "@/components/FocalPointPicker";
 import ImageCropBox from "@/components/ImageCropBox";
 import { base44 } from "@/api/base44Client";
-import { Loader2, Search, Trash2, Pencil, Check, X, Mail, UserCheck } from "lucide-react";
+import { Loader2, Search, Trash2, Pencil, Check, X, Mail, UserCheck, Plus } from "lucide-react";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import { COLLECTOR_TYPES } from "@/lib/venueTypes";
 
@@ -253,6 +253,33 @@ function EditForm({ row, onCancel, onSave, busy }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
+  /*
+   * An artist's portfolio was not editable here at all — only their name and
+   * photo. A wrong title, a missing price or the wrong picture meant deleting
+   * the whole listing and building it again.
+   *
+   * Existing works keep their image_url; `file` is set only when a new
+   * picture is chosen, so nothing is re-uploaded needlessly.
+   */
+  const [works, setWorks] = useState(() =>
+    (row.portfolio_works || []).map((w) => ({
+      title: w.title || "",
+      year: w.year || "",
+      medium: w.medium || "",
+      dimensions: w.dimensions || "",
+      description: w.description || "",
+      available_for_sale: !!w.available_for_sale,
+      price: w.price || "",
+      currency: w.currency || "USD",
+      image_url: w.image_url || "",
+      additional_images: w.additional_images || [],
+      file: null,
+    }))
+  );
+
+  const updateWork = (i, k, v) =>
+    setWorks((prev) => prev.map((w, x) => (x === i ? { ...w, [k]: v } : w)));
+
   const coverPreview = React.useMemo(
     () => (coverRaw ? URL.createObjectURL(coverRaw) : ""),
     [coverRaw]
@@ -301,6 +328,32 @@ function EditForm({ row, onCancel, onSave, busy }) {
        * which (with no catch) left the button spinning.
        */
       const { cover_image_url: _c, cover_focal_x: _x, cover_focal_y: _y, ...common } = form;
+      // Upload any newly chosen artwork images, keeping the rest as they are.
+      let portfolio_works;
+      if (row._kind === "artist") {
+        portfolio_works = [];
+        for (const w of works) {
+          if (!w.title.trim() && !w.file && !w.image_url) continue;
+          let image_url = w.image_url;
+          if (w.file) {
+            const r = await base44.integrations.Core.UploadFile({ file: w.file });
+            image_url = r.file_url;
+          }
+          portfolio_works.push({
+            title: w.title.trim(),
+            year: w.year.trim(),
+            medium: w.medium.trim(),
+            dimensions: w.dimensions.trim(),
+            description: w.description.trim(),
+            image_url,
+            additional_images: w.additional_images || [],
+            available_for_sale: w.available_for_sale,
+            price: w.available_for_sale ? String(w.price).trim() : "",
+            currency: w.currency,
+          });
+        }
+      }
+
       const coverFields =
         row._kind === "collector"
           ? { cover_image_url, cover_focal_x: form.cover_focal_x, cover_focal_y: form.cover_focal_y }
@@ -309,6 +362,7 @@ function EditForm({ row, onCancel, onSave, busy }) {
       onSave(row, {
         ...common,
         ...coverFields,
+        ...(portfolio_works ? { portfolio_works } : {}),
         avatar_url,
         display_name: form.display_name.trim(),
         // Normalised so it matches what claiming looks for. An empty field
@@ -480,6 +534,106 @@ function EditForm({ row, onCancel, onSave, busy }) {
         </div>
       </div>
 
+      {/* Artwork — artists only. Galleries manage their works from their own
+          profile page, where the gallery-specific fields live. */}
+      {row._kind === "artist" && (
+        <div className="mt-6 border-t border-border pt-6">
+          <label className="font-mono-caps text-[10px] text-muted-foreground">
+            Artwork
+          </label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Existing pieces keep their image unless you choose a new one.
+          </p>
+
+          {works.map((w, i) => (
+            <div key={i} className="mt-4 border border-border p-3">
+              <div className="flex items-center justify-between">
+                <span className="font-mono-caps text-[10px] text-muted-foreground">
+                  Work {i + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setWorks((prev) => prev.filter((_, x) => x !== i))}
+                  className="text-muted-foreground transition-colors hover:text-destructive"
+                  aria-label={`Remove work ${i + 1}`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-start gap-3">
+                {(w.file || w.image_url) && (
+                  <img
+                    src={w.file ? URL.createObjectURL(w.file) : w.image_url}
+                    alt=""
+                    className="h-24 w-24 shrink-0 object-cover"
+                  />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className={`${field} flex-1 file:mr-3 file:border-0 file:bg-muted file:px-2 file:py-1 file:font-mono-caps file:text-[10px]`}
+                  onChange={(e) => updateWork(i, "file", e.target.files?.[0] || null)}
+                />
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <input className={field} placeholder="Title" value={w.title}
+                  onChange={(e) => updateWork(i, "title", e.target.value)} />
+                <input className={field} placeholder="Year" value={w.year}
+                  onChange={(e) => updateWork(i, "year", e.target.value)} />
+                <input className={field} placeholder="Medium" value={w.medium}
+                  onChange={(e) => updateWork(i, "medium", e.target.value)} />
+                <input className={field} placeholder="Dimensions, e.g. 180 x 140 cm"
+                  maxLength={60} value={w.dimensions}
+                  onChange={(e) => updateWork(i, "dimensions", e.target.value)} />
+              </div>
+
+              <textarea rows={2} className={`${field} mt-3`} placeholder="Description"
+                value={w.description}
+                onChange={(e) => updateWork(i, "description", e.target.value)} />
+
+              <label className="mt-3 flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={w.available_for_sale}
+                  onChange={(e) => updateWork(i, "available_for_sale", e.target.checked)} />
+                Available for sale
+              </label>
+
+              {w.available_for_sale && (
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <input className={field} placeholder="Price" value={w.price}
+                    onChange={(e) => updateWork(i, "price", e.target.value)} />
+                  <select className={field} value={w.currency}
+                    onChange={(e) => updateWork(i, "currency", e.target.value)}>
+                    {["USD","HKD","GBP","EUR","SGD","AUD","CAD"].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={() =>
+              setWorks((prev) => [
+                // Newest first, matching the artist's own editor.
+                {
+                  title: "", year: "", medium: "", dimensions: "", description: "",
+                  available_for_sale: false, price: "", currency: "USD",
+                  image_url: "", additional_images: [], file: null,
+                },
+                ...prev,
+              ])
+            }
+            className="mt-4 inline-flex items-center gap-2 border border-border px-4 py-2 font-mono-caps text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          >
+            <Plus className="h-3 w-3" /> Add work
+          </button>
+        </div>
+      )}
+
       {uploadError && (
         <div className="mt-4 border border-destructive bg-destructive/10 p-3">
           <p className="font-mono-caps text-[10px] text-destructive">Could not save</p>
@@ -507,4 +661,3 @@ function EditForm({ row, onCancel, onSave, busy }) {
     </form>
   );
 }
-

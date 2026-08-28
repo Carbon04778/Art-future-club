@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { LIMITS_ENABLED } from "@/lib/featureLimits";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
 import { Plus, X, Loader2, MapPin, ExternalLink, Pencil, Trash2 } from "lucide-react";
@@ -200,6 +201,8 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
     address: exhibition?.address || "",
     external_link: exhibition?.external_link || "",
     image_url: exhibition?.image_url || "",
+    image_focal_x: exhibition?.image_focal_x ?? 50,
+    image_focal_y: exhibition?.image_focal_y ?? 50,
     is_free: exhibition?.is_free ?? true,
     ticket_price: exhibition?.ticket_price || "",
     chapter:
@@ -213,6 +216,11 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
       "Other",
   });
   const [file, setFile] = useState(null);
+  // Preview the chosen file so the focal point can be set before uploading.
+  const filePreview = React.useMemo(
+    () => (file ? URL.createObjectURL(file) : ""),
+    [file]
+  );
   const [saving, setSaving] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState("");
@@ -222,7 +230,7 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
   const submit = async (e) => {
     e.preventDefault();
     const start = new Date(form.start_date);
-    if (!isNaN(start) && !isEdit) {
+    if (LIMITS_ENABLED && !isNaN(start) && !isEdit) {
       // The one-per-month limit applies to NEW exhibitions only — editing an
       // existing one would otherwise collide with itself.
       const ym = `${start.getFullYear()}-${start.getMonth()}`;
@@ -323,6 +331,19 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
           <div>
             <label className="font-mono-caps text-[11px] text-muted-foreground">Exhibition Image</label>
             <input type="file" accept="image/*" className={`${input} mt-2 file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`} onChange={(e) => setFile(e.target.files?.[0])} />
+            {/* The event page shows this image in a wide 16:9 banner, so a
+                tall or square photograph has to be cropped. The crop was
+                always taken from the centre, which cut the top and bottom off
+                — drag to choose what survives it instead. */}
+            {(filePreview || form.image_url) && (
+              <FocalPointPicker
+                src={filePreview || form.image_url}
+                aspect={16 / 9}
+                x={form.image_focal_x ?? 50}
+                y={form.image_focal_y ?? 50}
+                onChange={(x, y) => setForm((f) => ({ ...f, image_focal_x: x, image_focal_y: y }))}
+              />
+            )}
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.is_free} onChange={(e) => set("is_free", e.target.checked)} className="h-4 w-4 accent-primary" />
@@ -346,7 +367,14 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
               <Link to="/upgrade" className="mt-3 inline-flex bg-primary px-5 py-2.5 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">Upgrade Membership ↑</Link>
             </div>
           )}
-          {!blocked && <p className="font-mono-caps text-[10px] text-muted-foreground/70">This exhibition will be published to the public Events page. Free plans: 1 exhibition per month.</p>}
+          {!blocked && (
+            <p className="font-mono-caps text-[10px] text-muted-foreground/70">
+              This exhibition will be published to the public Events page.
+              {/* The monthly cap is not mentioned while limits are off — it
+                  would describe a restriction that no longer applies. */}
+              {LIMITS_ENABLED && " Free plans: 1 exhibition per month."}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <button type="submit" disabled={saving} className="flex items-center gap-2 bg-primary px-8 py-4 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80 disabled:opacity-50">
               {saving && <Loader2 className="h-3 w-3 animate-spin" />} Publish Exhibition

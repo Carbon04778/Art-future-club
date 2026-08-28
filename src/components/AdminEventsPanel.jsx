@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import FocalPointPicker from "@/components/FocalPointPicker";
 import { base44 } from "@/api/base44Client";
 import { Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from "lucide-react";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
@@ -255,9 +256,20 @@ function EditEventForm({ ev, busy, onCancel, onSave }) {
   const field =
     "w-full border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
+    let image_url = form.image_url;
+    if (imageFile) {
+      try {
+        const r = await base44.integrations.Core.UploadFile({ file: imageFile });
+        image_url = r.file_url;
+      } catch {
+        // Fall through with the existing image rather than losing the rest of
+        // the edit because one upload failed.
+      }
+    }
     onSave(ev, {
+      image_url,
       ...form,
       title: form.title.trim(),
       // Dates must go back as ISO, and an empty end date must be null rather
@@ -315,6 +327,28 @@ function EditEventForm({ ev, busy, onCancel, onSave }) {
         <div className="md:col-span-2">
           <label className="font-mono-caps text-[10px] text-muted-foreground">Link</label>
           <input className={`${field} mt-1`} value={form.external_link} onChange={(e) => set("external_link", e.target.value)} placeholder="https://" />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="font-mono-caps text-[10px] text-muted-foreground">Header image</label>
+          <input
+            type="file"
+            accept="image/*"
+            className={`${field} mt-1 file:mr-3 file:border-0 file:bg-muted file:px-2 file:py-1 file:font-mono-caps file:text-[10px]`}
+            onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+          />
+          {/* Shown in a wide banner on the event page, so a tall photograph is
+              cropped. Drag to choose which part stays in frame rather than
+              always taking the centre. */}
+          {(imagePreview || form.image_url) && (
+            <FocalPointPicker
+              src={imagePreview || form.image_url}
+              aspect={16 / 9}
+              x={form.image_focal_x}
+              y={form.image_focal_y}
+              onChange={(x, y) => setForm((f) => ({ ...f, image_focal_x: x, image_focal_y: y }))}
+            />
+          )}
         </div>
 
         <div className="md:col-span-2">

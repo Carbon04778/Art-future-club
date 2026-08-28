@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { atLimit, FREE_ARTWORK_LIMIT } from "@/lib/featureLimits";
 import WordLimitedTextarea from "@/components/WordLimitedTextarea";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -102,7 +103,8 @@ export default function ArtistProfileEdit() {
   };
 
   const addWork = () => {
-    if (form.portfolio_works.length >= 4) { setUpgradePrompt(true); return; }
+    // Limits are currently disabled — see src/lib/featureLimits.js.
+    if (atLimit(form.portfolio_works.length, FREE_ARTWORK_LIMIT)) { setUpgradePrompt(true); return; }
     // Prepended, not appended: a new work appears at the top of the list where
     // it can be filled in immediately, rather than below everything already
     // there. Display order follows this array, so newest also shows first.

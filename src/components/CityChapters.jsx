@@ -22,15 +22,10 @@ function ChapterBlock({ chapter, events }) {
    * excluded — a chapter advertising last month's opening looks abandoned.
    */
   const upcoming = (events || [])
-    .filter((e) => {
-      if (!e.start_date) return false;
-      // An exhibition that OPENED last month but runs until December is still
-      // on — and is the most relevant thing a chapter can show. Filtering on
-      // start_date alone treated it as past and hid it, which is why a chapter
-      // with a full programme could read "nothing scheduled".
-      const ends = e.end_date ? new Date(e.end_date) : new Date(e.start_date);
-      return ends >= new Date();
-    })
+    // Strictly upcoming: the start date must be in the future. An exhibition
+    // already open is deliberately NOT shown here — "Upcoming Gatherings"
+    // means what it says.
+    .filter((e) => e.start_date && new Date(e.start_date) >= new Date())
     .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
     .slice(0, 3);
   return (

@@ -47,6 +47,18 @@ export default function EventDetail() {
       });
   }, [id]);
 
+  /*
+   * Has anyone actually chosen what part of this image matters?
+   *
+   * 50/50 is the untouched default, so treat it as "never positioned" rather
+   * than "centre deliberately chosen". Events created before the picker
+   * existed then show the whole image instead of a centre crop.
+   */
+  const positioned =
+    !!event &&
+    ((event.image_focal_x != null && event.image_focal_x !== 50) ||
+      (event.image_focal_y != null && event.image_focal_y !== 50));
+
   if (loading) {
     return (
       <>
@@ -126,14 +138,37 @@ export default function EventDetail() {
       {/* image */}
       {event.image_url && (
         <section className="px-6 md:px-10">
-          <div className="overflow-hidden" data-artwork>
-            <Image
-              src={event.image_url}
-              alt={event.title}
-              fittingType="fill"
-              className="aspect-[16/9] w-full"
-              style={{ objectPosition: `${event.image_focal_x ?? 50}% ${event.image_focal_y ?? 50}%` }}
-            />
+          {/*
+            Two behaviours, deliberately.
+
+            An event whose header has NEVER been positioned shows the WHOLE
+            image — nothing cropped, letterboxed if the shape does not match.
+            Every event created before this control existed therefore looks
+            right immediately, with no work and no re-uploading.
+
+            Once someone drags the picker on an event, that event switches to
+            a full-bleed 16:9 banner cropped to the point they chose. Setting
+            a focal point is the signal that they have decided what matters in
+            the picture, so we can safely fill the frame.
+          */}
+          <div className="overflow-hidden bg-muted/30" data-artwork>
+            {positioned ? (
+              <Image
+                src={event.image_url}
+                alt={event.title}
+                fittingType="fill"
+                className="aspect-[16/9] w-full object-cover"
+                style={{
+                  objectPosition: `${event.image_focal_x}% ${event.image_focal_y}%`,
+                }}
+              />
+            ) : (
+              <img
+                src={event.image_url}
+                alt={event.title}
+                className="mx-auto max-h-[70vh] w-auto max-w-full object-contain"
+              />
+            )}
           </div>
         </section>
       )}

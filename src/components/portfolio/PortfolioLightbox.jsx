@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
  * was squeezed into a narrow column and hard to read. Here there is room for
  * it, and it is the moment someone is actually looking at the piece.
  */
-export default function PortfolioLightbox({ images, startIndex = 0, work, onClose }) {
+export default function PortfolioLightbox({ images, startIndex = 0, work, actions, onClose }) {
   const [idx, setIdx] = useState(startIndex || 0);
   const total = images.length;
 
@@ -96,6 +96,20 @@ export default function PortfolioLightbox({ images, startIndex = 0, work, onClos
               <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
                 {work.description}
               </p>
+            )}
+
+            {/*
+              Like and Collect belong here.
+
+              They lived only in a small row beneath the grid thumbnail, so at
+              the moment someone had decided they wanted a piece — looking at
+              it properly, enlarged — there was nothing to click. They had to
+              close the lightbox and find the link again.
+            */}
+            {actions && (
+              <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-border pt-4">
+                {actions}
+              </div>
             )}
           </div>
         )}

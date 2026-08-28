@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { isLocked } from "@/lib/featureLimits";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Plus, ExternalLink, X, Loader2, Calendar, MapPin } from "lucide-react";
@@ -113,10 +114,10 @@ function CallCard({ call, expired, isPaidMember }) {
         </div>
         {call.external_link && (
           <a
-            href={isPaidMember ? call.external_link : undefined}
+            href={isLocked(isPaidMember) ? undefined : call.external_link}
             target="_blank" rel="noreferrer"
             className="shrink-0 flex items-center gap-1.5 border border-border px-4 py-2 font-mono-caps text-[11px] text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-            onClick={(e) => { e.stopPropagation(); if (!isPaidMember) { e.preventDefault(); setShowUpgrade(true); } }}>
+            onClick={(e) => { e.stopPropagation(); if (isLocked(isPaidMember)) { e.preventDefault(); setShowUpgrade(true); } }}>
             <ExternalLink className="h-3 w-3" /> Apply
           </a>
         )}

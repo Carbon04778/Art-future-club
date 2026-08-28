@@ -195,7 +195,16 @@ export default function EventCalendar() {
                       <div className="flex flex-col items-end gap-3">
                         {ev.image_url && (
                           <div className="h-24 w-24 overflow-hidden shrink-0" data-artwork>
-                            <Image src={ev.image_url} alt={ev.title} fittingType="fill" className="h-full w-full object-cover" />
+                            <Image
+                              src={ev.image_url}
+                              alt={ev.title}
+                              fittingType="fill"
+                              className="h-full w-full object-cover"
+                              // Same focal point the header uses, so the
+                              // thumbnail and the event page show the same
+                              // part of the picture.
+                              style={{ objectPosition: `${ev.image_focal_x ?? 50}% ${ev.image_focal_y ?? 50}%` }}
+                            />
                           </div>
                         )}
                         {ev.external_link && (
