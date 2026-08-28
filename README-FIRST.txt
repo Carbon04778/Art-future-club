@@ -1,9 +1,9 @@
-ART FUTURE CLUB — event times, saving, and image sizes
-======================================================
+ART FUTURE CLUB — PDF portfolio export
+======================================
 
 APPLY
   1. Replace your whole  src  folder.
-  2. Copy the EIGHT files in  scripts/  over yours.
+  2. Copy the NINE files in  scripts/  over yours.
   3. Replace  package.json.
   4. Copy  vercel.json  into the project ROOT.
   5. npm run verify:all
@@ -12,75 +12,68 @@ APPLY
 No SQL.
 
 
-1. "THE TIME IS DIFFERENT FROM WHAT I ENTERED"  — FOUND AND FIXED
-=================================================================
-Timestamps are stored in UTC. A datetime-local input shows and returns LOCAL
-time. The forms took the first 16 characters of the stored ISO string — the
-right SHAPE, but a UTC time labelled as local.
+WHY THE TEXT RAN OFF THE PAGE
+=============================
+Only BODY text was wrapped. Headings, metadata and CV rows were drawn with
+doc.text() and no width, so anything long ran straight past the right margin
+and was lost.
 
-Reproduced exactly:
+Reproduced with the old code: a CV row pushed the venue 5mm off the page.
 
-    she types             2026-09-01T18:00   (6pm Hong Kong)
-    database stores       2026-09-01T10:00Z
-    reopened, she sees    2026-09-01T10:00   <-- eight hours out
+There were three more faults alongside it:
 
-And saving again shifted it a further eight hours. Every edit moved the event.
+  * Page breaks were guessed. A few checks sat between SECTIONS, but nothing
+    checked before drawing an individual line — so text ran off the bottom
+    too, and a work could split with its title on one page and its details on
+    the next.
 
-There is now one shared helper — src/lib/datetime.js — used by the admin
-events panel, the exhibition form and the article publish date. Verified in
-Hong Kong, Lagos and New York, including five consecutive saves with no drift.
+  * CV rows used fixed columns at 20mm and 100mm. A title longer than 80mm
+    ran underneath the venue beside it.
 
+  * No images at all.
 
-2. "EDITING THE EVENT DOES NOT SAVE"  — A SECOND BUG
-====================================================
-The payload spread the form AFTER image_url:
-
-    { image_url, ...form }
-
-`form` carries the OLD image_url, so it overwrote the file that had just been
-uploaded. A new header image was uploaded to storage and then discarded.
-
-The end date was also still being converted the old way, so it drifted even
-after the start date was fixed.
+Every piece of text now goes through one function that wraps to the column
+width and takes a page break when it runs out of room.
 
 
-3. GALLERY COVER IMAGES WERE A QUARTER THE SIZE
-===============================================
-    event header    aspect-[16/9], up to 70vh
-    gallery cover   a fixed 288px
+ARTWORK IS NOW INCLUDED
+=======================
+Each piece appears with its image above the title, medium, dimensions, year,
+description and price.
 
-The same photograph filled the screen on an event page and read as a thin
-strip on a gallery. Gallery covers now use the same ratio and the same 70vh
-cap. The enlarged artwork view was already correct.
+  * Aspect ratio is preserved — nothing is stretched.
+  * Images are downscaled to a 1400px long edge so the file stays small
+    enough to email. A full-resolution portfolio would be too large to send,
+    which defeats the point.
+  * WebP is converted through a canvas, since jsPDF cannot embed it directly.
+  * An image that fails to load is skipped rather than failing the export.
+  * The button shows "Adding artwork 3 of 8..." as it works.
 
-
-4. CHAPTER PAGE GATHERINGS
-==========================
-The landing and events pages were fixed earlier; the chapter pages were
-missed. They treated an event as current until its END date, so a June show
-with no end date still showed in August, and they matched the chapter name
-exactly so anything cased differently was dropped. All three pages now agree.
+Page numbers are added on every page at the end, so the count is right.
 
 
-NEW TESTS
-=========
-scripts/verify-datetime.mjs     17 checks, run in several timezones
-scripts/verify-admin-forms.mjs  15 checks — opens every admin EDIT form with
-                                a real record, which the tab test could not do
-                                because it uses empty lists
+NEW TEST
+========
+scripts/verify-pdf.mjs generates a REAL PDF from deliberately awkward content
+— a 130-character title, an unbroken 75-letter word, forty long CV rows — and
+fails if any line crosses the right margin or falls below the bottom one.
 
-Both are part of npm run verify:all.
+Part of npm run verify:all.
 
 
-!! STILL WORTH CHECKING: VERCEL
-===============================
-The screenshot showed June events as "upcoming" on 28 August and the "7 ACTIVE
-EXHIBITIONS" line removed months ago. Neither is possible with current code —
-Vercel is serving a stale deploy. Until that is fixed she will keep reporting
-things that are already solved.
+HOW TO TEST
+===========
+Open an artist profile with several works and click "Export PDF Portfolio".
+
+Check: no text is cut off at any edge; each artwork appears with its picture;
+long exhibition titles wrap instead of running under the venue; page numbers
+are correct.
+
+Try it on an artist with a long bio and a full CV — that is where the old
+version broke down.
 
 
 VERIFIED
 ========
-46/46 routes · build clean · 33 admin-tab · 15 admin-form · 17 datetime ·
-11 gathering-ordering · 8 image-size · categories · layout · modals.
+46/46 routes · build clean · 5 generated-PDF checks · 21 implementation
+checks · layout · datetime · categories · admin tabs · admin forms · modals.
