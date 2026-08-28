@@ -289,14 +289,18 @@ function ProfileHeader({ profile, isOwner, onEdit }) {
           {/* Same rule as event headers: a cover nobody has positioned shows
               in full rather than being cropped from the centre, so listings
               created before the picker existed are not cut off. */}
-          <div className={`relative w-full overflow-hidden bg-muted ${coverPositioned ? "h-56 md:h-72" : ""}`}>
+          {/* Matched to the event header. This was a fixed 288px tall — about a
+              quarter the height an event image gets — so a gallery's cover
+              read as a thin strip while the same picture on an event page
+              filled the screen. */}
+          <div className={`relative w-full overflow-hidden bg-muted ${coverPositioned ? "aspect-[16/9] max-h-[70vh]" : ""}`}>
             <Image
               src={profile.cover_image_url}
               alt={profile.display_name}
               fittingType="fill"
               className={coverPositioned
                 ? "h-full w-full object-cover"
-                : "mx-auto max-h-72 w-auto max-w-full object-contain"}
+                : "mx-auto max-h-[70vh] w-auto max-w-full object-contain"}
               style={coverPositioned
                 ? { objectPosition: `${profile.cover_focal_x}% ${profile.cover_focal_y}%` }
                 : undefined}

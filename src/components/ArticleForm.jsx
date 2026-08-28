@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { toLocalInput, fromLocalInput } from "@/lib/datetime";
 import { base44 } from "@/api/base44Client";
 import { X, Loader2, Trash2 } from "lucide-react";
 import ArticlePreview from "@/components/ArticlePreview";
@@ -68,7 +69,7 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
     cover_image_alt: article?.cover_image_alt || "",
     cover_image_caption: article?.cover_image_caption || "",
     layout: ["cover_top", "image_after_intro", "gallery_middle", "intro_middle"].includes(article?.layout) ? article.layout : "cover_top",
-    publish_date: article?.publish_date ? article?.publish_date.slice(0, 16) : "",
+    publish_date: toLocalInput(article?.publish_date),
     published: article?.published ?? true,
     featured: article?.featured ?? false,
     // SEO
@@ -371,7 +372,7 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
       // saved, and an edit appeared to do nothing. null explicitly clears it.
       geo_lat: form.geo_lat === "" || form.geo_lat == null ? null : Number(form.geo_lat),
       geo_lng: form.geo_lng === "" || form.geo_lng == null ? null : Number(form.geo_lng),
-      publish_date: form.publish_date ? new Date(form.publish_date).toISOString() : null,
+      publish_date: fromLocalInput(form.publish_date),
     };
     if (isEdit) {
       await base44.entities.Article.update(article.id, payload);

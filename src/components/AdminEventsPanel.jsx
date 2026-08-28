@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toLocalInput, fromLocalInput } from "@/lib/datetime";
 import FocalPointPicker from "@/components/FocalPointPicker";
 import { base44 } from "@/api/base44Client";
 import { Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from "lucide-react";
@@ -238,7 +239,6 @@ export default function AdminEventsPanel() {
 /** Inline editor for one event. */
 function EditEventForm({ ev, busy, onCancel, onSave }) {
   // datetime-local needs "YYYY-MM-DDTHH:mm", so trim the stored ISO string.
-  const forInput = (d) => (d ? String(d).slice(0, 16) : "");
 
   const [form, setForm] = useState({
     title: ev.title || "",
@@ -246,8 +246,8 @@ function EditEventForm({ ev, busy, onCancel, onSave }) {
     event_type: ev.event_type || "Exhibition",
     venue: ev.venue || "",
     address: ev.address || "",
-    start_date: forInput(ev.start_date),
-    end_date: forInput(ev.end_date),
+    start_date: toLocalInput(ev.start_date),
+    end_date: toLocalInput(ev.end_date),
     external_link: ev.external_link || "",
     description: ev.description || "",
     image_url: ev.image_url || "",
@@ -284,13 +284,16 @@ function EditEventForm({ ev, busy, onCancel, onSave }) {
       }
     }
     onSave(ev, {
-      image_url,
       ...form,
+      // AFTER the spread, not before: `form` carries the OLD image_url, so
+      // spreading it last overwrote the file that had just been uploaded.
+      image_url,
       title: form.title.trim(),
-      // Dates must go back as ISO, and an empty end date must be null rather
-      // than "" or the column rejects it.
-      start_date: form.start_date ? new Date(form.start_date).toISOString() : ev.start_date,
-      end_date: form.end_date ? new Date(form.end_date).toISOString() : null,
+      // Converted from the viewer's own timezone. Slicing the ISO string put
+      // a UTC time into a local input, so a 6pm event reopened as 10am and
+      // moved again on every save.
+      start_date: fromLocalInput(form.start_date) || ev.start_date,
+      end_date: fromLocalInput(form.end_date),
     });
   };
 

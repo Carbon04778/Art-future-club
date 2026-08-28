@@ -11,7 +11,7 @@
     "lint:fix": "eslint . --fix",
     "verify": "node scripts/verify-provider.mjs",
     "verify:render": "vite-node --mode test scripts/verify-render.mjs",
-    "verify:all": "npm run verify && npm run verify:backend && npm run verify:supabase && npm run verify:images && npm run verify:layout && npm run verify:adminpanel && npm run verify:events && npm run verify:categories && npm run verify:admintabs && npm run verify:adminforms && npm run verify:modals && npm run verify:render && npm run build",
+    "verify:all": "npm run verify && npm run verify:backend && npm run verify:supabase && npm run verify:images && npm run verify:layout && npm run verify:adminpanel && npm run verify:events && npm run verify:datetime && npm run verify:categories && npm run verify:admintabs && npm run verify:adminforms && npm run verify:modals && npm run verify:render && npm run build",
     "verify:supabase": "node scripts/verify-supabase.mjs",
     "localise-images": "node scripts/localise-images.mjs",
     "verify:backend": "node scripts/verify-backend.mjs",
@@ -22,7 +22,8 @@
     "verify:events": "node scripts/verify-events.mjs",
     "verify:categories": "node scripts/verify-categories.mjs",
     "verify:admintabs": "vite-node --mode test scripts/verify-admin-tabs.mjs",
-    "verify:adminforms": "vite-node --mode test scripts/verify-admin-forms.mjs"
+    "verify:adminforms": "vite-node --mode test scripts/verify-admin-forms.mjs",
+    "verify:datetime": "node scripts/verify-datetime.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.2",

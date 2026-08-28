@@ -1,69 +1,86 @@
-ART FUTURE CLUB — chapter ordering + admin form testing
-=======================================================
+ART FUTURE CLUB — event times, saving, and image sizes
+======================================================
 
 APPLY
   1. Replace your whole  src  folder.
-  2. Copy the SEVEN files in  scripts/  over yours.
+  2. Copy the EIGHT files in  scripts/  over yours.
   3. Replace  package.json.
-  4. Copy  vercel.json  into the project ROOT (beside package.json).
+  4. Copy  vercel.json  into the project ROOT.
   5. npm run verify:all
   6. Hard-refresh with Ctrl+Shift+R.
 
-No SQL. 014, 015 and 016 have all run; nothing here adds a column.
+No SQL.
 
 
-!! READ THIS FIRST — THE VERCEL SITE IS SERVING OLD CODE
-=======================================================
-The screenshot showed 18 June, 25 June and 4 July under "Upcoming Gatherings"
-on 28 August, and the "7 ACTIVE EXHIBITIONS - 29C HUMID" line that was removed
-months ago.
+1. "THE TIME IS DIFFERENT FROM WHAT I ENTERED"  — FOUND AND FIXED
+=================================================================
+Timestamps are stored in UTC. A datetime-local input shows and returns LOCAL
+time. The forms took the first 16 characters of the stored ISO string — the
+right SHAPE, but a UTC time labelled as local.
 
-Neither is possible with the current build. Vercel is running a stale deploy.
+Reproduced exactly:
 
-Until that is fixed, she will keep reporting bugs that are already solved —
-which accounts for most of today. Check Vercel -> Deployments: is the newest
-one green, is it from the latest commit, and is the project connected to the
-same GitHub repo?
+    she types             2026-09-01T18:00   (6pm Hong Kong)
+    database stores       2026-09-01T10:00Z
+    reopened, she sees    2026-09-01T10:00   <-- eight hours out
+
+And saving again shifted it a further eight hours. Every edit moved the event.
+
+There is now one shared helper — src/lib/datetime.js — used by the admin
+events panel, the exhibition form and the article publish date. Verified in
+Hong Kong, Lagos and New York, including five consecutive saves with no drift.
 
 
-CHAPTER PAGE GATHERINGS — FIXED
+2. "EDITING THE EVENT DOES NOT SAVE"  — A SECOND BUG
+====================================================
+The payload spread the form AFTER image_url:
+
+    { image_url, ...form }
+
+`form` carries the OLD image_url, so it overwrote the file that had just been
+uploaded. A new header image was uploaded to storage and then discarded.
+
+The end date was also still being converted the old way, so it drifted even
+after the start date was fixed.
+
+
+3. GALLERY COVER IMAGES WERE A QUARTER THE SIZE
+===============================================
+    event header    aspect-[16/9], up to 70vh
+    gallery cover   a fixed 288px
+
+The same photograph filled the screen on an event page and read as a thin
+strip on a gallery. Gallery covers now use the same ratio and the same 70vh
+cap. The enlarged artwork view was already correct.
+
+
+4. CHAPTER PAGE GATHERINGS
+==========================
+The landing and events pages were fixed earlier; the chapter pages were
+missed. They treated an event as current until its END date, so a June show
+with no end date still showed in August, and they matched the chapter name
+exactly so anything cased differently was dropped. All three pages now agree.
+
+
+NEW TESTS
+=========
+scripts/verify-datetime.mjs     17 checks, run in several timezones
+scripts/verify-admin-forms.mjs  15 checks — opens every admin EDIT form with
+                                a real record, which the tab test could not do
+                                because it uses empty lists
+
+Both are part of npm run verify:all.
+
+
+!! STILL WORTH CHECKING: VERCEL
 ===============================
-The landing page and the events page were corrected earlier; the chapter pages
-were missed. Two faults there:
-
-  * They treated an event as current until its END date. A show that opened in
-    June with no end date recorded still appeared in August.
-  * They matched the chapter name EXACTLY, so anything cased differently or
-    with a stray space was dropped.
-
-All three pages now agree: strictly upcoming, soonest first, matched
-case-insensitively.
-
-
-"THE EVENT EDIT PAGE GOES BLANK"
-================================
-I could not reproduce it. I mounted the panel with the exact event from the
-screenshot — chapter "Other", no end date — clicked Edit, and the form opened
-prefilled. Then again with no image at all. Both fine.
-
-This points at the stale deploy above rather than the code.
-
-BUT THE GAP THAT LET IT REACH HER WAS REAL, so I closed it:
-
-  scripts/verify-admin-forms.mjs  (new, 15 checks)
-
-  The existing tab test clicks every admin tab, but with EMPTY lists — so a
-  form that crashes on a real record passes it. This seeds each panel with a
-  realistic row, clicks Edit, and fails if the form crashes or renders blank.
-
-  It covers Events, Edit Listings and Editorial, using deliberately awkward
-  fixtures: an event with a null end date and a null image, an artist with a
-  portfolio work, a gallery with a cover.
-
-  Now part of npm run verify:all.
+The screenshot showed June events as "upcoming" on 28 August and the "7 ACTIVE
+EXHIBITIONS" line removed months ago. Neither is possible with current code —
+Vercel is serving a stale deploy. Until that is fixed she will keep reporting
+things that are already solved.
 
 
 VERIFIED
 ========
-46/46 routes · build clean · 33 admin-tab checks · 15 admin-FORM checks ·
-11 gathering-ordering checks · categories · layout · modals · provider.
+46/46 routes · build clean · 33 admin-tab · 15 admin-form · 17 datetime ·
+11 gathering-ordering · 8 image-size · categories · layout · modals.

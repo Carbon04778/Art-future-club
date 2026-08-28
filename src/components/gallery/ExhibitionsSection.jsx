@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toLocalInput, fromLocalInput } from "@/lib/datetime";
 import { LIMITS_ENABLED } from "@/lib/featureLimits";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -190,14 +191,12 @@ function ExhibitionGroup({ title, events, faded, isOwner, onEdit, onDelete, dele
  */
 function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated }) {
   const isEdit = !!exhibition;
-  // datetime-local needs "YYYY-MM-DDTHH:mm", so trim the stored ISO string.
-  const forInput = (d) => (d ? String(d).slice(0, 16) : "");
   const [form, setForm] = useState({
     title: exhibition?.title || "",
     description: exhibition?.description || "",
     event_type: exhibition?.event_type || "Exhibition",
-    start_date: forInput(exhibition?.start_date),
-    end_date: forInput(exhibition?.end_date),
+    start_date: toLocalInput(exhibition?.start_date),
+    end_date: toLocalInput(exhibition?.end_date),
     address: exhibition?.address || "",
     external_link: exhibition?.external_link || "",
     image_url: exhibition?.image_url || "",
@@ -246,8 +245,8 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
     const payload = {
       ...form,
       image_url,
-      start_date: new Date(form.start_date).toISOString(),
-      end_date: form.end_date ? new Date(form.end_date).toISOString() : undefined,
+      start_date: fromLocalInput(form.start_date),
+      end_date: fromLocalInput(form.end_date),
       // Was hardcoded to "Other", so every exhibition was invisible on the
       // chapter pages. Defaults to the gallery's own chapter and can be
       // overridden per exhibition — a gallery may show elsewhere.
