@@ -250,7 +250,22 @@ function EditEventForm({ ev, busy, onCancel, onSave }) {
     end_date: forInput(ev.end_date),
     external_link: ev.external_link || "",
     description: ev.description || "",
+    image_url: ev.image_url || "",
+    image_focal_x: ev.image_focal_x ?? 50,
+    image_focal_y: ev.image_focal_y ?? 50,
   });
+
+  /*
+   * These were used in the markup but never declared — the whole Events tab
+   * therefore crashed to a blank page as soon as it rendered an edit form.
+   * Replacing the image is optional; the focal point can be adjusted without
+   * choosing a new file.
+   */
+  const [imageFile, setImageFile] = useState(null);
+  const imagePreview = React.useMemo(
+    () => (imageFile ? URL.createObjectURL(imageFile) : ""),
+    [imageFile]
+  );
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const field =

@@ -96,11 +96,22 @@ export default function CityChapterDetail() {
       })
       .catch(() => { setVenueLinks({}); setVenues([]); });
 
-    base44.entities.Event.filter({ chapter: chapter.city }, 'start_date', 200)
+    /*
+     * Upcoming gatherings for this chapter, soonest first.
+     *
+     * Two faults here. It matched `chapter` exactly, so an event whose chapter
+     * differed by case or a stray space was dropped. And it treated an event
+     * as current until its END date, so a show that opened in June and had no
+     * end date recorded still appeared in August — the "old dates showing as
+     * upcoming" problem. The landing page uses start_date; this now matches it.
+     */
+    base44.entities.Event.list('start_date', 500)
       .then((rows) => {
+        const city = chapter.city.trim().toLowerCase();
         const now = new Date();
         const upcoming = rows
-          .filter((e) => new Date(e.end_date || e.start_date) >= now)
+          .filter((e) => (e.chapter || '').trim().toLowerCase() === city)
+          .filter((e) => e.start_date && new Date(e.start_date) >= now)
           .sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
         setEventTotal(upcoming.length);
         setEvents(upcoming.slice(0, EVENT_LIMIT));

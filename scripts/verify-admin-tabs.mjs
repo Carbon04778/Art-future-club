@@ -18,7 +18,25 @@ const { MemoryRouter }=await import("react-router-dom");
 // Stub the backend: an admin user, and empty lists for everything else.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 mkdirSync(".tmp",{recursive:true});
-const entity = { list: async()=>[], filter: async()=>[], update: async(i,p)=>({id:i,...p}), delete: async()=>{}, create: async(o)=>({id:"x",...o}) };
+/*
+ * Realistic rows, not empty lists.
+ *
+ * An empty list means no row ever renders, so an edit form that crashes is
+ * never reached — which is exactly how a blank Events tab reached the client.
+ * These cover the awkward shapes too: missing dates, no chapter, null image.
+ */
+const ROWS = [
+  { id:"r1", title:"An item", display_name:"An item", chapter:"Hong Kong", type:"Gallery",
+    event_type:"Exhibition", discipline:"Painting", based_in:"Hong Kong",
+    start_date:"2026-09-01T00:00:00Z", end_date:"2026-09-10T00:00:00Z",
+    email:"a@t.com", published:true, image_url:"https://x/i.jpg", portfolio_works:[] },
+  { id:"r2", title:"Missing everything", display_name:"Missing everything",
+    event_type:"Talk", published:false, portfolio_works:[] },
+];
+const entity = {
+  list: async()=>ROWS, filter: async()=>ROWS,
+  update: async(i,p)=>({id:i,...p}), delete: async()=>{}, create: async(o)=>({id:"x",...o}),
+};
 globalThis.__stub__ = {
   auth: { me: async()=>({ id:"admin1", email:"a@t.com", full_name:"Admin", role:"admin" }) },
   entities: new Proxy({}, { get: () => entity }),
@@ -52,6 +70,14 @@ for (const tab of TABS) {
 
   btn.dispatchEvent(new window.MouseEvent("click",{bubbles:true}));
   await new Promise(r=>setTimeout(r,350));
+
+  // Open an editor if the tab has one — a form that crashes is the fault
+  // this test exists to catch.
+  const editBtn = [...c.querySelectorAll("button")].find(b => /^Edit$/i.test(b.textContent.trim()));
+  if (editBtn) {
+    editBtn.dispatchEvent(new window.MouseEvent("click",{bubbles:true}));
+    await new Promise(r=>setTimeout(r,350));
+  }
 
   const text = (c.textContent||"").trim();
   check(`"${tab}" opens without crashing`, captured.length === 0, captured[0] || "");
