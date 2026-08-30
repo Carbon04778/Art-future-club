@@ -81,8 +81,12 @@ export default function PortfolioLightbox({ images, startIndex = 0, work, action
           />
         </AnimatePresence>
 
+        {/* The panel is a COLUMN, so the actions and comments can be pushed to
+            the bottom rather than sitting directly under the description. On a
+            narrow screen there is no spare height, so they simply follow the
+            text as before. */}
         {work && (
-          <div className="w-full shrink-0 overflow-y-auto lg:max-h-[82vh] lg:w-72">
+          <div className="flex w-full shrink-0 flex-col overflow-y-auto lg:max-h-[82vh] lg:min-h-[60vh] lg:w-72">
             <h3 className="font-heading text-2xl tracking-[-0.01em]">{work.title}</h3>
             <p className="mt-2 font-mono-caps text-[11px] text-muted-foreground">
               {[work.medium, work.dimensions, work.year].filter(Boolean).join(" · ")}
@@ -106,19 +110,28 @@ export default function PortfolioLightbox({ images, startIndex = 0, work, action
               it properly, enlarged — there was nothing to click. They had to
               close the lightbox and find the link again.
             */}
-            {actions && (
-              <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-border pt-4">
-                {actions}
-              </div>
-            )}
+            {/*
+              Sharing and comments sit at the BOTTOM RIGHT of the panel.
 
-            {/* Comments last, beneath the actions — the conversation belongs
-                below what you can do with the work, not above it. */}
-            {comments && (
-              <div className="mt-4 border-t border-border/50 pt-4">
-                {comments}
-              </div>
-            )}
+              mt-auto pushes this block down whatever the description's length,
+              so it lands at the foot of the column instead of floating
+              directly beneath the text. Like and Collect stay with the work's
+              details; sharing and the conversation are secondary and belong
+              out of the way.
+            */}
+            <div className="mt-auto pt-6">
+              {actions && (
+                <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-3 border-t border-border pt-4">
+                  {actions}
+                </div>
+              )}
+
+              {comments && (
+                <div className="mt-3 flex justify-end border-t border-border/50 pt-3">
+                  {comments}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
