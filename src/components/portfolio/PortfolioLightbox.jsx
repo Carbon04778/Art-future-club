@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
  * was squeezed into a narrow column and hard to read. Here there is room for
  * it, and it is the moment someone is actually looking at the piece.
  */
-export default function PortfolioLightbox({ images, startIndex = 0, work, actions, onClose }) {
+export default function PortfolioLightbox({ images, startIndex = 0, work, actions, comments, onClose }) {
   const [idx, setIdx] = useState(startIndex || 0);
   const total = images.length;
 
@@ -109,6 +109,14 @@ export default function PortfolioLightbox({ images, startIndex = 0, work, action
             {actions && (
               <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-border pt-4">
                 {actions}
+              </div>
+            )}
+
+            {/* Comments last, beneath the actions — the conversation belongs
+                below what you can do with the work, not above it. */}
+            {comments && (
+              <div className="mt-4 border-t border-border/50 pt-4">
+                {comments}
               </div>
             )}
           </div>

@@ -7,6 +7,7 @@ import { Plus, X, Loader2, MapPin, ExternalLink, Pencil, Trash2 } from "lucide-r
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
+import FocalPointPicker from "@/components/FocalPointPicker";
 
 const fmt = (d) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 

@@ -40,7 +40,21 @@ export default function GalleryShowcase() {
       if (!g.display_name?.toLowerCase().includes(q) && !g.based_in?.toLowerCase().includes(q) && !g.bio?.toLowerCase().includes(q)) return false;
     }
     return true;
-  });
+  })
+    /*
+     * Alphabetical, always.
+     *
+     * The list came back in whatever order the database returned, so finding a
+     * particular gallery meant reading the whole page. localeCompare with
+     * numeric handling keeps "10 Chancery Lane" before "2 Ships" rather than
+     * sorting by character code, and ignores case.
+     */
+    .sort((a, b) =>
+      (a.display_name || "").localeCompare(b.display_name || "", undefined, {
+        sensitivity: "base",
+        numeric: true,
+      })
+    );
 
   return (
     <>

@@ -24,7 +24,11 @@ Object.defineProperty(globalThis, "navigator", { value: window.navigator, config
 for (const k of ["HTMLElement", "Element", "Node", "File", "Blob", "Event", "MouseEvent", "SVGElement", "DOMRect"]) {
   globalThis[k] = window[k];
 }
+// Accepts anything, including the stub File objects used below.
 window.URL.createObjectURL = () => "blob:preview";
+window.URL.revokeObjectURL = () => {};
+globalThis.URL.createObjectURL = () => "blob:preview";
+globalThis.URL.revokeObjectURL = () => {};
 globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
 globalThis.ResizeObserver = window.ResizeObserver = class {
   observe() {} unobserve() {} disconnect() {}
@@ -140,6 +144,74 @@ await openAndCheck({
   props: { profile: galleryProfile, isOwner: true, onUpdated() {} },
   openLabel: "Add",
   expect: "select as many",
+});
+
+/* --------------------------------------------------------------------------
+   Selecting a file inside a modal.
+
+   The exhibition form crashed only AFTER an image was chosen — the focal
+   point picker was used but never imported, and it does not render until
+   there is a file to position. Opening the modal was not enough to catch it;
+   four blank screens have now come from a missing import.
+-------------------------------------------------------------------------- */
+
+async function pickFileIn({ name, Component, props, openLabel }) {
+  container.innerHTML = "";
+  const root = createRoot(container);
+  let captured = null;
+  const originalError = console.error;
+  console.error = (...args) => {
+    if (!captured) captured = args.map((a) => a?.message || String(a)).join(" ").slice(0, 250);
+  };
+
+  try {
+    await new Promise((r) => {
+      root.render(React.createElement(MemoryRouter, null, React.createElement(Component, props)));
+      setTimeout(r, 400);
+    });
+
+    const open = [...container.querySelectorAll("button")].find((b) =>
+      new RegExp(openLabel, "i").test(b.textContent)
+    );
+    if (open) {
+      open.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 400));
+    }
+
+    const fileInput = container.querySelector('input[type="file"]');
+    check(`${name}: offers a file input`, !!fileInput);
+
+    if (fileInput) {
+      const file = new window.File(["x"], "photo.jpg", { type: "image/jpeg" });
+      Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
+      fileInput.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 500));
+    }
+
+    check(`${name}: choosing a file does not crash`, !captured, captured || "");
+    check(`${name}: the form is still there afterwards`,
+      (container.textContent || "").trim().length > 200,
+      `${(container.textContent || "").trim().length} chars`);
+  } catch (err) {
+    check(`${name}: choosing a file does not crash`, false, err.message);
+  } finally {
+    console.error = originalError;
+    root.unmount();
+  }
+}
+
+await pickFileIn({
+  name: "Post Exhibition — select image",
+  Component: ExhibitionsSection,
+  props: { profile: galleryProfile, isOwner: true, events: [], onReload() {} },
+  openLabel: "Post",
+});
+
+await pickFileIn({
+  name: "Add Space Photos — select image",
+  Component: SpaceGallery,
+  props: { profile: galleryProfile, isOwner: true, onUpdated() {} },
+  openLabel: "Add",
 });
 
 console.log(`\n  passed: ${pass}`);

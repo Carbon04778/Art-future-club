@@ -35,7 +35,14 @@ export default function Venues() {
       (v.address || "").includes(chapter);
     const isType = typeFilter === "All" || v.type === typeFilter;
     return inChapter && isType;
-  });
+  })
+    // Alphabetical, matching the galleries page.
+    .sort((a, b) =>
+      (a.display_name || "").localeCompare(b.display_name || "", undefined, {
+        sensitivity: "base",
+        numeric: true,
+      })
+    );
 
   // Only offer the types actually present, so the row is not full of filters
   // that return nothing.

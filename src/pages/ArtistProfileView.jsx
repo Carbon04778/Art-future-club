@@ -301,9 +301,10 @@ export default function ArtistProfileView() {
                       </div>
                     )}
                   </div>
-                  {work.description && (
-                    <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{work.description}</p>
-                  )}
+                  {/* The description is deliberately NOT shown in the grid.
+                      A paragraph under every thumbnail pushed the works apart
+                      and made the portfolio hard to scan; it appears beside
+                      the picture when the work is opened instead. */}
                   {/* Two rows, not one. In the two-column portfolio grid a
                       single row cannot fit like + collect + comment + four
                       share icons, and without wrapping they overlapped the
@@ -404,7 +405,31 @@ export default function ArtistProfileView() {
                     workRef={`${id}-work-${lightbox.workIndex}`}
                   />
                 )}
+                {/* Sharing sits to the right of Like and Collect, so the row
+                    reads: what you can do with the work, then where you can
+                    send it. */}
+                <span className="ml-auto">
+                  <ShareButtons
+                    url={`${window.location.href}#work-${lightbox.workIndex}`}
+                    title={`${profile.portfolio_works[lightbox.workIndex]?.title || "Artwork"} by ${profile.display_name}`}
+                    compact
+                  />
+                </span>
               </>
+            }
+            comments={
+              <CommentsSection
+                targetId={`${id}-work-${lightbox.workIndex}`}
+                targetType="portfolio_work"
+                userId={currentUser?.id}
+                userName={currentUserName}
+                ownerId={profile.user_id}
+                ownerLabel={
+                  profile.portfolio_works[lightbox.workIndex]?.title
+                    ? `"${profile.portfolio_works[lightbox.workIndex].title}"`
+                    : "your work"
+                }
+              />
             }
             onClose={() => setLightbox(null)}
           />
