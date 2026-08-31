@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useFilePreview } from "@/hooks/useFilePreview";
 import { atLimit, FREE_GALLERY_WORK_LIMIT } from "@/lib/featureLimits";
 import ExpandableText from "@/components/ExpandableText";
 import MyCollection from "@/components/MyCollection";
@@ -414,11 +415,11 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
   const [avatarFile, setAvatarFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
   // Preview the chosen file so the focal point can be set before uploading.
-  const coverPreview = React.useMemo(
-    () => (coverFile ? URL.createObjectURL(coverFile) : ""),
-    [coverFile]
-  );
+  // Created in an effect, not during render — see useFilePreview.
+  const coverPreview = useFilePreview(coverFile);
+  const avatarPreview = useFilePreview(avatarFile);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const toggle = (key, val) => set(key, form[key].includes(val) ? form[key].filter((x) => x !== val) : [...form[key], val]);
   const input = "w-full border border-border bg-transparent px-4 py-3 text-base outline-none focus:border-foreground";
@@ -431,9 +432,34 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
     let cover_image_url = form.cover_image_url;
     if (coverFile) { const r = await base44.integrations.Core.UploadFile({ file: coverFile }); cover_image_url = r.file_url; }
     const { geo_address, ...payload } = form;
-    const updated = await base44.entities.CollectorProfile.update(profile.id, { ...payload, avatar_url, cover_image_url, type: profile.type, user_id: profile.user_id });
-    setSaving(false);
-    onSave(updated);
+
+    try {
+      const updated = await base44.entities.CollectorProfile.update(profile.id, {
+        ...payload,
+        /*
+         * geo_lat and geo_lng are `double precision`. The form holds "" when
+         * no location has been set, and Postgres refuses an empty string as a
+         * number — which rejected the WHOLE update. A gallery that had never
+         * used the Locate button could not be saved at all.
+         *
+         * null clears the column properly; undefined would be dropped from the
+         * payload and leave the old value behind.
+         */
+        geo_lat: payload.geo_lat === "" || payload.geo_lat == null ? null : Number(payload.geo_lat),
+        geo_lng: payload.geo_lng === "" || payload.geo_lng == null ? null : Number(payload.geo_lng),
+        avatar_url,
+        cover_image_url,
+        type: profile.type,
+        user_id: profile.user_id,
+      });
+      onSave(updated);
+    } catch (err) {
+      // There was no catch here. A rejected save left the button spinning
+      // forever with nothing said — the "galleries will not save" report.
+      setError(String(err?.message || err) || "Could not save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -441,7 +467,7 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
       <div className="flex items-start gap-8">
         <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full bg-muted flex items-center justify-center">
           {(form.avatar_url || avatarFile)
-            ? <Image src={avatarFile ? URL.createObjectURL(avatarFile) : form.avatar_url} alt="Avatar" fittingType="fill" className="h-full w-full object-cover" />
+            ? <Image src={avatarPreview || form.avatar_url} alt="Avatar" fittingType="fill" className="h-full w-full object-cover" />
             : <span className="font-mono-caps text-2xl text-muted-foreground">{form.display_name?.[0]}</span>}
         </div>
         <div className="flex-1">
@@ -510,6 +536,19 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
           onChange={(geo) => setForm((f) => ({ ...f, ...geo, geo_address: f.geo_address }))}
         />
       </div>
+
+      {/* Shown next to the button, where someone who will never open a console
+          can read it and pass it on. */}
+      {error && (
+        <div className="mt-4 border border-destructive bg-destructive/10 p-4">
+          <p className="font-mono-caps text-[11px] text-destructive">Could not save</p>
+          <p className="mt-2 text-sm text-destructive">{error}</p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            If this keeps happening, copy the message above and send it on — it
+            names the exact cause.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-4 pt-2">
         <button type="submit" disabled={saving} className="flex items-center gap-2 bg-primary px-8 py-4 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80 disabled:opacity-50">
