@@ -38,6 +38,60 @@
  * a measurement cannot disagree with what lands on the page.
  */
 
+/**
+ * WinAnsi is the only encoding the built-in fonts can use.
+ *
+ * ⚠️ THIS IS WHY TEXT CAME OUT L I K E   T H I S.
+ *
+ * jsPDF's standard fonts (Helvetica here) are not embedded and can only encode
+ * WinAnsi. Give doc.text() a single character outside that set and jsPDF
+ * re-encodes THE WHOLE LINE as UTF-16 — but the font has no Unicode mapping,
+ * so every null byte is drawn as a blank. The result is a letter-spaced line
+ * of double width that overruns the page and loses its tail:
+ *
+ *     (\x00a\x00n\x00d\x00 \x00a\x00c\x00c\x00e\x00s\x00s ...) Tj
+ *
+ * One character does it. In Julie's statement it was U+2011, a NON-BREAKING
+ * HYPHEN in "non‑traditional" and "real‑world" — the kind Word and Google Docs
+ * substitute silently when you paste. Two characters in 1,100 broke two whole
+ * lines, and because the overflow was clipped it read as missing words.
+ *
+ * So every string is mapped into WinAnsi before it is measured or drawn.
+ * Curly quotes, en and em dashes, the ellipsis and the bullet are all already
+ * in WinAnsi and pass through untouched.
+ *
+ * ⚠️ LIMITATION: characters with no WinAnsi equivalent — Chinese, Japanese,
+ * Korean, Cyrillic, Greek — become "?". They cannot render at all with a
+ * built-in font, so this makes the loss visible instead of silently corrupting
+ * the line. Supporting them properly means embedding a Unicode font.
+ */
+const SUBSTITUTIONS = {
+  "\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2015": "\u2014", "\u2212": "-",
+  "\u00ad": "", "\u200b": "", "\u200c": "", "\u200d": "", "\u2060": "", "\ufeff": "",
+  "\u2028": "\n", "\u2029": "\n\n",
+  "\u2007": " ", "\u2008": " ", "\u2009": " ", "\u200a": " ", "\u202f": " ", "\u3000": " ",
+  "\u02bc": "'", "\u2032": "'", "\u2033": '"',
+};
+
+/** The 0x80–0x9F block, which WinAnsi maps to typographic characters. */
+const WIN_ANSI_HIGH = "\u20ac\u201a\u0192\u201e\u2026\u2020\u2021\u02c6\u2030\u0160\u2039\u0152\u017d" +
+  "\u2018\u2019\u201c\u201d\u2022\u2013\u2014\u02dc\u2122\u0161\u203a\u0153\u017e\u0178";
+
+export function toWinAnsi(value) {
+  let out = "";
+  for (const ch of String(value)) {
+    const mapped = SUBSTITUTIONS[ch];
+    if (mapped !== undefined) { out += mapped; continue; }
+    const c = ch.codePointAt(0);
+    if (c === 9 || c === 10 || c === 13) { out += ch; continue; }        // tab, newlines
+    if (c >= 32 && c <= 126) { out += ch; continue; }                    // ASCII
+    if (c >= 160 && c <= 255) { out += ch; continue; }                   // Latin-1 accents
+    if (WIN_ANSI_HIGH.includes(ch)) { out += ch; continue; }             // curly quotes, dashes
+    out += "?";
+  }
+  return out;
+}
+
 export const PAGE_W = 210;
 export const PAGE_H = 297;
 export const MARGIN = 20;
@@ -151,7 +205,7 @@ export async function buildPortfolioPdf({
     } = opts;
 
     if (value === undefined || value === null || value === "") return 0;
-    const str = upper ? String(value).toUpperCase() : String(value);
+    const str = toWinAnsi(upper ? String(value).toUpperCase() : String(value));
 
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setFontSize(size);
@@ -271,8 +325,8 @@ export async function buildPortfolioPdf({
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9.5);
 
-      const titleLines = doc.splitTextToSize(String(item.title || ""), TITLE_W);
-      const venueLines = doc.splitTextToSize(String(item.venue || ""), VENUE_W);
+      const titleLines = doc.splitTextToSize(toWinAnsi(item.title || ""), TITLE_W);
+      const venueLines = doc.splitTextToSize(toWinAnsi(item.venue || ""), VENUE_W);
       const rowH = Math.max(titleLines.length, venueLines.length, 1) * 4.2 + 2.5;
 
       room(rowH);
@@ -280,7 +334,7 @@ export async function buildPortfolioPdf({
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(15, 15, 15);
-      doc.text(String(item.year || ""), MARGIN, top, { baseline: "top" });
+      doc.text(toWinAnsi(item.year || ""), MARGIN, top, { baseline: "top" });
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(40, 40, 40);

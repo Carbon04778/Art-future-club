@@ -37,7 +37,7 @@ for (const k of ["HTMLElement", "Element", "Node", "Image"]) globalThis[k] = win
 const mod = await import("jspdf");
 const jsPDF = mod.jsPDF || mod.default;
 
-const { buildPortfolioPdf, portfolioFileName, PAGE_W, PAGE_H, MARGIN, BOTTOM } =
+const { buildPortfolioPdf, portfolioFileName, toWinAnsi, PAGE_W, PAGE_H, MARGIN, BOTTOM } =
   await import("../src/lib/portfolioPdf.js");
 
 let pass = 0;
@@ -279,6 +279,69 @@ for (let p = firstWorksPage; p < lastPage; p++) {
 }
 check("no page is left with room the next work would have fitted",
   abandoned.length === 0, abandoned.slice(0, 2).join(" | "));
+
+/* --------------------------------------------------------------- encoding */
+
+/*
+ * THE REGRESSION TEST FOR L I K E   T H I S.
+ *
+ * jsPDF's built-in fonts encode WinAnsi only. One character outside that set
+ * makes it re-encode the WHOLE LINE as UTF-16, and since the font carries no
+ * Unicode mapping every null byte is drawn as a blank: a letter-spaced line of
+ * double width whose tail runs off the page and is clipped.
+ *
+ * It happened for real. Julie's statement contained U+2011, a non-breaking
+ * hyphen, in "non-traditional" and "real-world" - the kind Word and Google
+ * Docs substitute on paste. Two characters in 1,100 destroyed two lines, and
+ * the clipped tails read as missing words.
+ *
+ * This inspects the BYTES OF THE FINISHED PDF, because that is the only place
+ * the fault is visible. Every other check passed on the broken file.
+ */
+check("a non-breaking hyphen becomes a plain one", toWinAnsi("non\u2011traditional") === "non-traditional",
+  toWinAnsi("non\u2011traditional"));
+check("curly quotes and dashes survive untouched",
+  toWinAnsi("\u2018a\u2019 \u201cb\u201d \u2013 \u2014 \u2026") === "\u2018a\u2019 \u201cb\u201d \u2013 \u2014 \u2026");
+check("accented Latin survives untouched", toWinAnsi("Barzaghi Ohara Petris \u00e9\u00e8\u00fc\u00f1") === "Barzaghi Ohara Petris \u00e9\u00e8\u00fc\u00f1");
+check("zero-width characters are removed", toWinAnsi("a\u200bb\u00adc\ufeffd") === "abcd", toWinAnsi("a\u200bb\u00adc\ufeffd"));
+check("characters with no equivalent are made visible", toWinAnsi("\u9999\u6e2f") === "??", toWinAnsi("\u9999\u6e2f"));
+
+/*
+ * Build a document seeded with every character class that has broken a line,
+ * then read the finished file back and look for UTF-16 text operators.
+ */
+const hostile = {
+  display_name: "Julie\u2011Petris",
+  discipline: "Mixed\u2011Media",
+  based_in: "Sai\u00a0Kung",
+  bio: "Working across non\u2011traditional, affordable spaces \u2013 and real\u2011world execution.",
+  cv: {
+    statement: "A statement with a non\u2011breaking hyphen, a \u2018curly\u2019 quote, an ellipsis\u2026 and a soft\u00adhyphen, long enough that it wraps onto more than one line so an over-wide line would be obvious.",
+    exhibitions: [{ year: "2026", title: "Collect\u2011HK", venue: "Hong\u2011Kong Arts Centre" }],
+  },
+  portfolio_works: [{
+    title: "Spilt Coffee \u2011 Grounded", medium: "Mixed\u2011Media", dimensions: "21 X 16.5",
+    year: "2025", image_url: "x", description: "A hyphen\u2011joined description, wrapped over a couple of lines.",
+  }],
+};
+
+const hostileDoc = await buildPortfolioPdf({ jsPDF, profile: hostile, loadImage: loader(1000, 800) });
+const bytes2 = Buffer.from(hostileDoc.output("arraybuffer"));
+
+const zlib = await import("node:zlib");
+let drawnLines = 0;
+let utf16Lines = 0;
+for (const m of bytes2.toString("latin1").matchAll(/stream\r?\n([\s\S]*?)endstream/g)) {
+  let data = Buffer.from(m[1], "latin1");
+  try { data = zlib.inflateSync(data); } catch { /* not compressed */ }
+  for (const t of data.toString("latin1").matchAll(/\((.*?)\) Tj/gs)) {
+    drawnLines += 1;
+    if (t[1].includes("\u0000")) utf16Lines += 1;
+  }
+}
+check("the finished PDF contains no UTF-16 text runs", utf16Lines === 0,
+  `${utf16Lines} of ${drawnLines} lines`);
+check("the hostile document actually drew something", drawnLines > 10, `${drawnLines} lines`);
 
 /* ------------------------------------------------------------ typography */
 
