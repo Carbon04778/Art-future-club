@@ -131,9 +131,13 @@ export default function ArtistsDirectory() {
             >
               <Link to={`/artists/${a.id}`} className="block">
                 <div className="aspect-[4/3] overflow-hidden bg-muted">
-                  {a.portfolio_works?.[0]?.image_url || a.avatar_url ? (
+                  {/* The artist's own photograph first, their work only as a
+                      fallback. It was the other way round, so a directory of
+                      PEOPLE was represented by paintings — you could not tell
+                      who anyone was. */}
+                  {a.avatar_url || a.portfolio_works?.[0]?.image_url ? (
                     <Image
-                      src={a.portfolio_works?.[0]?.image_url || a.avatar_url}
+                      src={a.avatar_url || a.portfolio_works?.[0]?.image_url}
                       alt={a.display_name}
                       fittingType="fill"
                       className="h-full w-full group-hover:scale-[1.03] transition-transform duration-500"
