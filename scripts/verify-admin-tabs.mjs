@@ -60,7 +60,7 @@ console.error=(...a)=>{ captured.push(a.map(x=>x?.message||String(x)).join(" ").
 
 await new Promise(r=>{ root.render(React.createElement(MemoryRouter,null,React.createElement(Dash))); setTimeout(r,600); });
 
-const TABS = ["Add Listing","Edit Listings","Events","Members","Editorial","Artists","Inquiries","Forum","Open Calls","Newsletter","Subscriptions"];
+const TABS = ["Approvals","Add Listing","Edit Listings","Events","Members","Editorial","Artists","Inquiries","Forum","Open Calls","Newsletter","Subscriptions"];
 
 for (const tab of TABS) {
   captured = [];

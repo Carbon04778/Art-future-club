@@ -6,6 +6,7 @@ import { base44 } from "@/api/base44Client";
 import { Plus, Loader2, Check, X } from "lucide-react";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import ImageCropBox from "@/components/ImageCropBox";
+import { STATUS } from "@/lib/profileReadiness";
 
 const DISCIPLINES = [
   "Painting", "Sculpture", "Photography", "Installation", "Video Art",
@@ -180,6 +181,10 @@ export default function AdminCreatePanel({ onCreated }) {
       if (kind === "Artist") {
         await base44.entities.ArtistProfile.create({
           display_name: form.display_name.trim(),
+          // Created BY an admin, so it does not queue for an admin's review.
+          // The status trigger in migration 017 permits this because the
+          // caller is an admin; a member sending the same value is refused.
+          status: STATUS.APPROVED,
           avatar_url,
           // Recorded so the real artist can claim this listing when they
           // register with the same address. Creates no account by itself.
@@ -201,6 +206,8 @@ export default function AdminCreatePanel({ onCreated }) {
       } else {
         await base44.entities.CollectorProfile.create({
           display_name: form.display_name.trim(),
+          // As above — an admin-created listing is already vetted.
+          status: STATUS.APPROVED,
           avatar_url,
           cover_image_url,
           claim_email: form.claim_email.trim().toLowerCase() || null,

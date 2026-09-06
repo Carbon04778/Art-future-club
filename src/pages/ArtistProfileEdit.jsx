@@ -10,6 +10,7 @@ import CVSection from "@/components/CVSection";
 import ProfileCompletenessScore from "@/components/ProfileCompletenessScore";
 import PortfolioPDFExport from "@/components/PortfolioPDFExport";
 import ImageCropBox from "@/components/ImageCropBox";
+import SubmitForReview from "@/components/SubmitForReview";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 
 const DISCIPLINES = ["Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Printmaking", "Ceramics", "Sound Art", "Digital Art", "Mixed Media", "Other"];
@@ -55,6 +56,9 @@ export default function ArtistProfileEdit() {
     avatar_url: "", portfolio_works: [], seeking: [], open_to_commissions: false, cv: { statement: "", exhibitions: [], education: [], awards: [] },
   });
   const [saving, setSaving] = useState(false);
+  // Review state lives on the saved row, not in `form` — a member cannot edit
+  // it, and it must not be sent back on an ordinary save.
+  const [moderation, setModeration] = useState({ status: undefined, review_note: "" });
   const [avatarFile, setAvatarFile] = useState(null);
   const [workFiles, setWorkFiles] = useState({});
   const [workRawFiles, setWorkRawFiles] = useState({});
@@ -72,6 +76,7 @@ export default function ArtistProfileEdit() {
         if (res.length > 0) {
           const p = res[0];
           setProfileId(p.id);
+          setModeration({ status: p.status, review_note: p.review_note || "" });
           setForm({
             display_name: p.display_name || "",
             discipline: p.discipline || "",
@@ -163,10 +168,14 @@ export default function ArtistProfileEdit() {
       const data = { ...form, avatar_url, portfolio_works, user_id: user?.id };
 
       if (profileId) {
-        await base44.entities.ArtistProfile.update(profileId, data);
+        const updated = await base44.entities.ArtistProfile.update(profileId, data);
+        setModeration({ status: updated?.status, review_note: updated?.review_note || "" });
       } else {
         const created = await base44.entities.ArtistProfile.create(data);
         setProfileId(created.id);
+        // A newly created profile is a draft — reflect that immediately so the
+        // submit panel appears without needing a reload.
+        setModeration({ status: created?.status, review_note: "" });
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -211,6 +220,18 @@ export default function ArtistProfileEdit() {
 
       <form onSubmit={handleSave} className="mx-auto max-w-3xl px-6 py-16 md:px-10 space-y-14">
         <div>
+          {/* Above the completeness score deliberately: this is the gate that
+              decides whether the profile is public, the percentage is only a
+              nudge and does not control publication. */}
+          <SubmitForReview
+            profile={{ ...form, ...moderation }}
+            entity="ArtistProfile"
+            profileId={profileId}
+            kind="artist"
+            onSubmitted={(row) =>
+              setModeration({ status: row?.status, review_note: row?.review_note || "" })
+            }
+          />
           <ProfileCompletenessScore profile={form} />
         <p className="font-mono-caps text-[11px] text-muted-foreground">Your Profile</p>
           <h1 className="mt-3 font-heading text-5xl font-medium tracking-[-0.02em]">

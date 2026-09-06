@@ -14,6 +14,11 @@
  */
 
 import { SEED } from "../seed/index.js";
+import {
+  STATUS,
+  effectiveStatus,
+  isModeratedCollectorType,
+} from "../../lib/profileReadiness.js";
 
 const STORAGE_KEY = "afc_mock_db_v1";
 const SESSION_KEY = "afc_mock_session_v1";
@@ -89,6 +94,68 @@ function sortRows(rows, sort) {
   });
 }
 
+/* -------------------------------------------------------------- moderation */
+
+/**
+ * Mirror of the RLS read policies in migration 017, so the demo build hides
+ * exactly what the real database hides.
+ *
+ * Without this the preview would show unapproved profiles that Supabase would
+ * refuse to return, and the moderation flow could not be demonstrated or
+ * tested without a live database.
+ *
+ * `readSession` is a hoisted function declaration further down this file.
+ */
+const MODERATED_ENTITIES = ["ArtistProfile", "CollectorProfile"];
+
+function isVisible(name, row, me) {
+  if (!MODERATED_ENTITIES.includes(name)) return true;
+  if (effectiveStatus(row) === STATUS.APPROVED) return true;
+  // Private collectors, curators and advisors are not moderated — only the
+  // spaces that publish a public page.
+  if (name === "CollectorProfile" && !isModeratedCollectorType(row.type)) return true;
+  if (me?.role === "admin") return true;
+  return !!me && !!row.user_id && row.user_id === me.id;
+}
+
+function visible(name, rows) {
+  if (!MODERATED_ENTITIES.includes(name)) return rows;
+  const me = readSession();
+  return rows.filter((r) => isVisible(name, r, me));
+}
+
+/**
+ * Mirror of trg_protect_profile_status in migration 017.
+ *
+ * Without this the demo would happily let a member set their own profile to
+ * "approved", so the flow could appear to work here and then be refused by the
+ * real database — the worst kind of difference between the two providers.
+ *
+ * `prev` is null on insert.
+ */
+function guardStatusWrite(name, prev, next) {
+  if (!MODERATED_ENTITIES.includes(name)) return;
+  const me = readSession();
+  if (me?.role === "admin") return;
+
+  if (!prev) {
+    if (next.status && ![STATUS.DRAFT, STATUS.PENDING].includes(next.status)) {
+      throw new Error(
+        "A new profile starts as a draft and must be approved before it is published."
+      );
+    }
+    return;
+  }
+
+  const from = effectiveStatus(prev);
+  const to = next.status ?? from;
+  if (to === from) return;
+  // The one transition a member may make for themselves.
+  if (to === STATUS.PENDING && [STATUS.DRAFT, STATUS.REJECTED].includes(from)) return;
+
+  throw new Error("Only an administrator can change a profile's review status.");
+}
+
 /* ---------------------------------------------------------------- entities */
 
 function table(name) {
@@ -100,14 +167,16 @@ function entity(name) {
   return {
     async list(sort, limit) {
       await wait();
-      const rows = sortRows(table(name), sort);
+      // Visibility is applied BEFORE the limit, or a page of 10 could come
+      // back part-empty because unapproved rows used up the allowance.
+      const rows = sortRows(visible(name, table(name)), sort);
       return clone(limit ? rows.slice(0, limit) : rows);
     },
 
     async filter(where, sort, limit) {
       await wait();
       const rows = sortRows(
-        table(name).filter((r) => matches(r, where)),
+        visible(name, table(name)).filter((r) => matches(r, where)),
         sort
       );
       return clone(limit ? rows.slice(0, limit) : rows);
@@ -116,7 +185,9 @@ function entity(name) {
     async get(id) {
       await wait();
       const row = table(name).find((r) => r.id === id);
-      if (!row) {
+      // An unapproved profile behaves as though it does not exist, which is
+      // what RLS does — it returns no row rather than a permission error.
+      if (!row || !isVisible(name, row, readSession())) {
         const err = new Error(`${name} ${id} not found`);
         err.status = 404;
         throw err; // ArticleReader depends on this rejecting
@@ -133,6 +204,14 @@ function entity(name) {
         updated_date: now,
         ...clone(payload),
       };
+      // Stands in for `alter column status set default 'draft'` in migration
+      // 017. Without it a profile created here would have no status, be read
+      // as grandfathered-approved, and go live immediately — the exact thing
+      // this feature exists to prevent.
+      if (MODERATED_ENTITIES.includes(name) && !row.status) {
+        row.status = STATUS.DRAFT;
+      }
+      guardStatusWrite(name, null, row);
       table(name).push(row);
       persist();
       return clone(row);
@@ -147,11 +226,13 @@ function entity(name) {
         err.status = 404;
         throw err;
       }
-      rows[i] = {
+      const next = {
         ...rows[i],
         ...clone(payload),
         updated_date: new Date().toISOString(),
       };
+      guardStatusWrite(name, rows[i], next);
+      rows[i] = next;
       persist();
       return clone(rows[i]);
     },

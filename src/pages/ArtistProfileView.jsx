@@ -39,8 +39,10 @@ export default function ArtistProfileView() {
   const [showInquiry, setShowInquiry] = useState(false);
   const [inquiryType, setInquiryType] = useState("purchase");
   const [lightbox, setLightbox] = useState(null); // { workIndex, start }
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    setNotFound(false);
     base44.entities.ArtistProfile.get(id).then((p) => {
       setProfile(p);
       // Unclaimed profiles have no user_id, so there is no role to look up.
@@ -48,7 +50,18 @@ export default function ArtistProfileView() {
       base44.entities.Profile.filter({ id: p.user_id })
         .then((rows) => setOwnerRole(rows[0]?.role || null))
         .catch(() => setOwnerRole(null));
-    });
+    })
+      /*
+       * There was no catch here at all. `get` rejects on a missing row, and
+       * the page renders a spinner while `profile` is null — so a bad id span
+       * forever with nothing said.
+       *
+       * It matters more now: a profile awaiting review is hidden by the read
+       * policy, so it comes back as "not found" to everyone except its owner
+       * and an admin. That is a normal state, not an error, and it needs to
+       * say so rather than hang.
+       */
+      .catch(() => setNotFound(true));
     base44.auth.me().then((u) => {
       setCurrentUser(u);
       // get their display name from profile
@@ -57,6 +70,25 @@ export default function ArtistProfileView() {
       });
     }).catch(() => {});
   }, [id]);
+
+  if (notFound) {
+    return (
+      <>
+        <div className="mx-auto max-w-3xl px-6 py-32 text-center">
+          <p className="font-mono-caps text-[11px] text-muted-foreground">
+            This profile is not available.
+          </p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            It may have been removed, or it may not be published yet.
+          </p>
+          <Link to="/artists" className="mt-6 inline-block font-mono-caps text-[11px] text-primary hover:underline">
+            ← Back to all artists
+          </Link>
+        </div>
+        <SlimFooter />
+      </>
+    );
+  }
 
   if (!profile) {
     return (

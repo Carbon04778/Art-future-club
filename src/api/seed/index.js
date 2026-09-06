@@ -35,6 +35,8 @@ export const DEMO_USERS = {
   vetiva: "user_vetiva",
   aftermath: "user_aftermath",
   kunsthalle: "user_kunsthalle",
+  // A new member whose profile is waiting on an admin — see `status` below.
+  noor: "user_noor",
 };
 
 const artistProfiles = [
@@ -226,6 +228,48 @@ const artistProfiles = [
     is_featured: false,
     created_date: daysAgo(200),
     updated_date: daysAgo(45),
+  },
+  /*
+   * Waiting for review.
+   *
+   * Every profile above predates moderation and carries no `status`, which is
+   * read as "approved" — the same grandfathering migration 017 applies to the
+   * real database. This one is explicitly pending so the Admin Dashboard's
+   * Approvals tab has something in it, and so the hidden-from-the-public
+   * behaviour can be seen in the preview build.
+   */
+  {
+    id: "artist_noor",
+    user_id: DEMO_USERS.noor,
+    display_name: "Noor Haddad",
+    discipline: "Printmaking",
+    based_in: "London",
+    chapter: "London",
+    bio: "Relief and intaglio work drawing on Levantine textile patterns and the architecture of temporary housing.",
+    instagram: "noorhaddadstudio",
+    avatar_url: JULIE,
+    portfolio_works: [
+      {
+        title: "Provisional Structures I",
+        year: "2026",
+        medium: "Linocut on Somerset paper",
+        dimensions: "50 × 70 cm, ed. 12",
+        description: "First in a series made during a residency in Hackney Wick.",
+        image_url: MILANO,
+        additional_images: [],
+        available_for_sale: true,
+        price: "850",
+        currency: "GBP",
+      },
+    ],
+    cv: { statement: "", exhibitions: [], education: [], awards: [] },
+    seeking: ["Exhibition Opportunities", "Collaborators"],
+    open_to_commissions: true,
+    is_premium: false,
+    is_featured: false,
+    status: "pending",
+    created_date: daysAgo(1),
+    updated_date: daysAgo(1),
   },
 ];
 

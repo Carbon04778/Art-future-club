@@ -25,7 +25,8 @@ const files=[];
 
 const problems=[];
 for (const f of files) {
-  if (f.includes("pages/components/")) continue;
+  // Separator-agnostic — on Windows this path uses backslashes.
+  if (f.replace(/\\/g, "/").includes("pages/components/")) continue;
   const raw = readFileSync(f,"utf8");
   // Comments mention components without using them.
   const src = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");

@@ -15,13 +15,20 @@
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// On Windows, new URL(...).pathname yields "/C:/Users/..." — joining that
+// produced "C:\C:\Users\..." and the whole script died with ENOENT, so this
+// suite never ran on a Windows machine at all. fileURLToPath converts a file
+// URL to a real platform path on every OS.
+const filePath = (relative) => fileURLToPath(new URL(relative, import.meta.url));
 
 let pass = 0;
 const failures = [];
 const check = (name, cond, detail = "") =>
   cond ? pass++ : failures.push(`${name}${detail ? ` — ${detail}` : ""}`);
 
-const SRC = new URL("../src/", import.meta.url).pathname;
+const SRC = filePath("../src/");
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir)) {
@@ -174,11 +181,10 @@ check("cursor recovers when the pointer re-enters the window",
       failed silently.
 -------------------------------------------------------------------------- */
 
-const schemaSql = readFileSync(
-  new URL("../supabase/migrations/001_schema.sql", import.meta.url).pathname, "utf8");
-const migrations = readdirSync(new URL("../supabase/migrations/", import.meta.url).pathname)
+const schemaSql = readFileSync(filePath("../supabase/migrations/001_schema.sql"), "utf8");
+const migrations = readdirSync(filePath("../supabase/migrations/"))
   .filter((f) => f.endsWith(".sql"))
-  .map((f) => readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url).pathname, "utf8"))
+  .map((f) => readFileSync(filePath(`../supabase/migrations/${f}`), "utf8"))
   .join("\n");
 
 const targetTypes = new Set();
@@ -237,7 +243,9 @@ const hardcoded = [];
 for (const f of files) {
   // src/pages/components/ holds stale duplicates that nothing imports. They
   // are excluded here rather than fixed; the folder should be deleted.
-  if (f.includes("pages/components/")) continue;
+  // Separator-agnostic: on Windows this path is "pages\components\…", so a
+  // forward-slash test silently failed to skip and reported the dead files.
+  if (f.replace(/\\/g, "/").includes("pages/components/")) continue;
   const src = readFileSync(f, "utf8");
   if (/===\s*"Institution"/.test(src)) hardcoded.push(f.replace(SRC, ""));
 }

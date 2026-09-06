@@ -23,6 +23,8 @@ import { Mail, Phone, Clock, MapPin } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGallerySeoMeta } from "@/hooks/useGallerySeoMeta";
 import GeoAddressField from "@/components/gallery/GeoAddressField";
+import SubmitForReview from "@/components/SubmitForReview";
+import { isModeratedCollectorType } from "@/lib/profileReadiness";
 
 const INTERESTS = ["Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media"];
 const SEEKING = ["Emerging Artists", "Established Artists", "Commissions", "Editions", "Gallery Partnerships"];
@@ -92,6 +94,21 @@ export default function GalleryProfile() {
           <ArrowLeft className="h-3 w-3" /> {isVenueType(profile.type) ? "All Venues" : "All Galleries"}
         </Link>
       </div>
+
+      {/* Shown to the owner whether or not they are editing, so an unpublished
+          gallery always says so and always offers the way forward. Visitors
+          never reach an unapproved profile at all — the read policy hides it. */}
+      {isOwner && isModeratedCollectorType(profile.type) && (
+        <div className="mx-auto max-w-3xl px-6 pt-8 md:px-10">
+          <SubmitForReview
+            profile={profile}
+            entity="CollectorProfile"
+            profileId={profile.id}
+            kind="gallery"
+            onSubmitted={(row) => setProfile((p) => ({ ...p, ...row }))}
+          />
+        </div>
+      )}
 
       {editMode && isOwner ? (
         <GalleryEditForm profile={profile} onSave={onProfileSaved} onCancel={() => setEditMode(false)} />

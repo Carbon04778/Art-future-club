@@ -10,11 +10,15 @@ import AdminArticlesPanel from "@/components/AdminArticlesPanel";
 import AdminSubscribersPanel from "@/components/AdminSubscribersPanel";
 import AdminEditListingsPanel from "@/components/AdminEditListingsPanel";
 import AdminEventsPanel from "@/components/AdminEventsPanel";
+import AdminApprovalsPanel from "@/components/AdminApprovalsPanel";
 
-const TABS = ["Add Listing", "Edit Listings", "Events", "Members", "Editorial", "Artists", "Inquiries", "Forum", "Open Calls", "Newsletter", "Subscriptions"];
+// Approvals leads, and is the tab the dashboard opens on. Profiles waiting for
+// review are the only thing here that blocks somebody else — a queue nobody
+// looks at is the same as no review at all.
+const TABS = ["Approvals", "Add Listing", "Edit Listings", "Events", "Members", "Editorial", "Artists", "Inquiries", "Forum", "Open Calls", "Newsletter", "Subscriptions"];
 
 export default function AdminDashboard() {
-  const [tab, setTab] = useState("Add Listing");
+  const [tab, setTab] = useState("Approvals");
   const [artists, setArtists] = useState([]);
   const [inquiries, setInquiries] = useState([]);
   const [posts, setPosts] = useState([]);
@@ -180,6 +184,8 @@ export default function AdminDashboard() {
             </button>
           ))}
         </div>
+
+        {tab === "Approvals" && <AdminApprovalsPanel user={user} />}
 
         {/* Artists tab */}
         {tab === "Add Listing" && (

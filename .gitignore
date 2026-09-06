@@ -16,6 +16,9 @@ dist-ssr
 *.local
 .vite
 
+# scratch files written by the verify scripts while they stub components
+.tmp
+
 # editor
 .vscode/*
 !.vscode/extensions.json

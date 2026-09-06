@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { COLLECTOR_TYPES as TYPES } from "@/lib/venueTypes";
+// isVenueType was used below but never imported, so this page threw a
+// ReferenceError for any member who already had a non-gallery collector
+// profile — the form silently stayed in "create" mode and saving produced a
+// duplicate profile instead of editing the existing one.
+import { COLLECTOR_TYPES as TYPES, isVenueType } from "@/lib/venueTypes";
+import { isModeratedCollectorType } from "@/lib/profileReadiness";
+import SubmitForReview from "@/components/SubmitForReview";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import ImageCropBox from "@/components/ImageCropBox";
@@ -32,6 +38,7 @@ export default function CollectorProfilePage() {
   const [avatarRaw, setAvatarRaw] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [moderation, setModeration] = useState({ status: undefined, review_note: "" });
 
   useEffect(() => {
     base44.auth.me().then((u) => {
@@ -48,6 +55,7 @@ export default function CollectorProfilePage() {
           // Use the most recently created collector profile.
           const p = res.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0];
           setProfileId(p.id);
+          setModeration({ status: p.status, review_note: p.review_note || "" });
           setForm({ display_name: p.display_name || "", type: p.type || "Collector", based_in: p.based_in || "", bio: p.bio || "", website: p.website || "", instagram: p.instagram || "", avatar_url: p.avatar_url || "", interests: p.interests || [], seeking: p.seeking || [], budget_range: p.budget_range || "" });
         }
       });
@@ -65,8 +73,14 @@ export default function CollectorProfilePage() {
     let avatar_url = form.avatar_url;
     if (avatarFile) { const r = await base44.integrations.Core.UploadFile({ file: avatarFile }); avatar_url = r.file_url; }
     const data = { ...form, avatar_url, user_id: user.id };
-    if (profileId) await base44.entities.CollectorProfile.update(profileId, data);
-    else { const c = await base44.entities.CollectorProfile.create(data); setProfileId(c.id); }
+    if (profileId) {
+      const updated = await base44.entities.CollectorProfile.update(profileId, data);
+      setModeration({ status: updated?.status, review_note: updated?.review_note || "" });
+    } else {
+      const c = await base44.entities.CollectorProfile.create(data);
+      setProfileId(c.id);
+      setModeration({ status: c?.status, review_note: "" });
+    }
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500);
   };
 
@@ -79,6 +93,26 @@ export default function CollectorProfilePage() {
           <h1 className="mt-3 font-heading text-5xl font-medium tracking-[-0.02em]">{profileId ? "Edit Profile" : "Create Collector Profile"}</h1>
           <p className="mt-4 text-muted-foreground">Signal your intent to the AFC artist community — let artists and galleries know who you are and what you collect.</p>
         </div>
+
+        {/*
+          Private collectors, curators and advisors are not reviewed — they
+          publish no public page and no imagery. This only appears if the type
+          is switched to a gallery or venue, which does, so that transition
+          does not leave the member with a hidden profile and no way to submit
+          it. Galleries that already have a profile use the panel on their own
+          page instead.
+        */}
+        {isModeratedCollectorType(form.type) && (
+          <SubmitForReview
+            profile={{ ...form, ...moderation }}
+            entity="CollectorProfile"
+            profileId={profileId}
+            kind="gallery"
+            onSubmitted={(row) =>
+              setModeration({ status: row?.status, review_note: row?.review_note || "" })
+            }
+          />
+        )}
 
         <div className="flex items-start gap-8">
           <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full bg-muted flex items-center justify-center">
