@@ -283,7 +283,22 @@ for (const [label, file] of [
 
 const badge = readFileSync(filePath("../src/components/UnpublishedBadge.jsx"), "utf8");
 check("the badge renders nothing for an approved profile", /=== STATUS\.APPROVED\) return null/.test(badge));
-check("the badge says who can see it", /only you/i.test(badge));
+check("the badge distinguishes not-submitted from in-review", /"In review"/.test(badge) && /"Not published"/.test(badge));
+/*
+ * The read policy admits exactly two viewers here: the owner, and an admin.
+ * The copy therefore has to be true for both. It originally said "only you",
+ * which is right for the owner and wrong for an admin looking at somebody
+ * else's pending profile.
+ */
+// Comments stripped first: the file explains WHY it no longer says "only
+// you", and matching that prose would fail a correct implementation.
+const badgeCode = badge.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+check(
+  "the badge does not claim the viewer is the only one who can see it",
+  !/only you/i.test(badgeCode),
+  (badgeCode.match(/.{0,40}only you.{0,40}/i) || [""])[0]
+);
+check("the badge explains it is not public", /not visible to the public/i.test(badge));
 
 /* ------------------------------------------------------------------ report */
 
