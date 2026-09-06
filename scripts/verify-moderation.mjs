@@ -222,6 +222,20 @@ check(
 const submitPanel = readFileSync(filePath("../src/components/SubmitForReview.jsx"), "utf8");
 check("the submit panel refuses to submit an incomplete profile", /disabled=\{!ready/.test(submitPanel));
 
+/*
+ * REGRESSION: a member with no saved profile was told "Live on the site".
+ *
+ * effectiveStatus() falls back to "approved" so that rows predating
+ * moderation stay published. An unsaved profile has no row at all, and
+ * passing it through that fallback meant a brand-new member opening the
+ * editor saw a green "your profile is public" box, with no checklist and no
+ * submit button, before they had created anything.
+ */
+check(
+  "an unsaved profile is treated as a draft, not as approved",
+  /profileId \? effectiveStatus\(profile\) : STATUS\.DRAFT/.test(submitPanel)
+);
+
 const adminPanel = readFileSync(filePath("../src/components/AdminApprovalsPanel.jsx"), "utf8");
 check("rejecting requires a reason", /!reason\.trim\(\)/.test(adminPanel));
 check("approving records who decided and when", /reviewed_by/.test(adminPanel) && /reviewed_at/.test(adminPanel));
@@ -233,6 +247,19 @@ const view = readFileSync(filePath("../src/pages/ArtistProfileView.jsx"), "utf8"
 check(
   "a hidden artist profile shows 'not available' rather than spinning forever",
   /setNotFound\(true\)/.test(view)
+);
+/*
+ * Onboarding and the header's "My Profile" link both land a member on this
+ * PUBLIC view rather than the editor, so an unpublished profile looked
+ * completely normal to its owner with no way to finish it.
+ */
+check(
+  "the owner is told when their own profile is not published",
+  /ownStatus !== STATUS\.APPROVED/.test(view) && /Not published yet/.test(view)
+);
+check(
+  "that notice offers a route back to the editor",
+  /Finish and submit/.test(view)
 );
 
 /* ------------------------------------------------------------------ report */

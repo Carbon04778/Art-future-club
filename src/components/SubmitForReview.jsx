@@ -24,7 +24,18 @@ export default function SubmitForReview({ profile, entity, profileId, kind = "ar
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const status = effectiveStatus(profile);
+  /*
+   * A profile that has not been saved yet has no row, and therefore no status.
+   *
+   * effectiveStatus() falls back to "approved" for rows written before
+   * moderation existed — correct grandfathering for a REAL row, but an unsaved
+   * profile is not a legacy row. Passing it through told a brand-new member
+   * "Live on the site. Your profile is public." before they had created
+   * anything at all, with no checklist and no submit button.
+   *
+   * profileId is the only reliable signal that a row exists.
+   */
+  const status = profileId ? effectiveStatus(profile) : STATUS.DRAFT;
   const { met, missing, ready, total } = readiness(profile, kind);
 
   const submit = async () => {

@@ -26,6 +26,7 @@ import ShareButtons from "@/components/ShareButtons";
 import InquiryModal from "@/components/InquiryModal";
 import PortfolioPDFExport from "@/components/PortfolioPDFExport";
 import PortfolioLightbox from "@/components/portfolio/PortfolioLightbox";
+import { STATUS, effectiveStatus } from "@/lib/profileReadiness";
 
 export default function ArtistProfileView() {
   const { id } = useParams();
@@ -101,8 +102,48 @@ export default function ArtistProfileView() {
   const isOwner = currentUser && profile.user_id === currentUser.id;
   const profileUrl = window.location.href;
 
+  const ownStatus = effectiveStatus(profile);
+  const awaitingReview = ownStatus === STATUS.PENDING || ownStatus === STATUS.FLAGGED;
+
   return (
     <>
+      {/*
+        Onboarding and the header's "My Profile" link both send a member to
+        this PUBLIC view, not to the editor. Without this notice a new member
+        saw their own unpublished profile looking entirely normal, with no
+        indication it was invisible to everyone else and no obvious way to
+        finish it — which is exactly how it was reported.
+
+        Only the owner sees this; nobody else can load the page at all.
+      */}
+      {isOwner && ownStatus !== STATUS.APPROVED && (
+        <div className="mx-auto max-w-5xl px-6 pt-6 md:px-10">
+          <div className={`border p-5 ${awaitingReview ? "border-primary" : "border-yellow-600"}`}>
+            <p className={`font-mono-caps text-[11px] ${awaitingReview ? "text-primary" : "text-yellow-600"}`}>
+              {awaitingReview ? "With the AFC team for review" : "Not published yet"}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {awaitingReview
+                ? "Only you can see this page. We will publish it once the team has looked at it."
+                : "Only you can see this page. Finish your profile and submit it, and the AFC team will publish it."}
+            </p>
+            {profile.review_note && ownStatus === STATUS.REJECTED && (
+              <p className="mt-3 border-l-2 border-yellow-600 pl-3 text-sm text-foreground">
+                {profile.review_note}
+              </p>
+            )}
+            {!awaitingReview && (
+              <Link
+                to="/profile/edit"
+                className="mt-4 inline-block bg-primary px-5 py-2.5 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80"
+              >
+                Finish and submit →
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto max-w-5xl px-6 pt-6 md:px-10 flex items-center justify-end gap-3">
         {/* Admin-created profiles are "unclaimed" and have no user_id, so there
             is nobody to deliver a message to. Offering the button would take
