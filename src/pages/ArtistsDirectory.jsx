@@ -5,6 +5,7 @@ import { Image } from "@/components/ui/image";
 import { ArrowUpRight, Search } from "lucide-react";
 import { motion } from "framer-motion";
 import SlimFooter from "@/components/SlimFooter";
+import UnpublishedBadge from "@/components/UnpublishedBadge";
 import { chapterFilterOptions } from "@/lib/chaptersData";
 
 const DISCIPLINES = ["All", "Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Sound Art", "Digital Art", "Mixed Media", "Other"];
@@ -152,6 +153,9 @@ export default function ArtistsDirectory() {
                   <div>
                     <div className="flex items-center gap-1.5">
                       <p className="font-mono-caps text-[10px] text-primary">{a.discipline}</p>
+                      {/* Only ever visible on your OWN pending profile — RLS
+                          hides everyone else's from this list entirely. */}
+                      <UnpublishedBadge profile={a} />
                       {a.is_premium && <span className="font-mono-caps text-[9px] border border-primary px-1 py-0.5 text-primary">Premium</span>}
                       {a.is_featured && <span className="font-mono-caps text-[9px] border border-yellow-500 px-1 py-0.5 text-yellow-600">Featured</span>}
                     </div>

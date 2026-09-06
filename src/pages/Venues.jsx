@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
 import { MapPin, ExternalLink, Loader2 } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
+import UnpublishedBadge from "@/components/UnpublishedBadge";
 import { motion } from "framer-motion";
 import { chapterFilterOptions } from "@/lib/chaptersData";
 
@@ -131,6 +132,7 @@ export default function Venues() {
                   <div className="mt-3">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-mono-caps text-[10px] text-primary">{v.type || "Venue"}</p>
+                      <UnpublishedBadge profile={v} />
                       {v.partnership_type && (
                         <span className={`font-mono-caps text-[8px] px-1.5 py-0.5 ${v.partnership_type === 'Paid Member' ? 'border border-primary text-primary' : 'border border-highlight text-highlight'}`}>
                           {v.partnership_type}

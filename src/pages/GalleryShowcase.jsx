@@ -5,6 +5,7 @@ import { Image } from "@/components/ui/image";
 import { ArrowUpRight, Search } from "lucide-react";
 import { motion } from "framer-motion";
 import SlimFooter from "@/components/SlimFooter";
+import UnpublishedBadge from "@/components/UnpublishedBadge";
 import { chapterFilterOptions } from "@/lib/chaptersData";
 
 const INTERESTS = ["All", "Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media"];
@@ -141,7 +142,10 @@ export default function GalleryShowcase() {
                 </div>
                 <div className="mt-3 flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-mono-caps text-[10px] text-primary">Gallery &amp; Museum</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="font-mono-caps text-[10px] text-primary">Gallery &amp; Museum</p>
+                      <UnpublishedBadge profile={g} />
+                    </div>
                     <h3 className="mt-1 font-heading text-2xl tracking-[-0.01em] group-hover:text-primary transition-colors">
                       {g.display_name}
                     </h3>

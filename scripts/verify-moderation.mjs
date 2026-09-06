@@ -262,6 +262,29 @@ check(
   /Finish and submit/.test(view)
 );
 
+/*
+ * RLS returns a member their OWN unapproved profile — correct, they must be
+ * able to edit it — but the public directories render whatever the API
+ * returns. A signed-in member therefore saw their own pending profile in the
+ * artists listing and concluded it had gone live. It had not; nobody else
+ * could see it. Every public listing must mark it.
+ */
+for (const [label, file] of [
+  ["artists directory", "../src/pages/ArtistsDirectory.jsx"],
+  ["galleries listing", "../src/pages/GalleryShowcase.jsx"],
+  ["venues listing", "../src/pages/Venues.jsx"],
+]) {
+  const src = readFileSync(filePath(file), "utf8");
+  check(
+    `the ${label} marks your own unpublished profile`,
+    /UnpublishedBadge/.test(src) && /import UnpublishedBadge/.test(src)
+  );
+}
+
+const badge = readFileSync(filePath("../src/components/UnpublishedBadge.jsx"), "utf8");
+check("the badge renders nothing for an approved profile", /=== STATUS\.APPROVED\) return null/.test(badge));
+check("the badge says who can see it", /only you/i.test(badge));
+
 /* ------------------------------------------------------------------ report */
 
 console.log("");
