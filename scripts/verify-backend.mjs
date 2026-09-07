@@ -32,6 +32,13 @@ async function backendFor(env, tag) {
       /import \* as supabaseProvider from "@\/api\/providers\/supabase";/,
       'const supabaseProvider = { entities:{}, auth:{}, integrations:{}, functions:{}, BACKEND:"supabase" };'
     )
+    // The facade announces every write so open pages can revalidate. That
+    // module pulls in React, which this harness has no need of — stub it out
+    // and keep the test to the one thing it is about: backend selection.
+    .replace(
+      /import \{ bumpDataRevision \} from "@\/lib\/dataRevision";/,
+      "const bumpDataRevision = () => {};"
+    )
     .replace(/import\.meta\.env/g, "globalThis.__ENV__");
 
   globalThis.__ENV__ = env;

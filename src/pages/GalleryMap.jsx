@@ -6,6 +6,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { Image } from "@/components/ui/image";
 import SlimFooter from "@/components/SlimFooter";
+import { useDataRevision } from "@/lib/dataRevision";
 
 const CHAPTER_COORDS = {
   "Hong Kong": [22.319, 114.169],
@@ -22,12 +23,18 @@ export default function GalleryMap() {
   const [works, setWorks] = useState([]);
   const [artists, setArtists] = useState({});
   const [selectedChapter, setSelectedChapter] = useState(null);
+  const rev = useDataRevision();
 
   useEffect(() => {
     // Load gallery works and artist profiles to get chapter info
     Promise.all([
-      base44.entities.GalleryWork.list("-created_date", 200),
-      base44.entities.ArtistProfile.list("-created_date", 200),
+      base44.entities.GalleryWork.list(
+        "-created_date",
+        200,
+        "id,title,artist_name,artist_id,gallery_id,image_url,medium,available_for_sale,price,currency"
+      ),
+      // Only used to resolve a work's chapter, keyed by profile id and user_id.
+      base44.entities.ArtistProfile.list("-created_date", 200, "id,user_id,chapter"),
     ]).then(([galleryWorks, profiles]) => {
       setWorks(galleryWorks);
       // Keyed by BOTH profile id and user_id: a work now carries gallery_id,
@@ -39,7 +46,7 @@ export default function GalleryMap() {
       });
       setArtists(map);
     });
-  }, []);
+  }, [rev]);
 
   // Group works by chapter
   const byChapter = works.reduce((acc, w) => {

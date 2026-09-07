@@ -113,16 +113,28 @@ function entity(name) {
   const table = TABLES[name];
 
   return {
-    async list(sort, limit) {
-      let q = applySort(client().from(table).select("*"), sort);
+    /**
+     * `columns` is OPTIONAL and defaults to every column, so every existing
+     * call site is unaffected.
+     *
+     * It exists because `select("*")` was pulling far more than any page
+     * rendered: the editorial section on the home page downloaded the full
+     * body text of all 106 articles — 637 kB — in order to show one headline
+     * and one cover image. Naming the columns takes that to a few kB.
+     *
+     * Pass a PostgREST column list, e.g. "id,display_name,avatar_url".
+     * Always include `id`: React keys and every link are built from it.
+     */
+    async list(sort, limit, columns) {
+      let q = applySort(client().from(table).select(columns || "*"), sort);
       if (limit) q = q.limit(limit);
       const { data, error } = await q;
       if (error) fail(error, `${name}.list`);
       return data ?? [];
     },
 
-    async filter(where, sort, limit) {
-      let q = applySort(applyWhere(client().from(table).select("*"), where), sort);
+    async filter(where, sort, limit, columns) {
+      let q = applySort(applyWhere(client().from(table).select(columns || "*"), where), sort);
       if (limit) q = q.limit(limit);
       const { data, error } = await q;
       if (error) fail(error, `${name}.filter`);

@@ -11,6 +11,7 @@ import AdminSubscribersPanel from "@/components/AdminSubscribersPanel";
 import AdminEditListingsPanel from "@/components/AdminEditListingsPanel";
 import AdminEventsPanel from "@/components/AdminEventsPanel";
 import AdminApprovalsPanel from "@/components/AdminApprovalsPanel";
+import { useDataRevision } from "@/lib/dataRevision";
 
 // Approvals leads, and is the tab the dashboard opens on. Profiles waiting for
 // review are the only thing here that blocks somebody else — a queue nobody
@@ -54,6 +55,7 @@ export default function AdminDashboard() {
   };
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const rev = useDataRevision();
 
   useEffect(() => {
     base44.auth.me().then((u) => {
@@ -70,7 +72,7 @@ export default function AdminDashboard() {
         base44.entities.Profile.list("-created_date", 500).catch(() => []),
       ]).then(([a, i, p, oc, s, pr]) => { setArtists(a); setInquiries(i); setPosts(p); setOpenCalls(oc); setSubs(s); setProfiles(pr || []); setLoading(false); });
     }).catch(() => setLoading(false));
-  }, []);
+  }, [rev]);
 
   /*
    * Grant or revoke a complimentary membership.
@@ -188,9 +190,13 @@ export default function AdminDashboard() {
         {tab === "Approvals" && <AdminApprovalsPanel user={user} />}
 
         {/* Artists tab */}
-        {tab === "Add Listing" && (
-          <AdminCreatePanel onCreated={() => window.location.reload()} />
-        )}
+        {/*
+          Was window.location.reload() — a full browser reload after every
+          listing, which threw away the whole app and refetched everything just
+          to show one new row. The create already bumps the data revision via
+          the facade, so every mounted list refreshes itself.
+        */}
+        {tab === "Add Listing" && <AdminCreatePanel />}
 
         {tab === "Edit Listings" && <AdminEditListingsPanel />}
 

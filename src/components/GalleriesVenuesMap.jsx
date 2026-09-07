@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { Image } from "@/components/ui/image";
+import { useDataRevision } from "@/lib/dataRevision";
 
 const CHAPTER_COORDS = {
   "Hong Kong": [22.319, 114.169],
@@ -29,15 +30,20 @@ export default function GalleriesVenuesMap() {
   // One map, filtered — rather than a separate page per kind of place.
   const [typeFilter, setTypeFilter] = useState("All");
   const [loading, setLoading] = useState(true);
+  const rev = useDataRevision();
 
   useEffect(() => {
     // Every kind of space, not just Gallery and Institution — a Museum,
     // Restaurant or Event Space was silently missing from the map.
-    base44.entities.CollectorProfile.list("-updated_date", 400)
+    base44.entities.CollectorProfile.list(
+      "-updated_date",
+      400,
+      "id,display_name,type,based_in,address,avatar_url,cover_image_url"
+    )
       .then((rows) => setProfiles(rows.filter((r) => r.type === "Gallery" || isVenueType(r.type))))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [rev]);
 
   const visible = profiles.filter((p) =>
     typeFilter === "All"

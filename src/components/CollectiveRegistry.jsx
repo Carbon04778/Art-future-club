@@ -14,15 +14,21 @@ export default function CollectiveRegistry() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Named columns: this index renders a name, a type, a city and a hover
+      // image. Pulling every column meant 233 kB of gallery records to show
+      // four rows.
+      const ARTIST_COLS = 'id,display_name,based_in,chapter,avatar_url,is_featured';
+      const SPACE_COLS = 'id,display_name,type,based_in,avatar_url';
+
       const [featuredArtists, recentArtists, profiles] = await Promise.all([
-        base44.entities.ArtistProfile.filter({ is_featured: true }, '-updated_date', 5).catch(() => []),
-        base44.entities.ArtistProfile.list('-updated_date', 6).catch(() => []),
+        base44.entities.ArtistProfile.filter({ is_featured: true }, '-updated_date', 5, ARTIST_COLS).catch(() => []),
+        base44.entities.ArtistProfile.list('-updated_date', 6, ARTIST_COLS).catch(() => []),
         // Every collector profile, split into galleries and venues below.
         // The third list used to be Event.list() — so an EVENT held at a
         // gallery appeared as though it were a venue, carrying the event's
         // image, the event's chapter as its city, and linking to /events.
         // That is why "10 Chancery Lane Gallery" showed up as VENUE / OTHER.
-        base44.entities.CollectorProfile.list('-created_date', 100).catch(() => []),
+        base44.entities.CollectorProfile.list('-created_date', 100, SPACE_COLS).catch(() => []),
       ]);
 
       const galleries = profiles.filter((p) => p.type === 'Gallery');

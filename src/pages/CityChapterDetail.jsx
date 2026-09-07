@@ -8,6 +8,7 @@ import { base44 } from '@/api/base44Client';
 import { CHAPTERS } from '@/lib/chaptersData';
 import SlimFooter from '@/components/SlimFooter';
 import VerticalMetadata from '@/components/VerticalMetadata';
+import { useDataRevision } from '@/lib/dataRevision';
 
 const TYPE_COLORS = {
   Salon: 'bg-primary/10 text-primary',
@@ -48,6 +49,7 @@ export default function CityChapterDetail() {
   const [eventTotal, setEventTotal] = useState(0);
   const [artistTotal, setArtistTotal] = useState(0);
   const [venues, setVenues] = useState([]);
+  const rev = useDataRevision();
 
   useEffect(() => {
     if (!chapter) return;
@@ -58,7 +60,11 @@ export default function CityChapterDetail() {
      * — which the artists directory itself filters by. A chapter with a dozen
      * members could therefore show three, and nothing indicated why.
      */
-    base44.entities.ArtistProfile.list('-created_date', 500)
+    base44.entities.ArtistProfile.list(
+      '-created_date',
+      500,
+      'id,display_name,discipline,based_in,chapter,avatar_url'
+    )
       .then((all) => {
         const city = chapter.city.trim().toLowerCase();
         const artists = all.filter((a) => {
@@ -72,7 +78,11 @@ export default function CityChapterDetail() {
 
     // Venue cards link to any matching profile, not just Institutions —
     // partner venues are just as often galleries.
-    base44.entities.CollectorProfile.list('-updated_date', 500)
+    base44.entities.CollectorProfile.list(
+      '-updated_date',
+      500,
+      'id,display_name,type,based_in,address,bio,partnership_type'
+    )
       .then((rows) => {
         const map = {};
         rows.forEach((r) => {
@@ -105,7 +115,11 @@ export default function CityChapterDetail() {
      * end date recorded still appeared in August — the "old dates showing as
      * upcoming" problem. The landing page uses start_date; this now matches it.
      */
-    base44.entities.Event.list('start_date', 500)
+    base44.entities.Event.list(
+      'start_date',
+      500,
+      'id,title,description,event_type,chapter,venue,address,start_date'
+    )
       .then((rows) => {
         const city = chapter.city.trim().toLowerCase();
         const now = new Date();
@@ -117,7 +131,7 @@ export default function CityChapterDetail() {
         setEvents(upcoming.slice(0, EVENT_LIMIT));
       })
       .catch(() => { setEvents([]); setEventTotal(0); });
-  }, [chapter?.city]);
+  }, [chapter?.city, rev]);
 
   if (!chapter) {
     return (

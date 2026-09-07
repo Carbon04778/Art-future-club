@@ -156,6 +156,23 @@ function guardStatusWrite(name, prev, next) {
   throw new Error("Only an administrator can change a profile's review status.");
 }
 
+/**
+ * Return only the requested columns, mirroring PostgREST's `select`.
+ *
+ * The demo provider projects for real rather than ignoring the argument. If it
+ * returned every column regardless, a component reading a field that the live
+ * query no longer asks for would work perfectly in the preview build and come
+ * back undefined in production — the worst kind of difference between the two
+ * providers, because it looks like nothing is wrong.
+ */
+function project(rows, columns) {
+  if (!columns || columns === "*") return rows;
+  const keys = columns.split(",").map((c) => c.trim()).filter(Boolean);
+  return rows.map((row) =>
+    Object.fromEntries(keys.filter((k) => k in row).map((k) => [k, row[k]]))
+  );
+}
+
 /* ---------------------------------------------------------------- entities */
 
 function table(name) {
@@ -165,21 +182,21 @@ function table(name) {
 
 function entity(name) {
   return {
-    async list(sort, limit) {
+    async list(sort, limit, columns) {
       await wait();
       // Visibility is applied BEFORE the limit, or a page of 10 could come
       // back part-empty because unapproved rows used up the allowance.
       const rows = sortRows(visible(name, table(name)), sort);
-      return clone(limit ? rows.slice(0, limit) : rows);
+      return project(clone(limit ? rows.slice(0, limit) : rows), columns);
     },
 
-    async filter(where, sort, limit) {
+    async filter(where, sort, limit, columns) {
       await wait();
       const rows = sortRows(
         visible(name, table(name)).filter((r) => matches(r, where)),
         sort
       );
-      return clone(limit ? rows.slice(0, limit) : rows);
+      return project(clone(limit ? rows.slice(0, limit) : rows), columns);
     },
 
     async get(id) {

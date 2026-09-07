@@ -4,6 +4,7 @@ import FocalPointPicker from "@/components/FocalPointPicker";
 import { base44 } from "@/api/base44Client";
 import { Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from "lucide-react";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
+import { useDataRevision } from "@/lib/dataRevision";
 
 // Must match the filter list on the events page. Offering a narrower set here
 // would mean an admin editing an event silently changed its type to something
@@ -44,7 +45,8 @@ export default function AdminEventsPanel() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, []);
+  const rev = useDataRevision();
+  useEffect(load, [rev]);
 
   const flash = (msg) => {
     setDone(msg);

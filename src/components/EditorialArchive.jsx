@@ -9,7 +9,24 @@ export default function EditorialArchive({ portrait1, portrait2, detail }) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    base44.entities.Article.filter({ published: true }, '-created_date', 200)
+    /*
+     * Only the columns this section renders.
+     *
+     * `select("*")` pulled the full BODY TEXT of all 106 published articles —
+     * 637 kB over the wire — to display one headline and one cover image. It
+     * was the single heaviest request on the home page. The same rows cost a
+     * few kB once the columns are named.
+     *
+     * The list is still fetched in full rather than limited to 1, because the
+     * count beneath the feature is the number of visible articles, and
+     * publish_date has to be compared client-side to hide scheduled pieces.
+     */
+    base44.entities.Article.filter(
+      { published: true },
+      '-created_date',
+      200,
+      'id,slug,title,subtitle,cover_image_url,cover_image_alt,publish_date,created_date'
+    )
       .then((arts) => {
         const now = new Date();
         const when = (a) => new Date(a.publish_date || a.created_date || 0);

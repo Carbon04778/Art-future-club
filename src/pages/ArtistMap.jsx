@@ -6,6 +6,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import SlimFooter from "@/components/SlimFooter";
 import GalleriesVenuesMap from "@/components/GalleriesVenuesMap";
+import { useDataRevision } from "@/lib/dataRevision";
 
 // Chapter city coordinates
 const CHAPTER_COORDS = {
@@ -23,10 +24,13 @@ const CHAPTER_COORDS = {
 export default function ArtistMap() {
   const [artists, setArtists] = useState([]);
   const [selectedChapter, setSelectedChapter] = useState(null);
+  const rev = useDataRevision();
 
   useEffect(() => {
-    base44.entities.ArtistProfile.list("-created_date", 200).then(setArtists);
-  }, []);
+    // The map plots counts per chapter and lists names in the sidebar.
+    base44.entities.ArtistProfile.list("-created_date", 200, "id,display_name,discipline,chapter")
+      .then(setArtists);
+  }, [rev]);
 
   // Group artists by chapter
   const byChapter = artists.reduce((acc, a) => {

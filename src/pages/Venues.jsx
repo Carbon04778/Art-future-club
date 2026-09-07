@@ -8,6 +8,7 @@ import SlimFooter from "@/components/SlimFooter";
 import UnpublishedBadge from "@/components/UnpublishedBadge";
 import { motion } from "framer-motion";
 import { chapterFilterOptions } from "@/lib/chaptersData";
+import { useDataRevision } from "@/lib/dataRevision";
 
 const CHAPTERS = chapterFilterOptions("All");
 
@@ -18,15 +19,22 @@ export default function Venues() {
   const [chapter, setChapter] = useState(searchParams.get("chapter") || "All");
   const [typeFilter, setTypeFilter] = useState("All");
   const [loading, setLoading] = useState(true);
+  const rev = useDataRevision();
 
   useEffect(() => {
     // Every venue type, not just "Institution". Filtering on that one value
     // meant a Museum, Restaurant or Event Space never appeared here at all.
-    base44.entities.CollectorProfile.list("-updated_date", 400)
+    // `status` is required — UnpublishedBadge reads it to tell the owner (and
+    // an admin) that a listing is not public yet.
+    base44.entities.CollectorProfile.list(
+      "-updated_date",
+      400,
+      "id,display_name,type,based_in,address,bio,avatar_url,cover_image_url,partnership_type,website,status"
+    )
       .then((rows) => setVenues(rows.filter((r) => isVenueType(r.type))))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [rev]);
 
   // Two independent filters: where it is, and what kind of space it is.
   const filtered = venues.filter((v) => {

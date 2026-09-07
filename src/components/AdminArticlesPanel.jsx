@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Loader2, Search, Trash2, Pencil, Eye, EyeOff, Check } from "lucide-react";
 import ArticleForm from "@/components/ArticleForm";
+import { useDataRevision } from "@/lib/dataRevision";
 
 /**
  * Editorial management for admins.
@@ -32,7 +33,8 @@ export default function AdminArticlesPanel({ user }) {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, []);
+  const rev = useDataRevision();
+  useEffect(load, [rev]);
 
   const flash = (msg) => {
     setDone(msg);

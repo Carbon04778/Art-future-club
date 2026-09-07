@@ -9,6 +9,7 @@ import {
   effectiveStatus,
   isModeratedCollectorType,
 } from "@/lib/profileReadiness";
+import { useDataRevision } from "@/lib/dataRevision";
 
 /**
  * The review queue.
@@ -60,7 +61,10 @@ export default function AdminApprovalsPanel({ user }) {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, []);
+  // Reloads when a profile is submitted from anywhere, so the queue fills
+  // without the admin refreshing the page.
+  const rev = useDataRevision();
+  useEffect(load, [rev]);
 
   const flash = (msg) => {
     setDone(msg);

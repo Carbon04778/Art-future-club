@@ -7,6 +7,7 @@ import SlimFooter from "@/components/SlimFooter";
 import ArticleForm from "@/components/ArticleForm";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
+import { useDataRevision } from "@/lib/dataRevision";
 
 const CATEGORIES = ["All", "Interview", "Essay", "Review", "Open Call", "News", "Feature"];
 
@@ -19,6 +20,7 @@ export default function Editorial() {
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [user, setUser] = useState(null);
+  const rev = useDataRevision();
   const canPublish = user?.role === "admin" || user?.role === "editor";
 
   // Editors and admins see everything they are allowed to see, including
@@ -61,7 +63,7 @@ export default function Editorial() {
         if (u?.role === "admin" || u?.role === "editor") load(true);
       })
       .catch(() => {});
-  }, []);
+  }, [rev]);
 
   const refresh = () => load(canPublish);
 

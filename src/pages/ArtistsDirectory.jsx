@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import SlimFooter from "@/components/SlimFooter";
 import UnpublishedBadge from "@/components/UnpublishedBadge";
 import { chapterFilterOptions } from "@/lib/chaptersData";
+import { useDataRevision } from "@/lib/dataRevision";
 
 const DISCIPLINES = ["All", "Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Sound Art", "Digital Art", "Mixed Media", "Other"];
 const CHAPTERS = chapterFilterOptions("All Chapters");
@@ -23,10 +24,23 @@ export default function ArtistsDirectory() {
   const [forSaleOnly, setForSaleOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [hovered, setHovered] = useState(null);
+  // Refetches when anything is saved anywhere, and when the tab regains
+  // focus — so a newly approved artist appears without a manual reload.
+  const rev = useDataRevision();
 
   useEffect(() => {
-    base44.entities.ArtistProfile.list("-created_date", 200).then(setArtists);
-  }, []);
+    /*
+     * portfolio_works is kept deliberately: the "Work for Sale" filter reads
+     * it, and it is the fallback image when an artist has no avatar. What is
+     * dropped is `cv`, the social handles and the review fields, none of which
+     * this page renders. `status` is required by UnpublishedBadge.
+     */
+    base44.entities.ArtistProfile.list(
+      "-created_date",
+      200,
+      "id,display_name,discipline,based_in,chapter,bio,avatar_url,is_premium,is_featured,seeking,portfolio_works,status"
+    ).then(setArtists);
+  }, [rev]);
 
   const filtered = artists.filter((a) => {
     if (filter !== "All" && a.discipline !== filter) return false;

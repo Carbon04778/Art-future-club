@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { Loader2, Search, Trash2, Pencil, Check, X, Mail, UserCheck, Plus } from "lucide-react";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import { COLLECTOR_TYPES } from "@/lib/venueTypes";
+import { useDataRevision } from "@/lib/dataRevision";
 
 const DISCIPLINES = [
   "Painting", "Sculpture", "Photography", "Installation", "Video Art",
@@ -50,7 +51,8 @@ export default function AdminEditListingsPanel() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, []);
+  const rev = useDataRevision();
+  useEffect(load, [rev]);
 
   const flash = (msg) => {
     setDone(msg);

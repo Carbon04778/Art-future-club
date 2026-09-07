@@ -148,7 +148,10 @@ export default function CityChapters() {
     // Sorted and bounded explicitly. An unsorted, unlimited list left it to
     // the database which rows came back — so a chapter's next gathering could
     // simply be absent from the page with nothing to indicate it.
-    base44.entities.Event.list("start_date", 500)
+    // Each chapter block lists at most three upcoming gatherings: a date, a
+    // title and a venue. Every column of 72 events was 233 kB and the slowest
+    // request on the page at 2.2 s.
+    base44.entities.Event.list("start_date", 500, "id,title,venue,chapter,start_date")
       .then(setEvents)
       .catch(() => setEvents([]));
   }, []);

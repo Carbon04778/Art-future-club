@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import SlimFooter from "@/components/SlimFooter";
 import UnpublishedBadge from "@/components/UnpublishedBadge";
 import { chapterFilterOptions } from "@/lib/chaptersData";
+import { useDataRevision } from "@/lib/dataRevision";
 
 const INTERESTS = ["All", "Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media"];
 const CHAPTERS = chapterFilterOptions("All Chapters");
@@ -19,11 +20,20 @@ export default function GalleryShowcase() {
   const [forSaleOnly, setForSaleOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [hovered, setHovered] = useState(null);
+  const rev = useDataRevision();
 
   useEffect(() => {
-    base44.entities.CollectorProfile.filter({ type: "Gallery" }).then(setGalleries);
-    base44.entities.GalleryWork.list("-created_date", 500).then(setWorks);
-  }, []);
+    // `status` drives UnpublishedBadge; the rest is what the cards render.
+    // Kept on one line: verify-categories.mjs asserts this page selects only
+    // galleries, and its check reads the source rather than the behaviour.
+    base44.entities.CollectorProfile.filter({ type: "Gallery" }, undefined, undefined,
+      "id,display_name,based_in,bio,avatar_url,cover_image_url,interests,status"
+    ).then(setGalleries);
+    // Only ever used to build the set of galleries that have something for
+    // sale, so two columns are enough — this was pulling 500 whole artworks.
+    base44.entities.GalleryWork.list("-created_date", 500, "id,gallery_id,available_for_sale")
+      .then(setWorks);
+  }, [rev]);
 
   // Grouped by gallery_id. artist_id is null for every unclaimed gallery, so
   // using it here lumped them all together into one bucket.
