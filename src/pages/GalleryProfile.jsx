@@ -423,7 +423,10 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
     seo_title: profile.seo_title || "",
     seo_description: profile.seo_description || "",
     seo_keywords: profile.seo_keywords || "",
-    geo_address: profile.geo_placename && profile.address ? profile.address : "",
+    // geo_address is gone. It was a scratch copy of the address that the geo
+    // box edited and this form then threw away before saving, so a location
+    // typed there always reverted to the stored address on reopen. The geo box
+    // is bound to `address` above — one address, actually saved.
     geo_placename: profile.geo_placename || "",
     geo_region: profile.geo_region || "",
     geo_lat: profile.geo_lat ?? "",
@@ -448,7 +451,8 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
     if (avatarFile) { const r = await base44.integrations.Core.UploadFile({ file: avatarFile }); avatar_url = r.file_url; }
     let cover_image_url = form.cover_image_url;
     if (coverFile) { const r = await base44.integrations.Core.UploadFile({ file: coverFile }); cover_image_url = r.file_url; }
-    const { geo_address, ...payload } = form;
+    // Every field in `form` is now a real column, so nothing is stripped here.
+    const payload = form;
 
     try {
       const updated = await base44.entities.CollectorProfile.update(profile.id, {
@@ -550,7 +554,8 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
         <div><label className="font-mono-caps text-[11px] text-muted-foreground">SEO Keywords</label><input className={`${input} mt-2`} value={form.seo_keywords} onChange={(e) => set("seo_keywords", e.target.value)} placeholder="contemporary art, London gallery, South Bank…" /></div>
         <GeoAddressField
           value={form}
-          onChange={(geo) => setForm((f) => ({ ...f, ...geo, geo_address: f.geo_address }))}
+          // `geo` may now include `address` — the box edits the real field.
+          onChange={(geo) => setForm((f) => ({ ...f, ...geo }))}
         />
       </div>
 

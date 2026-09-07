@@ -5,17 +5,44 @@ import { base44 } from "@/api/base44Client";
 const input = "w-full border border-border bg-transparent px-4 py-3 text-base outline-none focus:border-foreground";
 
 /**
- * Lets the gallery / venue owner resolve geo coordinates from a free-text
- * address. Calls the geocodeAddress backend function and fills the parent
- * form's geo_placename, geo_region, geo_lat and geo_lng in one go.
+ * Resolves map coordinates for a gallery or venue, from its own address.
+ *
+ * THE BUG THIS FIXES
+ *
+ * This box used to hold the address in LOCAL state, seeded from the profile's
+ * address and never reported back. The parent then discarded it before saving
+ * (`const { geo_address, ...payload } = form`) and re-seeded the box from the
+ * address column every time the form opened.
+ *
+ * So editing the address here did resolve new coordinates, and they did save —
+ * but the text itself was never stored, and reopening the form refilled the
+ * box from the old address column. It looked exactly as though the edit had
+ * been rejected. It had not; it was never a saved value.
+ *
+ * The box is now bound to the profile's real `address`, so there is ONE
+ * address: type it here or in the Address field above, press Locate, and the
+ * address and its coordinates are saved together.
  */
 export default function GeoAddressField({ value, onChange }) {
-  const [query, setQuery] = useState(value?.geo_address || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [resolved, setResolved] = useState(
-    value?.geo_lat != null && value?.geo_lng != null && !Number.isNaN(Number(value.geo_lat)) && !Number.isNaN(Number(value.geo_lng))
-  );
+  /* Address edited since the coordinates were last resolved — so the shown
+   * coordinates no longer necessarily match the text. */
+  const [stale, setStale] = useState(false);
+
+  const query = value?.address || "";
+
+  const hasCoords =
+    value?.geo_lat != null && value?.geo_lng != null &&
+    value.geo_lat !== "" && value.geo_lng !== "" &&
+    !Number.isNaN(Number(value.geo_lat)) && !Number.isNaN(Number(value.geo_lng));
+  const resolved = hasCoords && !stale;
+
+  const setQuery = (next) => {
+    // Writes straight to the profile's address — this is the real field now.
+    onChange({ address: next });
+    setStale(true);
+  };
 
   const resolve = async () => {
     const addr = query.trim();
@@ -24,7 +51,7 @@ export default function GeoAddressField({ value, onChange }) {
     setError("");
     try {
       const res = await base44.functions.invoke("geocodeAddress", { address: addr });
-      if (res?.error) { setError(res.error); setResolved(false); return; }
+      if (res?.error) { setError(res.error); return; }
       const { lat, lng, placename, region } = res.data || res;
       onChange({
         geo_placename: placename || addr,
@@ -32,19 +59,19 @@ export default function GeoAddressField({ value, onChange }) {
         geo_lat: typeof lat === "string" ? Number(lat) : lat,
         geo_lng: typeof lng === "string" ? Number(lng) : lng,
       });
-      setResolved(true);
+      setStale(false);
     } catch (e) {
       setError(e?.message || "Geocoding failed");
-      setResolved(false);
     } finally {
       setLoading(false);
     }
   };
 
+  /* Clears the COORDINATES only. The address is the gallery's real one now, so
+   * wiping it here would silently delete it from the profile. */
   const clear = () => {
     onChange({ geo_placename: "", geo_region: "", geo_lat: "", geo_lng: "" });
-    setQuery("");
-    setResolved(false);
+    setStale(false);
     setError("");
   };
 
@@ -52,7 +79,8 @@ export default function GeoAddressField({ value, onChange }) {
     <div className="space-y-3">
       <p className="font-mono-caps text-[11px] text-muted-foreground">Geo Location</p>
       <p className="text-xs text-muted-foreground/70 leading-relaxed -mt-2">
-        Enter an address to resolve coordinates for local search and map listings.
+        This is the gallery&rsquo;s address — editing it here changes it above too.
+        Press Locate to pin it on the map, then save.
       </p>
 
       <div className="flex gap-2">
@@ -61,7 +89,7 @@ export default function GeoAddressField({ value, onChange }) {
           <input
             className={`${input} pl-9`}
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setResolved(false); }}
+            onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); resolve(); } }}
             placeholder="e.g. Tate Modern, Bankside, London"
           />
@@ -78,6 +106,15 @@ export default function GeoAddressField({ value, onChange }) {
       </div>
 
       {error && <p className="font-mono-caps text-[10px] text-destructive">✗ {error}</p>}
+
+      {/* Says plainly that the address will still save — only the map pin is
+          waiting. Otherwise an edited address with no re-Locate looks broken. */}
+      {stale && hasCoords && !error && (
+        <p className="font-mono-caps text-[10px] text-yellow-600">
+          Address changed — press Locate to move the map pin. Saving without it
+          keeps the new address and the old pin.
+        </p>
+      )}
 
       {resolved && !error && (
         <div className="flex items-center justify-between gap-3 border border-border px-4 py-3 bg-muted/30">

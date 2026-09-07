@@ -175,6 +175,36 @@ const stripComments = (src) =>
 check("the admin dashboard no longer reloads the whole browser to show a new listing",
   !/window\.location\.reload/.test(stripComments(read("../src/pages/AdminDashboard.jsx"))));
 
+/* ============================ 5. the gallery address is ONE saved field */
+
+/*
+ * Reported as "I edit the location but it keeps reverting".
+ *
+ * The Geo Location box used to hold the address in local state seeded from a
+ * scratch `geo_address` key, which GalleryProfile deleted before saving and
+ * re-seeded from the address column on every open. The coordinates saved; the
+ * typed address never did, so reopening always showed the old one.
+ */
+const geoField = read("../src/components/gallery/GeoAddressField.jsx");
+const galleryPage = read("../src/pages/GalleryProfile.jsx");
+const geoCode = stripComments(geoField);
+const galleryCode = stripComments(galleryPage);
+
+check("the geo box reads the profile's real address",
+  /value\?\.address/.test(geoCode));
+check("typing in the geo box writes to the address field",
+  /onChange\(\{\s*address:/.test(geoCode));
+check("the geo box no longer keeps the address in local state",
+  !/useState\(value\?\.geo_address/.test(geoCode));
+check("the scratch geo_address field is gone from the gallery form",
+  !/geo_address/.test(galleryCode),
+  (galleryCode.match(/.{0,50}geo_address.{0,30}/) || [""])[0]);
+check("the gallery form no longer strips a field before saving",
+  !/const \{ geo_address, \.\.\.payload \} = form/.test(galleryCode));
+check("clearing the coordinates does not wipe the address",
+  /geo_placename: "", geo_region: "", geo_lat: "", geo_lng: ""/.test(geoCode) &&
+  !/onChange\(\{[^}]*address: ""/.test(geoCode));
+
 /* ------------------------------------------------------------------ report */
 
 console.log("");
