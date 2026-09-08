@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 // Shown when an image fails to load. Was a Wix CDN URL inherited from the
 // original build; that host is no longer ours, so the "fallback" was itself
 // a broken image.
-const FALLBACK_IMAGE_URL = "/images/placeholder.png"
+const FALLBACK_IMAGE_URL = "/images/placeholder.webp"
 
 // Wix Media Platform hosts whose images support /v1/ transform URLs
 // (resize, focal-point crop, and format conversion via the OUTPUT FILENAME

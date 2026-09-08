@@ -8,9 +8,9 @@ import ManifestoFooter from '@/components/ManifestoFooter';
 import TrendingSection from '@/components/TrendingSection';
 
 const HERO_IMAGE = '/images/AdobeStock_528827486.jpg';
-const PORTRAIT_1 = '/images/LandingpageJulieinterveiw.png';
-const PORTRAIT_2 = '/images/generated_ea6edfdc.png';
-const DETAIL = '/images/LandingpageJulieinterveiw.png';
+const PORTRAIT_1 = '/images/LandingpageJulieinterveiw.webp';
+const PORTRAIT_2 = '/images/generated_ea6edfdc.webp';
+const DETAIL = '/images/LandingpageJulieinterveiw.webp';
 
 export default function Home() {
   return (

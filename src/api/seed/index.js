@@ -10,12 +10,12 @@
  */
 
 const HERO = "/images/AdobeStock_528827486.jpg";
-const JULIE = "/images/LandingpageJulieinterveiw.png";
-const BANGKOK = "/images/Landingpagebangkokchapter.png";
-const MILANO = "/images/LandingpageMalanochapter.jpg";
-const TORONTO = "/images/LandingpageTorontochapter.png";
-const ZURICH = "/images/LandingpageZurich.jpg";
-const GENERATED = "/images/generated_image.png";
+const JULIE = "/images/LandingpageJulieinterveiw.webp";
+const BANGKOK = "/images/Landingpagebangkokchapter.webp";
+const MILANO = "/images/LandingpageMalanochapter.webp";
+const TORONTO = "/images/LandingpageTorontochapter.webp";
+const ZURICH = "/images/LandingpageZurich.webp";
+const GENERATED = "/images/generated_image.webp";
 
 const daysFromNow = (n) => {
   const d = new Date();

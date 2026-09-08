@@ -62,7 +62,7 @@ export default function SiteHeader() {
       <div className="flex items-center justify-between px-6 py-3.5 md:px-10">
         <Link to="/" className="flex items-center" aria-label="Art Future Club — home">
           <img
-            src="/images/artfuture.png"
+            src="/images/artfuture.webp"
             alt="Art Future Club"
             className="h-9 w-auto md:h-10"
           />

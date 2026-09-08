@@ -107,7 +107,15 @@ for (const file of originals) {
     continue;
   }
 
-  const img = sharp(file);
+  /*
+   * Read into a buffer first rather than handing sharp the path.
+   *
+   * On Windows, sharp keeps the source file open after toFile(), so unlinking
+   * it below fails with EBUSY and the run dies half way. A buffer leaves no
+   * handle behind.
+   */
+  const bytes = readFileSync(file);
+  const img = sharp(bytes);
   const meta = await img.metadata();
   await img
     .resize({ width: MAX_EDGE, height: MAX_EDGE, fit: "inside", withoutEnlargement: true })
@@ -127,6 +135,26 @@ for (const file of originals) {
 }
 
 /* ------------------------------------------------------------- rewrite */
+
+/*
+ * The rewrite map is derived from every .webp now on disk, not only from what
+ * this run converted.
+ *
+ * An interrupted run (the first attempt died on a Windows file lock) leaves
+ * images already converted and their originals gone, so they would be absent
+ * from `renames` and their references would never be updated — the site would
+ * point at files that no longer exist. Rebuilding the map from what is
+ * actually present makes the script safe to re-run after any failure.
+ */
+if (!DRY) {
+  for (const f of walk(IMAGES).filter((f) => extname(f).toLowerCase() === ".webp")) {
+    const webp = f.split(/[\\/]/).pop();
+    const stem = webp.replace(/\.webp$/i, "");
+    for (const ext of [".png", ".jpg", ".jpeg"]) {
+      if (!KEEP_ORIGINAL.has(stem + ext)) renames.set(stem + ext, webp);
+    }
+  }
+}
 
 let filesChanged = 0;
 let refsChanged = 0;

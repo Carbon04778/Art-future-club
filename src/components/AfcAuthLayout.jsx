@@ -8,7 +8,7 @@ export default function AfcAuthLayout({ title, subtitle, footer, children }) {
       <div className="hidden lg:flex lg:w-[45%] flex-col justify-between bg-foreground px-12 py-10 text-background">
         <Link to="/" className="inline-flex items-center hover:opacity-80">
           <img
-            src="/images/artfuture.png"
+            src="/images/artfuture.webp"
             alt="Art Future Club"
             className="h-14 w-auto"
           />
@@ -33,7 +33,7 @@ export default function AfcAuthLayout({ title, subtitle, footer, children }) {
         <div className="w-full max-w-md mx-auto">
           <Link to="/" className="lg:hidden mb-10 inline-block hover:opacity-80">
             <img
-              src="/images/artfuture.png"
+              src="/images/artfuture.webp"
               alt="Art Future Club"
               className="h-9 w-auto"
             />

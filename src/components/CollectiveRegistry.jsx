@@ -5,7 +5,7 @@ import { Image } from '@/components/ui/image';
 import { base44 } from '@/api/base44Client';
 import { isVenueType } from '@/lib/venueTypes';
 
-const FALLBACK = '/images/placeholder.png';
+const FALLBACK = '/images/placeholder.webp';
 
 export default function CollectiveRegistry() {
   const [entries, setEntries] = useState([]);

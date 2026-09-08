@@ -88,6 +88,66 @@ check("explicit style overrides the default", h.objectFit === "none", `"${h.obje
 const i = await render({ src: "" });
 check("empty src renders a placeholder, not a crash", i.html.includes("<img"));
 
+// --- off-screen images must not all load at once --------------------------
+/*
+ * ui/image.jsx had loading="lazy" on the CDN branch only. Everything is
+ * served from /images/* and Supabase Storage now, so the branch that actually
+ * runs fetched every image immediately — about 22 MB on the home page, most of
+ * it below the fold.
+ */
+const { readFileSync: rf } = await import("node:fs");
+const { fileURLToPath: f2p } = await import("node:url");
+const at = (rel) => rf(f2p(new URL(rel, import.meta.url)), "utf8");
+
+const imageSrc = at("../src/components/ui/image.jsx");
+check(
+  "both image branches defer loading by default",
+  (imageSrc.match(/loading="lazy"/g) || []).length >= 2,
+  `${(imageSrc.match(/loading="lazy"/g) || []).length} found`
+);
+check(
+  "the hero opts out, so the first paint is not delayed",
+  /loading="eager"/.test(at("../src/components/GlobalNexus.jsx"))
+);
+// Comments stripped: GlobalNexus explains WHY the camelCase spelling is
+// avoided, and matching that prose would fail a correct implementation.
+const noComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+check(
+  "fetchpriority is lowercase — React 18 drops the camelCase form",
+  !/fetchPriority/.test(noComments(at("../src/components/GlobalNexus.jsx")))
+);
+
+// --- every referenced image must exist ------------------------------------
+/*
+ * Converting the static images to WebP renamed 18 files and rewrote 33
+ * references. Getting one wrong shows up as a silently missing picture, not an
+ * error, so this walks the source and resolves each reference on disk.
+ */
+const { readdirSync: rd, statSync: st, existsSync: ex } = await import("node:fs");
+const { join: j } = await import("node:path");
+const ROOT = f2p(new URL("..", import.meta.url));
+const walkSrc = (dir, out = []) => {
+  for (const e of rd(dir)) {
+    const p = j(dir, e);
+    if (st(p).isDirectory()) walkSrc(p, out);
+    else if (/\.(jsx?|tsx?|html|css|json)$/.test(e)) out.push(p);
+  }
+  return out;
+};
+const scanned = [...walkSrc(j(ROOT, "src")), j(ROOT, "index.html")];
+const missing = [];
+let refs = 0;
+for (const file of scanned) {
+  for (const m of rf(file, "utf8").matchAll(/["'`(]\/images\/([A-Za-z0-9_./-]+\.(?:webp|png|jpe?g|svg))/g)) {
+    refs++;
+    if (!ex(j(ROOT, "public", "images", m[1]))) {
+      missing.push(`/images/${m[1]} <- ${file.replace(ROOT, "").replace(/\\/g, "/")}`);
+    }
+  }
+}
+check("every /images/ reference resolves to a real file", missing.length === 0, missing.slice(0, 3).join(" | "));
+check("image references were actually found to check", refs > 20, `${refs} references`);
+
 console.log(`\n  passed: ${pass}`);
 if (failures.length) {
   console.log(`  FAILED: ${failures.length}\n`);

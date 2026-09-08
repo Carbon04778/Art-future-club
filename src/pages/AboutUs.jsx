@@ -50,12 +50,12 @@ export default function AboutUs() {
                 A missing file falls back to the shared placeholder.
               */}
               {[
-                { name: "Julie Petris", role: "Founder & Director", city: "Hong Kong / Los Angeles / Bangkok", img: "/images/team/julie-petris.jpg" },
-                { name: "Michael Petris", role: "Founder & Director", city: "Hong Kong / Los Angeles / Bangkok", img: "/images/team/michael-petris.jpg" },
-                { name: "Nicola O'Hara", role: "Editorial Editor", city: "London", img: "/images/team/nicola-ohara.jpg" },
-                { name: "Benedetta Barzaghi", role: "Editorial Editor", city: "Milano", img: "/images/team/benedetta-barzaghi.jpg" },
-                { name: "Christie Melville", role: "Editorial Editor", city: "Toronto", img: "/images/team/christie-melville.jpg" },
-                { name: "Saskia Key", role: "Editorial Editor", city: "Zurich", img: "/images/team/saskia-key.jpg" },
+                { name: "Julie Petris", role: "Founder & Director", city: "Hong Kong / Los Angeles / Bangkok", img: "/images/team/julie-petris.webp" },
+                { name: "Michael Petris", role: "Founder & Director", city: "Hong Kong / Los Angeles / Bangkok", img: "/images/team/michael-petris.webp" },
+                { name: "Nicola O'Hara", role: "Editorial Editor", city: "London", img: "/images/team/nicola-ohara.webp" },
+                { name: "Benedetta Barzaghi", role: "Editorial Editor", city: "Milano", img: "/images/team/benedetta-barzaghi.webp" },
+                { name: "Christie Melville", role: "Editorial Editor", city: "Toronto", img: "/images/team/christie-melville.webp" },
+                { name: "Saskia Key", role: "Editorial Editor", city: "Zurich", img: "/images/team/saskia-key.webp" },
               ].map((p) => (
                 <div key={p.name} className="group">
                   <div className="aspect-[4/5] overflow-hidden bg-muted">
@@ -63,7 +63,7 @@ export default function AboutUs() {
                       src={p.img}
                       alt={p.name}
                       loading="lazy"
-                      onError={(e) => { e.currentTarget.src = "/images/placeholder.png"; }}
+                      onError={(e) => { e.currentTarget.src = "/images/placeholder.webp"; }}
                       className="h-full w-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-[1.03] transition-all duration-500"
                     />
                   </div>

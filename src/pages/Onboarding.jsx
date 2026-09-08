@@ -99,7 +99,7 @@ export default function Onboarding() {
         {step === 0 && (
           <div className="text-center">
             <img
-              src="/images/artfuture.png"
+              src="/images/artfuture.webp"
               alt="Art Future Club"
               className="h-14 w-auto mx-auto mb-6"
             />
