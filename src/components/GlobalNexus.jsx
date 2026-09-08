@@ -23,10 +23,19 @@ export default function GlobalNexus({ heroImage }) {
     <section className="relative min-h-[100svh] w-full overflow-hidden">
       {/* full-bleed image */}
       <div className="absolute inset-0">
+        {/* The one image that must NOT be lazy: it is the first thing anyone
+            sees, so deferring it would delay the largest paint rather than
+            speed anything up. fetchPriority tells the browser to start it
+            ahead of the rest. */}
         <Image
           src={heroImage}
           alt="Global cityscape at dusk"
           fittingType="fill"
+          loading="eager"
+          // Lowercase deliberately: React 18 does not recognise the camelCase
+          // `fetchPriority` and warns rather than forwarding it. React 19 added
+          // that; until then this is the spelling that reaches the DOM.
+          fetchpriority="high"
           className="h-full w-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/40 to-background/90" />

@@ -149,7 +149,10 @@ const ResponsiveImage = React.forwardRef(
             ref={imgRef}
             src={buildTransformUrl(parsed, options)}
             srcSet={buildSrcSet(parsed, options)}
+            // Overridable, so an above-the-fold image can opt out the same way
+            // it can on the plain-img branch.
             loading="lazy"
+            decoding="async"
             className={cn(
               "w-full h-full inset-0 absolute",
               fittingType === "fit" ? "object-contain" : "object-cover"
@@ -231,6 +234,21 @@ const Image = React.forwardRef(
         <img
           ref={ref}
           src={imgSrc}
+          /*
+           * Deferred until it approaches the viewport.
+           *
+           * Only the CDN branch below ever had this. Everything is served from
+           * /images/* and Supabase Storage now, so EVERY image on a page was
+           * fetched immediately — the home page pulled roughly 22 MB up front,
+           * most of it eight chapter photographs far below the fold. That is
+           * the "whole page loads at once" report.
+           *
+           * Declared BEFORE the prop spread so a caller can opt out with
+           * loading="eager" — the hero does, because deferring the image
+           * someone is looking at makes the page slower, not faster.
+           */
+          loading="lazy"
+          decoding="async"
           {...imageProps}
           style={{
             objectFit: fittingType === "fit" ? "contain" : "cover",
