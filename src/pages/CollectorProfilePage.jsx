@@ -81,6 +81,12 @@ export default function CollectorProfilePage() {
       setProfileId(c.id);
       setModeration({ status: c?.status, review_note: "" });
     }
+    // Same fix as the artist editor: the uploaded URL was only written into
+    // the payload, so the form still showed no photo until the page reloaded,
+    // and the file was kept and re-uploaded on every later save.
+    setForm((f) => ({ ...f, avatar_url }));
+    setAvatarFile(null);
+    setAvatarRaw(null);
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500);
   };
 
@@ -104,10 +110,17 @@ export default function CollectorProfilePage() {
         */}
         {isModeratedCollectorType(form.type) && (
           <SubmitForReview
-            profile={{ ...form, ...moderation }}
+            // A chosen-but-not-uploaded logo lives in avatarFile, so the
+            // checklist would not tick until after a save and reload.
+            profile={{
+              ...form,
+              avatar_url: form.avatar_url || (avatarFile ? "pending-upload" : ""),
+              ...moderation,
+            }}
             entity="CollectorProfile"
             profileId={profileId}
             kind="gallery"
+            unsavedChanges={!!avatarFile}
             onSubmitted={(row) =>
               setModeration({ status: row?.status, review_note: row?.review_note || "" })
             }

@@ -20,7 +20,7 @@ import { STATUS, effectiveStatus, readiness } from "@/lib/profileReadiness";
  *   kind      "artist" | "gallery"
  *   onSubmitted(updatedRow)
  */
-export default function SubmitForReview({ profile, entity, profileId, kind = "artist", onSubmitted }) {
+export default function SubmitForReview({ profile, entity, profileId, kind = "artist", unsavedChanges = false, onSubmitted }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -148,13 +148,19 @@ export default function SubmitForReview({ profile, entity, profileId, kind = "ar
           Save your profile first, then you can submit it.
         </p>
       )}
+      {profileId && unsavedChanges && (
+        <p className="mt-4 text-xs text-yellow-600">
+          You have a picture that has not been saved yet. Press Save Changes
+          first — otherwise the team would review your profile without it.
+        </p>
+      )}
 
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
       <button
         type="button"
         onClick={submit}
-        disabled={!ready || !profileId || busy}
+        disabled={!ready || !profileId || busy || unsavedChanges}
         className="mt-5 flex items-center gap-2 bg-primary px-6 py-3 font-mono-caps text-[11px] text-primary-foreground transition-opacity hover:opacity-80 disabled:opacity-40"
       >
         {busy && <Loader2 className="h-3 w-3 animate-spin" />}

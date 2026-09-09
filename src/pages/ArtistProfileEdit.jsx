@@ -68,6 +68,33 @@ export default function ArtistProfileEdit() {
 
   const avatarPreview = avatarFile ? URL.createObjectURL(avatarFile) : null;
 
+  /*
+   * The checklist reads form.avatar_url and work.image_url, but a picture that
+   * has just been chosen lives in avatarFile / workFiles until it is uploaded
+   * on save. So choosing an image ticked nothing and the score did not move,
+   * while typing text updated both immediately — which is what made it look
+   * as though images were being ignored.
+   *
+   * This is the same form with a marker standing in for a picture that is
+   * chosen but not yet uploaded. It is only ever handed to the two read-only
+   * progress components; it is never saved.
+   */
+  const PENDING_UPLOAD = "pending-upload";
+  const hasUnsavedImages =
+    !!avatarFile || Object.values(workFiles).some(Boolean) || Object.values(workRawFiles).some(Boolean);
+
+  const formForProgress = React.useMemo(
+    () => ({
+      ...form,
+      avatar_url: form.avatar_url || (avatarFile ? PENDING_UPLOAD : ""),
+      portfolio_works: (form.portfolio_works || []).map((w, i) => ({
+        ...w,
+        image_url: w.image_url || (workFiles[i] || workRawFiles[i] ? PENDING_UPLOAD : ""),
+      })),
+    }),
+    [form, avatarFile, workFiles, workRawFiles]
+  );
+
   useEffect(() => {
     base44.auth.me().then((u) => {
       setUser(u);
@@ -177,6 +204,24 @@ export default function ArtistProfileEdit() {
         // submit panel appears without needing a reload.
         setModeration({ status: created?.status, review_note: "" });
       }
+
+      /*
+       * Put the uploaded URLs BACK into the form.
+       *
+       * They were only ever written into the `data` payload, so after saving,
+       * form.avatar_url was still empty and the checklist went on reporting
+       * the profile photo as missing until the page was reloaded. That is the
+       * "it doesn't tick until I refresh" report.
+       *
+       * Clearing the pending files matters too: they were kept after saving,
+       * so every subsequent save re-uploaded the same picture and left another
+       * copy in storage.
+       */
+      setForm((f) => ({ ...f, avatar_url, portfolio_works }));
+      setAvatarFile(null);
+      setWorkFiles({});
+      setWorkRawFiles({});
+
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } finally {
@@ -224,15 +269,20 @@ export default function ArtistProfileEdit() {
               decides whether the profile is public, the percentage is only a
               nudge and does not control publication. */}
           <SubmitForReview
-            profile={{ ...form, ...moderation }}
+            profile={{ ...formForProgress, ...moderation }}
             entity="ArtistProfile"
             profileId={profileId}
             kind="artist"
+            // Submitting sends the SAVED row for review, so a picture that is
+            // chosen but not yet uploaded would not be part of what the team
+            // sees. Ask them to save first rather than submitting a profile
+            // that looks complete here and is not.
+            unsavedChanges={hasUnsavedImages}
             onSubmitted={(row) =>
               setModeration({ status: row?.status, review_note: row?.review_note || "" })
             }
           />
-          <ProfileCompletenessScore profile={form} />
+          <ProfileCompletenessScore profile={formForProgress} />
         <p className="font-mono-caps text-[11px] text-muted-foreground">Your Profile</p>
           <h1 className="mt-3 font-heading text-5xl font-medium tracking-[-0.02em]">
             {profileId ? "Edit Profile" : "Create Profile"}

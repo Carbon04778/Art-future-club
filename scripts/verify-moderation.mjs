@@ -300,6 +300,38 @@ check(
 );
 check("the badge explains it is not public", /not visible to the public/i.test(badge));
 
+/* ============ the checklist must react to images, not just to text ====== */
+
+/*
+ * Reported: "when text is added it ticks off and the progress increases, but
+ * when an image is added it doesn't move until I reload."
+ *
+ * Two causes. A picture that has just been chosen lives in avatarFile /
+ * workFiles until it is uploaded on save, so the checklist — which reads
+ * form.avatar_url — could not see it. And handleSave wrote the uploaded URL
+ * only into the payload, never back into the form, so even AFTER saving the
+ * checklist still reported the photo missing until the page reloaded.
+ */
+const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+const artistEdit = strip(readFileSync(filePath("../src/pages/ArtistProfileEdit.jsx"), "utf8"));
+const collectorEdit = strip(readFileSync(filePath("../src/pages/CollectorProfilePage.jsx"), "utf8"));
+const submitPanelSrc = readFileSync(filePath("../src/components/SubmitForReview.jsx"), "utf8");
+
+check("a chosen-but-unsaved picture counts towards the checklist",
+  /pending-upload/.test(artistEdit) && /pending-upload/.test(collectorEdit));
+check("the progress components are given that view of the form",
+  /ProfileCompletenessScore profile=\{formForProgress\}/.test(artistEdit));
+check("saving writes the uploaded avatar back into the form",
+  /setForm\(\(f\) => \(\{ \.\.\.f, avatar_url/.test(artistEdit) &&
+  /setForm\(\(f\) => \(\{ \.\.\.f, avatar_url \}\)\)/.test(collectorEdit));
+check("saving writes the uploaded artwork images back too",
+  /setForm\(\(f\) => \(\{ \.\.\.f, avatar_url, portfolio_works \}\)\)/.test(artistEdit));
+check("pending files are cleared after saving, so they are not re-uploaded",
+  /setAvatarFile\(null\)/.test(artistEdit) && /setWorkFiles\(\{\}\)/.test(artistEdit) &&
+  /setAvatarFile\(null\)/.test(collectorEdit));
+check("submitting is blocked while a picture is unsaved",
+  /unsavedChanges/.test(submitPanelSrc) && /busy \|\| unsavedChanges/.test(submitPanelSrc));
+
 /* ------------------------------------------------------------------ report */
 
 console.log("");
