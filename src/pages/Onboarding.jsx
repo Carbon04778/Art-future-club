@@ -120,8 +120,17 @@ export default function Onboarding() {
               {[
                 { key: "artist", label: "Artist / Practitioner", desc: "I create work and want to share my practice." },
                 { key: "collector", label: "Collector", desc: "I collect, commission, and support artists." },
-                { key: "gallery", label: "Gallery & Museum", desc: "I run a gallery or institution and exhibit artists." },
-                { key: "venue", label: "Venue / Space", desc: "I host exhibitions, events, and cultural programming." },
+                /*
+                 * "Gallery", not "Gallery & Museum".
+                 *
+                 * This choice creates a profile of type "Gallery", which is
+                 * listed on the galleries page. A museum picking it was filed
+                 * as a gallery and never appeared under Venues, where museums
+                 * actually live — so the label was quietly producing wrong
+                 * data. Museums are named in the venue option instead.
+                 */
+                { key: "gallery", label: "Gallery", desc: "I run a commercial or independent gallery and exhibit artists." },
+                { key: "venue", label: "Venue / Museum / Space", desc: "I run a museum, foundation, institution or event space." },
               ].map(({ key, label, desc }) => (
                 <button key={key} type="button" onClick={() => setRole(key)}
                   className={`w-full text-left border p-5 transition-colors ${role === key ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"}`}>

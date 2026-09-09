@@ -294,7 +294,13 @@ export default function GalleryProfile() {
 }
 
 function ProfileHeader({ profile, isOwner, onEdit }) {
-  const typeLabel = profile.type === "Gallery" ? "Gallery / Museum" : profile.type;
+  /*
+   * Show the profile's actual type. A Gallery said "Gallery / Museum", which
+   * was wrong twice over: Museum is a separate type shown on the venues page,
+   * and this same page renders venues too (/venues/:id), where a Museum
+   * should read "Museum".
+   */
+  const typeLabel = profile.type || "Gallery";
   // 50/50 means untouched, not "centre chosen".
   const coverPositioned =
     (profile.cover_focal_x != null && profile.cover_focal_x !== 50) ||

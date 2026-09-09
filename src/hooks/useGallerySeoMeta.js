@@ -69,7 +69,24 @@ export function useGallerySeoMeta(profile) {
     ld.type = "application/ld+json";
     ld.text = JSON.stringify({
       "@context": "https://schema.org",
-      "@type": profile.type === "Institution" ? "Museum" : "Gallery",
+      /*
+       * Map each profile type to the closest schema.org type.
+       *
+       * This only special-cased "Institution", so the nine real Museum
+       * profiles were declaring themselves to search engines as art galleries.
+       * Museum is a recognised schema.org type; the rest have no better match
+       * than a general place, and Gallery remains the sensible default.
+       */
+      "@type":
+        profile.type === "Museum" || profile.type === "Institution"
+          ? "Museum"
+          : profile.type === "Foundation"
+          ? "Organization"
+          : profile.type === "Restaurant"
+          ? "Restaurant"
+          : profile.type === "Event Space"
+          ? "EventVenue"
+          : "Gallery",
       name: profile.display_name,
       description: desc || undefined,
       image: ogImage ? [ogImage] : undefined,

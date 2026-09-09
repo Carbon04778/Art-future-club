@@ -78,9 +78,17 @@ export default function GalleryShowcase() {
     <>
       <div className="px-6 py-16 md:px-10">
         <p className="font-mono-caps text-[11px] text-primary">The Gallery Registry</p>
-        <h1 className="mt-3 font-heading text-5xl font-medium tracking-[-0.02em] md:text-7xl">Galleries &amp; Museums</h1>
+        {/*
+          "Galleries", not "Galleries & Museums".
+
+          Museum is its own profile type and appears on the VENUES page — this
+          page filters strictly on type = "Gallery", so it has never listed a
+          single museum. The old title promised something that was not here and
+          sent anyone looking for a museum to the wrong place.
+        */}
+        <h1 className="mt-3 font-heading text-5xl font-medium tracking-[-0.02em] md:text-7xl">Galleries</h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          {filtered.length} galler{filtered.length !== 1 ? "ies" : "y"} &amp; muse{filtered.length !== 1 ? "ums" : "um"} in the <span className="text-accent">network</span>
+          {filtered.length} galler{filtered.length !== 1 ? "ies" : "y"} in the <span className="text-accent">network</span>
         </p>
 
         {/* Search */}
@@ -162,7 +170,10 @@ export default function GalleryShowcase() {
                 <div className="mt-3 flex items-start justify-between gap-2">
                   <div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <p className="font-mono-caps text-[10px] text-primary">Gallery &amp; Museum</p>
+                      {/* Every card here is type "Gallery" by definition of the
+                        query above, so the label is simply "Gallery". It was
+                        hardcoded as "Gallery & Museum" on all 120. */}
+                    <p className="font-mono-caps text-[10px] text-primary">Gallery</p>
                       <UnpublishedBadge profile={g} />
                     </div>
                     <h3 className="mt-1 font-heading text-2xl tracking-[-0.01em] group-hover:text-primary transition-colors">
