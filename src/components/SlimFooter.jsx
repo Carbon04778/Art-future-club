@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import SocialLinks from '@/components/SocialLinks';
 
 const NAV_LINKS = [
   { to: "/artists", label: "Artists" },
@@ -32,7 +33,15 @@ export default function SlimFooter() {
           </Link>
         ))}
       </div>
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-t border-border pt-6">
+      {/* The social accounts were only ever on the home and about pages, and
+          even there they linked to an anchor on the same page. This footer
+          covers the other twenty-six. */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border pt-6 pb-1">
+        <span className="font-mono-caps text-[10px] text-muted-foreground/60">Follow</span>
+        <SocialLinks compact linkClass="text-muted-foreground hover:text-primary" />
+      </div>
+
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-t border-border pt-6 mt-5">
         <div className="flex flex-wrap gap-x-5 gap-y-1">
           {LEGAL_LINKS.map(({ to, label }) => (
             <Link key={to} to={to} className="font-mono-caps text-[10px] text-muted-foreground/60 hover:text-primary transition-colors">

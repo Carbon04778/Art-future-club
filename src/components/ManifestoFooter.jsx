@@ -1,8 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import SocialLinks from '@/components/SocialLinks';
 
-const SOCIALS = ['Instagram', 'LinkedIn', 'Are.na', 'Xiaohongshu', 'Substack', 'Facebook', 'YouTube', 'Threads', 'Newsletter'];
+/*
+ * The social list used to live here as nine bare names, every one linking to
+ * "#manifesto" — an anchor on this very page. They read as social links and
+ * went nowhere. The real accounts are now in src/lib/socialLinks.js so both
+ * footers share one list.
+ */
 
 export default function ManifestoFooter() {
   return (
@@ -79,18 +85,10 @@ export default function ManifestoFooter() {
         </div>
         <div>
           <p className="font-mono-caps text-[10px] text-highlight">Follow</p>
-          <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
-            {SOCIALS.map((s) => (
-              <li key={s}>
-                <a
-                  href="#manifesto"
-                  className="text-sm text-foreground/70 transition-colors hover:text-primary"
-                >
-                  {s}
-                </a>
-              </li>
-            ))}
-          </ul>
+          <SocialLinks
+            className="mt-2"
+            linkClass="text-foreground/70 hover:text-primary"
+          />
         </div>
       </div>
 
