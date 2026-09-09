@@ -8,6 +8,7 @@ import SlimFooter from "@/components/SlimFooter";
 import UnpublishedBadge from "@/components/UnpublishedBadge";
 import { chapterFilterOptions } from "@/lib/chaptersData";
 import { useDataRevision } from "@/lib/dataRevision";
+import { useProgressiveList, staggerDelay } from "@/hooks/useProgressiveList";
 
 const INTERESTS = ["All", "Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media"];
 const CHAPTERS = chapterFilterOptions("All Chapters");
@@ -67,6 +68,12 @@ export default function GalleryShowcase() {
       })
     );
 
+  /*
+   * Batching happens LAST, on the already-filtered and sorted list, so search
+   * still looks at all 120 galleries — only the rendering is staged.
+   */
+  const { visible, sentinelRef, hasMore, shown, total } = useProgressiveList(filtered);
+
   return (
     <>
       <div className="px-6 py-16 md:px-10">
@@ -124,12 +131,14 @@ export default function GalleryShowcase() {
 
         {/* gallery grid */}
         <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((g, i) => (
+          {visible.map((g, i) => (
             <motion.div
               key={g.id}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: i * 0.03 }}
+              // Capped: i * 0.03 across 120 cards meant the last one appeared
+              // 3.6 seconds after load.
+              transition={{ duration: 0.4, delay: staggerDelay(i) }}
               className="group"
               onMouseEnter={() => setHovered(g)}
               onMouseLeave={() => setHovered(null)}
@@ -175,6 +184,19 @@ export default function GalleryShowcase() {
             </motion.div>
           ))}
         </div>
+
+        {/* Invisible marker. The next batch is requested 600px before this
+            reaches the viewport, so the list has already grown by the time
+            they scroll to the end — no button, no visible pause. */}
+        {hasMore && (
+          <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />
+        )}
+        {hasMore && (
+          <p className="mt-10 text-center font-mono-caps text-[10px] text-muted-foreground">
+            Showing {shown} of {total} — keep scrolling
+          </p>
+        )}
+
         {filtered.length === 0 && (
           <div className="mt-12 py-16 text-center border border-border">
             <p className="font-mono-caps text-[11px] text-muted-foreground">No galleries match your filters.</p>

@@ -205,6 +205,43 @@ check("clearing the coordinates does not wipe the address",
   /geo_placename: "", geo_region: "", geo_lat: "", geo_lng: ""/.test(geoCode) &&
   !/onChange\(\{[^}]*address: ""/.test(geoCode));
 
+/* ====================== 6. long lists render a batch at a time ========== */
+
+/*
+ * The galleries page renders 120 cards and 110 images; venues renders 136.
+ * Every card was built on first paint, and the staggered entrance meant the
+ * last one did not appear for 3.6 seconds (5.4 on venues).
+ */
+const hookSrc = read("../src/hooks/useProgressiveList.js");
+check("the batch is about a screenful", /BATCH_SIZE = 18/.test(hookSrc));
+check("the next batch is requested before it is reached", /rootMargin/.test(hookSrc));
+check("the stagger is capped so a long list cannot animate for seconds",
+  /Math\.min\(index % batchSize, 8\)/.test(stripComments(hookSrc)));
+check("without IntersectionObserver it renders everything rather than hiding it",
+  /typeof IntersectionObserver === "undefined"[\s\S]{0,120}setCount\(list\.length\)/.test(hookSrc));
+check("changing the filter starts the list again from the top",
+  /setCount\(batchSize\)/.test(hookSrc));
+
+for (const [rel, label] of [
+  ["../src/pages/GalleryShowcase.jsx", "galleries"],
+  ["../src/pages/Venues.jsx", "venues"],
+  ["../src/pages/ArtistsDirectory.jsx", "artists"],
+]) {
+  const src = stripComments(read(rel));
+  check(`${label} renders in batches`, /useProgressiveList\(filtered\)/.test(src));
+  /*
+   * THE ONE THAT MATTERS. Batching must wrap the ALREADY filtered list and the
+   * grid must map `visible`. Mapping `filtered` would render everything;
+   * batching before filtering would make anything past the first batch
+   * unsearchable.
+   */
+  check(`${label} maps the batched list, not the whole one`,
+    /\{visible\.map\(/.test(src) && !/\{filtered\.map\(/.test(src));
+  check(`${label} caps its entrance stagger`,
+    /staggerDelay\(/.test(src) && !/delay: i \* 0\.0/.test(src));
+  check(`${label} still counts the full list for the user`, /of \{total\}/.test(src));
+}
+
 /* ------------------------------------------------------------------ report */
 
 console.log("");

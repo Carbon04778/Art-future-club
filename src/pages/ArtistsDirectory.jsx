@@ -8,6 +8,7 @@ import SlimFooter from "@/components/SlimFooter";
 import UnpublishedBadge from "@/components/UnpublishedBadge";
 import { chapterFilterOptions } from "@/lib/chaptersData";
 import { useDataRevision } from "@/lib/dataRevision";
+import { useProgressiveList, staggerDelay } from "@/hooks/useProgressiveList";
 
 const DISCIPLINES = ["All", "Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Sound Art", "Digital Art", "Mixed Media", "Other"];
 const CHAPTERS = chapterFilterOptions("All Chapters");
@@ -60,6 +61,9 @@ export default function ArtistsDirectory() {
     }
     return true;
   });
+
+  // Batched last, so every filter above still searches the whole directory.
+  const { visible, sentinelRef, hasMore, shown, total } = useProgressiveList(filtered);
 
   return (
     <>
@@ -133,12 +137,14 @@ export default function ArtistsDirectory() {
 
         {/* gallery grid */}
         <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((a, i) => (
+          {visible.map((a, i) => (
             <motion.div
               key={a.id}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: i * 0.03 }}
+              // Capped so the stagger stays a flourish however long the
+              // directory grows.
+              transition={{ duration: 0.4, delay: staggerDelay(i) }}
               className="group"
               onMouseEnter={() => setHovered(a)}
               onMouseLeave={() => setHovered(null)}
@@ -192,6 +198,16 @@ export default function ArtistsDirectory() {
             </motion.div>
           ))}
         </div>
+
+        {hasMore && (
+          <>
+            <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />
+            <p className="mt-10 text-center font-mono-caps text-[10px] text-muted-foreground">
+              Showing {shown} of {total} — keep scrolling
+            </p>
+          </>
+        )}
+
         {filtered.length === 0 && (
           <div className="mt-12 py-16 text-center border border-border">
             <p className="font-mono-caps text-[11px] text-muted-foreground">No artists match your filters.</p>

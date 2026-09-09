@@ -9,6 +9,7 @@ import UnpublishedBadge from "@/components/UnpublishedBadge";
 import { motion } from "framer-motion";
 import { chapterFilterOptions } from "@/lib/chaptersData";
 import { useDataRevision } from "@/lib/dataRevision";
+import { useProgressiveList, staggerDelay } from "@/hooks/useProgressiveList";
 
 const CHAPTERS = chapterFilterOptions("All");
 
@@ -52,6 +53,10 @@ export default function Venues() {
         numeric: true,
       })
     );
+
+  // Batched last, on the filtered and sorted list, so the filters still see
+  // every venue and only the rendering is staged.
+  const { visible, sentinelRef, hasMore, shown, total } = useProgressiveList(filtered);
 
   // Only offer the types actually present, so the row is not full of filters
   // that return nothing.
@@ -113,12 +118,14 @@ export default function Venues() {
           </div>
         ) : (
           <div className="mt-14 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((v, i) => (
+            {visible.map((v, i) => (
               <motion.div
                 key={v.id}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: i * 0.04 }}
+                // Capped: i * 0.04 across 136 venues meant the last card did
+                // not appear until 5.4 seconds after the page loaded.
+                transition={{ duration: 0.4, delay: staggerDelay(i, undefined, 0.04) }}
                 className="group"
                 data-artwork
               >
@@ -171,6 +178,17 @@ export default function Venues() {
               </motion.div>
             ))}
           </div>
+        )}
+
+        {/* Requests the next batch 600px before it is reached, so the list has
+            already grown by the time they scroll to the bottom. */}
+        {hasMore && (
+          <>
+            <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />
+            <p className="mt-10 text-center font-mono-caps text-[10px] text-muted-foreground">
+              Showing {shown} of {total} — keep scrolling
+            </p>
+          </>
         )}
       </div>
       <SlimFooter />
