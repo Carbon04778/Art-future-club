@@ -1,21 +1,38 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Bell, MessageCircle, MessageSquare, Mail, ArrowUpRight } from "lucide-react";
+import {
+  Bell, MessageCircle, MessageSquare, Mail, ArrowUpRight, ShoppingBag,
+  Bookmark, UserPlus, BadgeCheck, Image as ImageIcon, CalendarDays, ClipboardCheck,
+} from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
 import { formatDistanceToNow } from "date-fns";
-import useNotifications, { markNotificationsSeen } from "@/hooks/useNotifications";
+import useNotifications from "@/hooks/useNotifications";
 
 const ICONS = {
   message: <Mail className="h-4 w-4 text-primary" />,
   reply: <MessageSquare className="h-4 w-4 text-accent" />,
   comment: <MessageCircle className="h-4 w-4 text-highlight" />,
+  inquiry: <ShoppingBag className="h-4 w-4 text-primary" />,
+  collected: <Bookmark className="h-4 w-4 text-accent" />,
+  follow: <UserPlus className="h-4 w-4 text-highlight" />,
+  review: <BadgeCheck className="h-4 w-4 text-green-600" />,
+  new_work: <ImageIcon className="h-4 w-4 text-primary" />,
+  new_exhibition: <CalendarDays className="h-4 w-4 text-accent" />,
+  review_queue: <ClipboardCheck className="h-4 w-4 text-yellow-600" />,
 };
 
 const LABELS = {
   message: "Message",
   reply: "Reply",
   comment: "Comment",
+  inquiry: "Enquiry",
+  collected: "Collected",
+  follow: "New follower",
+  review: "Your profile",
+  new_work: "New work",
+  new_exhibition: "Exhibition",
+  review_queue: "Waiting for review",
 };
 
 export default function Notifications() {
@@ -30,15 +47,24 @@ export default function Notifications() {
       .finally(() => setAuthChecked(true));
   }, []);
 
-  const { items, loading, unreadCount } = useNotifications(user?.id);
+  /*
+   * Admins also see profiles waiting for review, which is the only way anyone
+   * learns the moderation queue has something in it.
+   */
+  const { items, loading, unreadCount, markRead, markAllRead } = useNotifications(
+    user?.id,
+    { isAdmin: user?.role === "admin" }
+  );
 
-  // Mark everything as seen when leaving, not on arrival — otherwise the
-  // highlight disappears before you have had a chance to read it.
-  useEffect(() => {
-    return () => {
-      if (user?.id) markNotificationsSeen(user.id);
-    };
-  }, [user?.id]);
+  /*
+   * Nothing is marked read on arrival or on leaving any more.
+   *
+   * It used to write a single "seen" timestamp to localStorage when the page
+   * unmounted, which marked EVERYTHING read whether or not it had been looked
+   * at, and only on that one browser. Each notification is now marked when it
+   * is actually opened, and that is stored per member so it stays read on
+   * their phone too.
+   */
 
   return (
     <>
@@ -52,6 +78,15 @@ export default function Notifications() {
             <span className="bg-primary px-2 py-0.5 font-mono-caps text-[11px] text-primary-foreground">
               {unreadCount} new
             </span>
+          )}
+          {unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={markAllRead}
+              className="ml-auto font-mono-caps text-[10px] text-muted-foreground transition-colors hover:text-primary"
+            >
+              Mark all as read
+            </button>
           )}
         </div>
 
@@ -87,9 +122,14 @@ export default function Notifications() {
 
         <ul className="space-y-px">
           {items.map((n) => (
-            <li key={n.id}>
+            // n.key, not n.id — a derived notification has no row of its own.
+            <li key={n.key}>
               <Link
                 to={n.link}
+                // Opening it marks that ONE read, and it stays read on every
+                // device. Navigation is unaffected: the write is fired and not
+                // awaited, so the page changes immediately.
+                onClick={() => markRead(n.key)}
                 className={`flex items-start gap-4 border-b border-border px-5 py-4 transition-colors hover:bg-muted/40 ${
                   n.unread ? "bg-primary/5" : ""
                 }`}

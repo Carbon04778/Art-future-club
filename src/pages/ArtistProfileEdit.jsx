@@ -186,9 +186,27 @@ export default function ArtistProfileEdit() {
       // upload any new work images
       const portfolio_works = [...form.portfolio_works];
       for (let i = 0; i < portfolio_works.length; i++) {
+        /*
+         * Stamp when a work first appeared — but ONLY a work whose image is
+         * being uploaded in THIS save.
+         *
+         * Portfolio works live as a JSON list on the profile with no date of
+         * their own, so there was no way to tell a piece added today from one
+         * added last year — which is what "an artist you follow added a new
+         * work" needs to know.
+         *
+         * The condition matters. Stamping every work that merely lacks a date
+         * would date the artist's entire back catalogue to the day they next
+         * pressed Save, and every one of their followers would be told about
+         * all of it at once. Untouched works keep no stamp and count as old.
+         */
         if (workFiles[i]) {
           const res = await base44.integrations.Core.UploadFile({ file: workFiles[i] });
-          portfolio_works[i] = { ...portfolio_works[i], image_url: res.file_url };
+          portfolio_works[i] = {
+            ...portfolio_works[i],
+            image_url: res.file_url,
+            added_date: portfolio_works[i].added_date || new Date().toISOString(),
+          };
         }
       }
 

@@ -63,29 +63,17 @@ export default function ForumPostDetail() {
       // reply had already saved, so the failure was purely cosmetic — but it
       // surfaced as an error and made replying look broken.
 
-      // Tell the post's author someone replied. Only the owner is notified,
-      // and never for their own reply — otherwise the bell fires on your own
-      // activity and people learn to ignore it.
-      //
-      // Wrapped separately: a failed notification must not lose the reply,
-      // which has already been saved at this point.
-      if (post?.author_id && post.author_id !== user?.id) {
-        try {
-          await base44.entities.Notification.create({
-            user_id: post.author_id,
-            type: "comment",
-            from_user_name: profile?.display_name || user?.full_name || "A member",
-            message: `${profile?.display_name || user?.full_name || "Someone"} replied to "${post.title}"`,
-            link: `/community/post/${id}`,
-            read: false,
-          });
-        } catch (err) {
-          // Non-fatal: the reply is already saved. But log it — a silently
-          // swallowed failure here is exactly why "notifications don't work"
-          // was so hard to diagnose.
-          console.error("Could not create reply notification:", err);
-        }
-      }
+      /*
+       * No notification row is written here any more.
+       *
+       * It wrote into the `notification` table, which nothing has ever read —
+       * useNotifications derives the reply notification from the reply itself.
+       * So this was a write on every reply whose only effect was to grow a
+       * table nobody queries.
+       *
+       * The author is still notified, and now cannot fail to be: the
+       * notification exists because the reply exists.
+       */
       // Re-sync from the database so the list matches exactly.
       const updated = await base44.entities.ForumReply.filter({ post_id: id }, "created_date");
       setReplies(updated);

@@ -14,6 +14,17 @@ export default function InquiryModal({ work, artistProfile, type = "purchase", o
     setSaving(true);
     await base44.entities.Inquiry.create({
       artist_id: artistProfile?.user_id || artistProfile?.id,
+      /*
+       * THE COLUMN RLS ACTUALLY READS.
+       *
+       * Every inquiry policy in 002_rls.sql gates on artist_user_id, and
+       * nothing ever set it — so an enquiry saved successfully and then
+       * reached nobody. The artist could not open it, and could not be told
+       * it existed. Only an admin ever saw it.
+       *
+       * null for an unclaimed listing, which has no owner to notify.
+       */
+      artist_user_id: artistProfile?.user_id ?? null,
       artist_name: artistProfile?.display_name,
       work_title: work?.title || "Commission",
       work_image_url: work?.image_url || "",

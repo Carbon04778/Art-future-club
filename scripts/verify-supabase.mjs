@@ -99,7 +99,24 @@ await entities.Like.list();
 check("Like maps to like", last().table === "like", last().table);
 
 // 17 content entities + Profile (roles, read by the admin members panel).
-check("all 18 entities exposed", Object.keys(entities).length === 18, String(Object.keys(entities).length));
+/*
+ * 19 since migration 018 added notification_read, which records which derived
+ * notifications a member has already read.
+ *
+ * Named rather than counted: a bare number tells you the count changed but not
+ * whether something was added or something went missing, and the two need very
+ * different responses.
+ */
+const EXPECTED_ENTITIES = [
+  "Article", "ArtistProfile", "CollectedWork", "CollectorProfile", "Comment",
+  "Event", "Follow", "ForumPost", "ForumReply", "GalleryWork", "Inquiry",
+  "Like", "Message", "NewsletterSubscriber", "Notification", "NotificationRead",
+  "OpenCall", "Subscription", "Profile",
+];
+const missing = EXPECTED_ENTITIES.filter((e) => !entities[e]);
+const extra = Object.keys(entities).filter((e) => !EXPECTED_ENTITIES.includes(e));
+check("every expected entity is exposed", missing.length === 0, `missing: ${missing.join(", ")}`);
+check("no unexpected entities appeared", extra.length === 0, `extra: ${extra.join(", ")}`);
 check("Profile maps to the profiles table", (await (async () => {
   await entities.Profile.list();
   return last().table;

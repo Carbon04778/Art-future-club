@@ -115,7 +115,7 @@ export default function SiteHeader() {
                 <Link to="/admin" className={`font-mono-caps text-[11px] transition-colors ${isActive("/admin") ? "text-primary" : "text-accent hover:text-foreground"}`}>Admin</Link>
               )}
               <Link to="/messages" className={`font-mono-caps text-[11px] transition-colors ${isActive("/messages") ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>Messages</Link>
-              <NotificationBell userId={user.id} />
+              <NotificationBell userId={user.id} isAdmin={user.role === "admin"} />
               <Link to={profileLink} className={`font-mono-caps text-[11px] transition-colors ${isActive("/profile/edit") || isActive("/collector-profile") || pathname.includes("/gallery/") || pathname.includes("/collector-profile/view") ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>My Profile</Link>
             </div>
           ) : (

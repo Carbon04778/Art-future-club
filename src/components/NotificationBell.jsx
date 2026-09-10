@@ -11,8 +11,10 @@ import useNotifications from "@/hooks/useNotifications";
  * table. Nothing has to be written when an event happens, so nothing can fail
  * silently and leave the bell empty.
  */
-export default function NotificationBell({ userId }) {
-  const { unreadCount } = useNotifications(userId);
+export default function NotificationBell({ userId, isAdmin = false }) {
+  // Admins also get told when a profile is waiting for review — otherwise the
+  // moderation queue fills up and nobody is ever prompted to look at it.
+  const { unreadCount } = useNotifications(userId, { isAdmin });
 
   const label =
     unreadCount === 0

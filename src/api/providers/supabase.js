@@ -61,6 +61,9 @@ const TABLES = {
   Notification: "notification",
   OpenCall: "open_call",
   Subscription: "subscription",
+  // Which derived notifications this member has already read. See migration
+  // 018 — the notifications themselves are derived and never stored.
+  NotificationRead: "notification_read",
   // Roles live on profiles; the admin members panel reads and updates them.
   Profile: "profiles",
 };

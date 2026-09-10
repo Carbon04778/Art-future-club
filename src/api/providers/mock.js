@@ -283,6 +283,8 @@ export const ENTITY_NAMES = [
   "Notification",
   "OpenCall",
   "Subscription",
+  // Read-state for derived notifications — see migration 018.
+  "NotificationRead",
   "Profile",
 ];
 

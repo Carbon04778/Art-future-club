@@ -45,22 +45,13 @@ export default function CommentsSection({ targetId, targetType, userId, userName
     setPosted(true);
     setTimeout(() => setPosted(false), 2500);
 
-    // Notify the owner — never yourself, and only when we know who they are.
-    if (ownerId && ownerId !== userId) {
-      try {
-        await base44.entities.Notification.create({
-          user_id: ownerId,
-          type: "comment",
-          from_user_name: userName || "A member",
-          message: `${userName || "Someone"} commented on ${ownerLabel || "your work"}`,
-          link: typeof window !== "undefined" ? window.location.pathname : "",
-          read: false,
-        });
-      } catch (err) {
-        // Non-fatal: the comment is already saved.
-        console.error("Could not create comment notification:", err);
-      }
-    }
+    /*
+     * The owner is notified, but nothing is written here to do it.
+     *
+     * This used to insert into the `notification` table, which nothing reads —
+     * useNotifications derives the comment notification from the comment
+     * itself. A write on every comment, for no reader.
+     */
 
     setSending(false);
   };
