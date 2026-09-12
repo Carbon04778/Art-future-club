@@ -11,7 +11,7 @@
     "lint:fix": "eslint . --fix",
     "verify": "node scripts/verify-provider.mjs",
     "verify:render": "vite-node --mode test scripts/verify-render.mjs",
-    "verify:all": "npm run verify:imports && npm run verify && npm run verify:backend && npm run verify:supabase && npm run verify:images && npm run verify:layout && npm run verify:adminpanel && npm run verify:moderation && npm run verify:notifications && npm run verify:freshness && npm run verify:pdf && npm run verify:datetime && npm run verify:categories && npm run verify:admintabs && npm run verify:adminforms && npm run verify:lightbox && npm run verify:modals && npm run verify:render && npm run build",
+    "verify:all": "npm run verify:imports && npm run verify && npm run verify:backend && npm run verify:supabase && npm run verify:images && npm run verify:layout && npm run verify:adminpanel && npm run verify:moderation && npm run verify:notifications && npm run verify:gallery-works && npm run verify:freshness && npm run verify:pdf && npm run verify:datetime && npm run verify:categories && npm run verify:admintabs && npm run verify:adminforms && npm run verify:lightbox && npm run verify:modals && npm run verify:render && npm run build",
     "verify:supabase": "node scripts/verify-supabase.mjs",
     "localise-images": "node scripts/localise-images.mjs",
     "verify:backend": "node scripts/verify-backend.mjs",
@@ -28,7 +28,8 @@
     "verify:moderation": "node scripts/verify-moderation.mjs",
     "verify:lightbox": "vite-node --mode test scripts/verify-lightbox.mjs",
     "verify:freshness": "node scripts/verify-freshness.mjs",
-    "verify:notifications": "vite-node --mode test scripts/verify-notifications.mjs"
+    "verify:notifications": "vite-node --mode test scripts/verify-notifications.mjs",
+    "verify:gallery-works": "vite-node --mode test scripts/verify-gallery-works.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.2",

@@ -8,7 +8,7 @@ import { isVenueType } from "@/lib/venueTypes";
 import { Link, useParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
-import { ArrowLeft, Plus, X, Loader2, ShoppingBag, ExternalLink, Instagram } from "lucide-react";
+import { ArrowLeft, Plus, X, Loader2, ShoppingBag, ExternalLink, Instagram, Pencil, Trash2 } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
 import InquiryModal from "@/components/InquiryModal";
 import LikeButton from "@/components/LikeButton";
@@ -38,6 +38,11 @@ export default function GalleryProfile() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  // Editing / removing an existing work — neither was possible before.
+  const [editingWork, setEditingWork] = useState(null);
+  const [confirmWorkId, setConfirmWorkId] = useState(null);
+  const [deletingWorkId, setDeletingWorkId] = useState(null);
+  const [workError, setWorkError] = useState("");
   const [selected, setSelected] = useState(null);
   const [showInquiry, setShowInquiry] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -59,6 +64,27 @@ export default function GalleryProfile() {
   const isOwner = user?.id === profile?.user_id || user?.role === "admin";
 
   const reloadWorks = () => base44.entities.GalleryWork.filter({ gallery_id: profile.id }).then(setWorks);
+
+  /**
+   * Remove a work. Two clicks: the first arms, the second deletes — an
+   * uploaded piece cannot be recovered, so a single misclick must not lose it.
+   */
+  const removeWork = async (work) => {
+    if (confirmWorkId !== work.id) { setConfirmWorkId(work.id); return; }
+    setWorkError("");
+    setDeletingWorkId(work.id);
+    try {
+      await base44.entities.GalleryWork.delete(work.id);
+      setWorks((prev) => prev.filter((w) => w.id !== work.id));
+    } catch (e) {
+      // Never silent: a delete that fails looks identical to one that worked
+      // until the page is reloaded and the piece is still there.
+      setWorkError(String(e?.message || e) || "Could not remove that work.");
+    } finally {
+      setDeletingWorkId(null);
+      setConfirmWorkId(null);
+    }
+  };
   const reloadEvents = () => base44.entities.Event.filter({ organizer_id: profile.user_id }, "start_date").then((list) => setEvents(list.filter((e) => (profile.user_id && e.organizer_id === profile.user_id) || (!e.organizer_id && e.organizer_name === profile.display_name)))).catch(() => setEvents([]));
   const onProfileSaved = (p) => { setProfile(p); setEditMode(false); };
   const onProfileUpdated = (p) => setProfile(p);
@@ -129,6 +155,12 @@ export default function GalleryProfile() {
           )}
         </div>
 
+        {/* A failed delete must say so. Silence looks identical to success
+            until the page is reloaded and the piece is still sitting there. */}
+        {workError && (
+          <p className="mt-4 text-sm text-destructive">{workError}</p>
+        )}
+
         {works.length === 0 ? (
           <div className="mt-12 border border-border py-16 text-center">
             <p className="font-mono-caps text-[11px] text-muted-foreground">No works uploaded yet.</p>
@@ -166,6 +198,45 @@ export default function GalleryProfile() {
                       {work.tags.slice(0, 4).map((t) => (
                         <span key={t} className="font-mono-caps text-[9px] border border-border px-1.5 py-0.5 text-muted-foreground/70">{t}</span>
                       ))}
+                    </div>
+                  )}
+
+                  {/*
+                    Edit and remove, for the owner.
+
+                    A work could be added and then never touched again: the
+                    wrong image, a typo in the price, a piece that had sold —
+                    all of it permanent. GalleryWork.update and .delete had
+                    never been called anywhere in the app.
+
+                    stopPropagation on both: the card itself opens the
+                    lightbox, so without it every click would do two things.
+                  */}
+                  {isOwner && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setEditingWork(work); }}
+                        className="flex items-center gap-1 border border-border px-2.5 py-1 font-mono-caps text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                      >
+                        <Pencil className="h-3 w-3" /> Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeWork(work); }}
+                        disabled={deletingWorkId === work.id}
+                        className={`flex items-center gap-1 border px-2.5 py-1 font-mono-caps text-[10px] transition-colors disabled:opacity-50 ${
+                          confirmWorkId === work.id
+                            ? "border-destructive text-destructive"
+                            : "border-border text-muted-foreground hover:border-destructive hover:text-destructive"
+                        }`}
+                      >
+                        {deletingWorkId === work.id
+                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                          : <Trash2 className="h-3 w-3" />}
+                        {/* One click arms it, the second confirms. */}
+                        {confirmWorkId === work.id ? "Confirm delete" : "Delete"}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -262,6 +333,16 @@ export default function GalleryProfile() {
           profile={profile}
           onClose={() => setShowAdd(false)}
           onCreated={() => { setShowAdd(false); reloadWorks(); }}
+        />
+      )}
+
+      {/* Same modal, given a work — it switches to editing. */}
+      {editingWork && isOwner && (
+        <GalleryWorkModal
+          profile={profile}
+          work={editingWork}
+          onClose={() => setEditingWork(null)}
+          onCreated={() => { setEditingWork(null); reloadWorks(); }}
         />
       )}
 
@@ -588,29 +669,77 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
   );
 }
 
-function GalleryWorkModal({ profile, onClose, onCreated }) {
-  const [form, setForm] = useState({ artist_name: "", artist_discipline: "", title: "", year: "", medium: "", dimensions: "", description: "", available_for_sale: false, price: "", currency: "USD", tags: [] });
+/**
+ * Add a work, or edit one that already exists.
+ *
+ * `work` switches it to editing. Before this the modal could only create, so
+ * a piece uploaded with the wrong image, a typo in its price, or one that had
+ * since sold was permanent — GalleryWork.update had never been called
+ * anywhere in the app.
+ */
+function GalleryWorkModal({ profile, work, onClose, onCreated }) {
+  const isEdit = !!work;
+  const [form, setForm] = useState({
+    artist_name: work?.artist_name || "",
+    artist_discipline: work?.artist_discipline || "",
+    title: work?.title || "",
+    year: work?.year || "",
+    medium: work?.medium || "",
+    dimensions: work?.dimensions || "",
+    description: work?.description || "",
+    available_for_sale: work?.available_for_sale ?? false,
+    price: work?.price || "",
+    currency: work?.currency || "USD",
+    tags: work?.tags || [],
+  });
   const [file, setFile] = useState(null);
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const input = "w-full border border-border bg-transparent px-4 py-3 text-base outline-none focus:border-foreground";
   const DISCIPLINES = ["Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Printmaking", "Ceramics", "Sound Art", "Digital Art", "Mixed Media", "Other"];
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!file) return;
+    // A new work needs a picture; an edit keeps the existing one unless a new
+    // file is chosen.
+    if (!isEdit && !file) return;
     setSaving(true);
-    const res = await base44.integrations.Core.UploadFile({ file });
-    await base44.entities.GalleryWork.create({
-      ...form, image_url: res.file_url,
-      // Which gallery is showing it — always present.
-      gallery_id: profile.id,
-      // Which artist made it. Kept for attribution and for collecting, but no
-      // longer used to decide which gallery a work belongs to.
-      artist_id: profile.user_id,
-      artist_name: form.artist_name?.trim() || profile.display_name,
-    });
+    setError("");
+    try {
+    let image_url = work?.image_url || "";
+    if (file) {
+      const res = await base44.integrations.Core.UploadFile({ file });
+      image_url = res.file_url;
+    }
+    if (isEdit) {
+      await base44.entities.GalleryWork.update(work.id, {
+        ...form,
+        image_url,
+        artist_name: form.artist_name?.trim() || profile.display_name,
+      });
+    } else {
+      await base44.entities.GalleryWork.create({
+        ...form, image_url,
+        // Which gallery is showing it — always present.
+        gallery_id: profile.id,
+        // Which artist made it. Kept for attribution and for collecting, but no
+        // longer used to decide which gallery a work belongs to.
+        artist_id: profile.user_id,
+        artist_name: form.artist_name?.trim() || profile.display_name,
+      });
+    }
+    } catch (err) {
+      /*
+       * There was no catch here. A rejected save left the button spinning
+       * with nothing said — the same silent failure pattern that made the
+       * gallery profile form look broken.
+       */
+      setError(String(err?.message || err) || "Could not save that work.");
+      setSaving(false);
+      return;
+    }
     setSaving(false);
     onCreated();
   };
@@ -625,7 +754,7 @@ function GalleryWorkModal({ profile, onClose, onCreated }) {
     <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-6" onClick={onClose}>
       <div className="bg-card border border-border w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-5 border-b border-border">
-          <p className="font-mono-caps text-[11px]">Add Work</p>
+          <p className="font-mono-caps text-[11px]">{isEdit ? "Edit Work" : "Add Work"}</p>
           <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
         </div>
         <form onSubmit={submit} className="p-6 space-y-5">
@@ -666,7 +795,25 @@ function GalleryWorkModal({ profile, onClose, onCreated }) {
               </div>
             )}
           </div>
-          <div><label className="font-mono-caps text-[11px] text-muted-foreground">Image *</label><input type="file" accept="image/*" required className={`${input} mt-2 file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`} onChange={(e) => setFile(e.target.files?.[0])} /></div>
+          <div>
+            <label className="font-mono-caps text-[11px] text-muted-foreground">
+              {isEdit ? "Image — choose a new file to replace it" : "Image *"}
+            </label>
+            {/* The current picture, so it is obvious what is being replaced. */}
+            {isEdit && work?.image_url && !file && (
+              <div className="mt-2 max-h-48 overflow-hidden bg-muted">
+                <img src={work.image_url} alt={work.title || "Current image"} className="mx-auto max-h-48 w-auto object-contain" />
+              </div>
+            )}
+            {/* Required only when adding: an edit keeps the existing image. */}
+            <input
+              type="file"
+              accept="image/*"
+              required={!isEdit}
+              className={`${input} mt-2 file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`}
+              onChange={(e) => setFile(e.target.files?.[0])}
+            />
+          </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.available_for_sale} onChange={(e) => set("available_for_sale", e.target.checked)} className="h-4 w-4 accent-primary" />
             <span className="font-mono-caps text-[11px] text-muted-foreground">Available for sale</span>
@@ -679,9 +826,18 @@ function GalleryWorkModal({ profile, onClose, onCreated }) {
               <input className={`${input} flex-1`} value={form.price} onChange={(e) => set("price", e.target.value)} placeholder="Price" />
             </div>
           )}
+          {/* Shown beside the button, where someone who will never open a
+              console can read it and pass it on. */}
+          {error && (
+            <div className="border border-destructive bg-destructive/10 p-3">
+              <p className="font-mono-caps text-[10px] text-destructive">Could not save</p>
+              <p className="mt-1 text-sm text-destructive">{error}</p>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <button type="submit" disabled={saving} className="flex items-center gap-2 bg-primary px-8 py-4 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80 disabled:opacity-50">
-              {saving && <Loader2 className="h-3 w-3 animate-spin" />} Add Work
+              {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+              {isEdit ? "Save Changes" : "Add Work"}
             </button>
             <button type="button" onClick={onClose} className="font-mono-caps text-[11px] text-muted-foreground hover:text-foreground">Cancel</button>
           </div>
