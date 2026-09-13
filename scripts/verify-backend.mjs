@@ -39,6 +39,24 @@ async function backendFor(env, tag) {
       /import \{ bumpDataRevision \} from "@\/lib\/dataRevision";/,
       "const bumpDataRevision = () => {};"
     )
+    /*
+     * The facade also caches list/filter reads. That module imports
+     * dataRevision, which imports React, and this harness is about one thing
+     * only: which backend gets selected. Stubbed for the same reason as above.
+     *
+     * Matched loosely — any `@/lib/entityCache` import, however its named
+     * bindings are arranged — so adding one does not break this harness the way
+     * the first one did.
+     */
+    .replace(
+      /import \{[\s\S]*?\} from "@\/lib\/entityCache";/,
+      [
+        "const cachedRead = (_key, fetcher) => Promise.resolve().then(fetcher);",
+        "const cacheKey = () => \"\";",
+        "const invalidateEntityCache = () => {};",
+        "const setEntityCacheEnabled = () => {};",
+      ].join("\n")
+    )
     .replace(/import\.meta\.env/g, "globalThis.__ENV__");
 
   globalThis.__ENV__ = env;

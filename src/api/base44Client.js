@@ -16,6 +16,12 @@
 import * as mockProvider from "@/api/providers/mock";
 import * as supabaseProvider from "@/api/providers/supabase";
 import { bumpDataRevision } from "@/lib/dataRevision";
+import {
+  cachedRead,
+  cacheKey,
+  invalidateEntityCache,
+  setEntityCacheEnabled,
+} from "@/lib/entityCache";
 
 const hasSupabaseCredentials =
   !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -45,18 +51,38 @@ function announceWrites(entities) {
       name,
       {
         ...entity,
+
+        /*
+         * Cached reads. `list` and `filter` only — not `get`.
+         *
+         * `get` is documented to REJECT when a row is missing, and ArticleReader
+         * plus every detail page depend on that. Caching it would mean deciding
+         * whether to cache a rejection, which is a good way to make a page say
+         * "not available" for a record that exists. The cost is in the lists
+         * anyway: one of them is half a megabyte.
+         */
+        list(...args) {
+          return cachedRead(cacheKey(name, "list", args), () => entity.list(...args));
+        },
+        filter(...args) {
+          return cachedRead(cacheKey(name, "filter", args), () => entity.filter(...args));
+        },
+
         async create(...args) {
           const row = await entity.create(...args);
+          invalidateEntityCache();
           bumpDataRevision();
           return row;
         },
         async update(...args) {
           const row = await entity.update(...args);
+          invalidateEntityCache();
           bumpDataRevision();
           return row;
         },
         async delete(...args) {
           const result = await entity.delete(...args);
+          invalidateEntityCache();
           bumpDataRevision();
           return result;
         },
@@ -65,9 +91,65 @@ function announceWrites(entities) {
   );
 }
 
+/**
+ * Clear cached reads whenever the signed-in identity changes.
+ *
+ * This is a CORRECTNESS requirement, not a tidiness one. Row visibility depends
+ * on who is asking — an unapproved profile is returned to its owner and to an
+ * admin, and to nobody else. A list cached while an admin was signed in must
+ * never be handed to the next person to use that browser.
+ *
+ * Cleared BEFORE the call runs, because logout navigates away and may not
+ * return. Clearing early is always safe; the cache only ever loses data.
+ */
+function clearCacheOnIdentityChange(auth) {
+  const IDENTITY_CHANGING = [
+    "loginViaEmailPassword",
+    "loginWithProvider",
+    "register",
+    "verifyOtp",
+    "logout",
+    "setToken",
+    "resetPassword",
+  ];
+
+  const wrapped = { ...auth };
+  for (const method of IDENTITY_CHANGING) {
+    if (typeof auth[method] !== "function") continue;
+    wrapped[method] = (...args) => {
+      invalidateEntityCache();
+      return auth[method](...args);
+    };
+  }
+
+  /*
+   * Belt and braces for the transitions no explicit call covers — a token
+   * refresh, or another tab signing out. Subscribing here rather than relying
+   * on the app to do it, because the guarantee above has to hold whether or not
+   * any component happens to be listening.
+   */
+  if (typeof auth.onAuthStateChange === "function") {
+    try {
+      auth.onAuthStateChange(() => invalidateEntityCache());
+    } catch {
+      /* a provider that cannot subscribe still has the explicit wrappers */
+    }
+  }
+
+  return wrapped;
+}
+
+/*
+ * The verify suite creates fixtures through the provider directly and then
+ * renders pages through this facade, so a cache between the two would make
+ * those 700-odd checks depend on timing. Off under `--mode test`; the dedicated
+ * cache test turns it on itself.
+ */
+setEntityCacheEnabled(import.meta.env.MODE !== "test");
+
 export const base44 = {
   entities: announceWrites(provider.entities),
-  auth: provider.auth,
+  auth: clearCacheOnIdentityChange(provider.auth),
   integrations: provider.integrations,
   functions: provider.functions,
 };

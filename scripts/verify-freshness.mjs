@@ -115,8 +115,16 @@ const facade = read("../src/api/base44Client.js");
 check("the facade wraps create", /async create\(\.\.\.args\)[\s\S]*?bumpDataRevision\(\)/.test(facade));
 check("the facade wraps update", /async update\(\.\.\.args\)[\s\S]*?bumpDataRevision\(\)/.test(facade));
 check("the facade wraps delete", /async delete\(\.\.\.args\)[\s\S]*?bumpDataRevision\(\)/.test(facade));
+/*
+ * A rejected write has changed nothing and must not trigger a refetch, so both
+ * the cache clear and the bump have to sit AFTER the await. The cache clear now
+ * sits between the two, which is why this no longer requires them adjacent —
+ * it asserts the ordering instead.
+ */
 check("the bump happens only after the write resolves",
-  /const row = await entity\.create\(\.\.\.args\);\s*\n\s*bumpDataRevision\(\);/.test(facade));
+  /const row = await entity\.create\(\.\.\.args\);\s*\n\s*(invalidateEntityCache\(\);\s*\n\s*)?bumpDataRevision\(\);/.test(facade));
+check("a write also clears the cached reads, or a save would not appear",
+  /const row = await entity\.create\(\.\.\.args\);\s*\n\s*invalidateEntityCache\(\);/.test(facade));
 check("the wrapper returns what the provider returned, preserving the contract",
   /return row;/.test(facade) && /return result;/.test(facade));
 
