@@ -4,6 +4,8 @@ import { base44 } from '@/api/base44Client';
 import { Image } from '@/components/ui/image';
 import { ArrowLeft, MapPin, Clock, ExternalLink, Calendar, Loader2 } from 'lucide-react';
 import SlimFooter from '@/components/SlimFooter';
+import { findBySlugOrId, shouldRedirectToSlug, eventPath } from '@/lib/slugs';
+import { useEventSeo } from '@/hooks/useEntitySeo';
 
 const TYPE_COLORS = {
   Exhibition: 'bg-primary/10 text-primary',
@@ -35,17 +37,30 @@ export default function EventDetail() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    base44.entities.Event.get(id)
+    /*
+     * The route param may be a readable slug ("/events/art-basel-hong-kong")
+     * or the UUID the old links used. Slug first, then id, so every link
+     * already shared or indexed still opens the right event.
+     */
+    findBySlugOrId(base44.entities.Event, id)
       .then((ev) => {
         setEvent(ev);
         setLoading(false);
-        if (!ev) setNotFound(true);
+        if (!ev) { setNotFound(true); return; }
+        // Tidy an old UUID url into the readable one. `replace`, so the back
+        // button still goes where the visitor came from.
+        if (shouldRedirectToSlug(ev, id)) navigate(eventPath(ev), { replace: true });
       })
       .catch(() => {
         setNotFound(true);
         setLoading(false);
       });
-  }, [id]);
+  }, [id, navigate]);
+
+  // Title, description, share image, breadcrumbs and schema.org/Event — an
+  // event page had no structured data at all, so none of them could earn the
+  // rich result that shows the date and venue in a search listing.
+  useEventSeo(event);
 
   /*
    * Has anyone actually chosen what part of this image matters?

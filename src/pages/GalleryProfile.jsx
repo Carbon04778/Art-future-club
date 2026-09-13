@@ -5,7 +5,7 @@ import ExpandableText from "@/components/ExpandableText";
 import MyCollection from "@/components/MyCollection";
 import FocalPointPicker from "@/components/FocalPointPicker";
 import { isVenueType } from "@/lib/venueTypes";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
 import { ArrowLeft, Plus, X, Loader2, ShoppingBag, ExternalLink, Instagram, Pencil, Trash2 } from "lucide-react";
@@ -25,6 +25,8 @@ import { useGallerySeoMeta } from "@/hooks/useGallerySeoMeta";
 import GeoAddressField from "@/components/gallery/GeoAddressField";
 import SubmitForReview from "@/components/SubmitForReview";
 import { isModeratedCollectorType } from "@/lib/profileReadiness";
+import { findBySlugOrId, shouldRedirectToSlug, spacePath } from "@/lib/slugs";
+import { absoluteUrl } from "@/lib/seo";
 
 const INTERESTS = ["Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media"];
 const SEEKING = ["Emerging Artists", "Established Artists", "Commissions", "Editions", "Gallery Partnerships"];
@@ -32,6 +34,11 @@ const BUDGETS = ["Under $1k", "$1k–$5k", "$5k–$20k", "$20k–$100k", "$100k+
 
 export default function GalleryProfile() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  // This component serves BOTH /gallery/:id and /venues/:id, so the canonical
+  // url has to keep whichever prefix the visitor arrived on.
+  const { pathname } = useLocation();
+  const onVenuePath = pathname.startsWith("/venues");
   const [profile, setProfile] = useState(null);
   const [works, setWorks] = useState([]);
   const [events, setEvents] = useState([]);
@@ -49,8 +56,18 @@ export default function GalleryProfile() {
   const [showUpgrade, setShowUpgrade] = useState(false);
 
   useEffect(() => {
-    base44.entities.CollectorProfile.get(id).then((p) => {
+    /*
+     * The route param may be a readable slug ("/gallery/soluna-fine-art") or
+     * the UUID the old links used. Slug first, then id, so every link already
+     * shared or indexed still opens the right space.
+     */
+    findBySlugOrId(base44.entities.CollectorProfile, id).then((p) => {
+      if (!p) { setLoading(false); return; }
       setProfile(p);
+      // Tidy an old UUID url into the readable one, keeping /gallery vs /venues.
+      if (shouldRedirectToSlug(p, id)) {
+        navigate(spacePath(p, onVenuePath), { replace: true });
+      }
       // Keyed on the gallery's PROFILE id, not user_id. Unclaimed galleries
       // have no user_id, so every one of them was matching artist_id = null
       // and therefore showing every other gallery's works.
@@ -59,7 +76,7 @@ export default function GalleryProfile() {
       setLoading(false);
     }).catch(() => setLoading(false));
     base44.auth.me().then((u) => setUser(u)).catch(() => {});
-  }, [id]);
+  }, [id, navigate, onVenuePath]);
 
   const isOwner = user?.id === profile?.user_id || user?.role === "admin";
 
@@ -89,7 +106,9 @@ export default function GalleryProfile() {
   const onProfileSaved = (p) => { setProfile(p); setEditMode(false); };
   const onProfileUpdated = (p) => setProfile(p);
 
-  useGallerySeoMeta(profile);
+  // isVenue keeps the canonical url on the path the visitor arrived by:
+  // this one component serves both /gallery/:id and /venues/:id.
+  useGallerySeoMeta(profile, { isVenue: onVenuePath });
 
 
   if (loading) {
@@ -309,7 +328,7 @@ export default function GalleryProfile() {
                     <FollowButton artistProfile={{ user_id: profile.user_id, display_name: profile.display_name }} currentUserId={user?.id} />
                   </div>
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-                    <ShareButtons url={`${window.location.origin}/gallery/${id}`} title={`${selected.title} by ${profile.display_name}`} compact />
+                    <ShareButtons url={absoluteUrl(spacePath(profile, onVenuePath))} title={`${selected.title} by ${profile.display_name}`} compact />
                   </div>
                   <CommentsSection targetId={selected.id} targetType="gallery_work" userId={user?.id} userName={user?.full_name || profile.display_name} ownerId={profile.user_id} ownerLabel={selected.title ? `"${selected.title}"` : "your work"} />
                 </div>

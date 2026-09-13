@@ -1,99 +1,89 @@
 import { useEffect } from "react";
+import { applySeo, absoluteUrl, breadcrumbs, SITE_NAME } from "@/lib/seo";
+import { articlePath } from "@/lib/slugs";
 
 /**
- * Injects SEO + GEO meta tags into the document <head> for a given article,
- * then restores the previous <head> state on unmount (so tags don't leak
- * between articles or back to the rest of the site).
+ * SEO + GEO meta for an editorial article.
+ *
+ * This hook already set a good set of tags. What it got wrong is now handled by
+ * src/lib/seo.js:
+ *
+ *   - og:image used the column value as-is, so a locally hosted cover produced
+ *     a root-relative path. Every social platform requires an absolute url and
+ *     silently shows no image for a relative one.
+ *   - canonical was set ONLY when the article carried an explicit
+ *     canonical_url, which almost none do — so the default case, an article
+ *     reachable by both slug and id, had no canonical at all.
  */
-const upsert = (selector, attrs, content) => {
-  let el = document.head.querySelector(selector);
-  if (!el) {
-    el = document.createElement("meta");
-    attrs.forEach(([k, v]) => el.setAttribute(k, v));
-    document.head.appendChild(el);
-  }
-  if (content != null) el.setAttribute("content", content);
-  return el;
-};
-
-const upsertLink = (rel, href) => {
-  let el = document.head.querySelector(`link[rel="${rel}"]`);
-  if (!el) {
-    el = document.createElement("link");
-    el.setAttribute("rel", rel);
-    document.head.appendChild(el);
-  }
-  el.setAttribute("href", href);
-};
-
 export function useSeoMeta(article) {
   useEffect(() => {
-    if (!article) return;
-    const prevTitle = document.title;
-    const created = [];
+    if (!article) return undefined;
 
-    const title = article.seo_title || `${article.title} — Art Future Club Editorial`;
-    const desc = article.seo_description || article.subtitle || "";
-    const ogImage = article.og_image_url || article.cover_image_url || "";
+    const title = article.seo_title || `${article.title} — ${SITE_NAME} Editorial`;
+    const description = article.seo_description || article.subtitle || "";
+    const image = article.og_image_url || article.cover_image_url || "";
     const keywords = [article.seo_keywords, ...(article.tags || []), ...(article.categories || [])]
       .filter(Boolean)
       .join(", ");
-    const url = article.canonical_url || (typeof window !== "undefined" ? window.location.href : "");
 
-    document.title = title;
+    // An explicit canonical_url still wins — that is what the field is for,
+    // e.g. a piece syndicated from somewhere else.
+    const canonical = article.canonical_url || absoluteUrl(articlePath(article));
 
-    const meta = (name, content) => {
-      if (content == null || content === "") return;
-      const el = upsert(`meta[name="${name}"]`, [["name", name]], content);
-      created.push(() => el.setAttribute("content", ""));
-    };
-    const prop = (p, content) => {
-      if (content == null || content === "") return;
-      const el = upsert(`meta[property="${p}"]`, [["property", p]], content);
-      created.push(() => el.setAttribute("content", ""));
-    };
-
-    meta("description", desc);
-    if (keywords) meta("keywords", keywords);
-    prop("og:title", title);
-    prop("og:description", desc);
-    prop("og:image", ogImage);
-    prop("og:type", "article");
-    prop("og:url", url);
-    meta("twitter:card", "summary_large_image");
-    meta("twitter:title", title);
-    meta("twitter:description", desc);
-    meta("twitter:image", ogImage);
-
-    if (article.canonical_url) upsertLink("canonical", article.canonical_url);
-
-    if (article.geo_placename) meta("geo.placename", article.geo_placename);
-    if (article.geo_region) meta("geo.region", article.geo_region);
-    if (article.geo_lat != null && article.geo_lng != null && !Number.isNaN(Number(article.geo_lat))) {
-      meta("geo.position", `${article.geo_lat};${article.geo_lng}`);
-      meta("ICBM", `${article.geo_lat}, ${article.geo_lng}`);
-    }
-
-    // JSON-LD structured data
-    const ld = document.createElement("script");
-    ld.type = "application/ld+json";
-    ld.text = JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "Article",
-      headline: article.title,
-      description: desc,
-      image: ogImage ? [ogImage] : undefined,
-      datePublished: article.publish_date || article.created_date,
-      author: { "@type": "Person", name: article.author_name || undefined },
-      keywords: keywords || undefined,
-      ...(article.geo_placename ? { contentLocation: { "@type": "Place", name: article.geo_placename } } : {}),
+    const cleanup = applySeo({
+      title,
+      description,
+      image,
+      type: "article",
+      canonical,
+      keywords,
+      // An unpublished draft must not be indexed.
+      noindex: article.published === false,
+      geo: {
+        placename: article.geo_placename,
+        region: article.geo_region,
+        lat: article.geo_lat,
+        lng: article.geo_lng,
+      },
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: article.title,
+        description: description || undefined,
+        image: image ? [absoluteUrl(image)] : undefined,
+        url: canonical,
+        datePublished: article.publish_date || article.created_date || undefined,
+        // Google uses dateModified to decide how fresh a piece is.
+        dateModified: article.updated_date || article.publish_date || undefined,
+        author: article.author_name
+          ? { "@type": "Person", name: article.author_name }
+          : undefined,
+        publisher: {
+          "@type": "Organization",
+          name: SITE_NAME,
+          url: absoluteUrl("/"),
+        },
+        keywords: keywords || undefined,
+        ...(article.geo_placename
+          ? { contentLocation: { "@type": "Place", name: article.geo_placename } }
+          : {}),
+      },
     });
-    document.head.appendChild(ld);
+
+    const crumbs = document.createElement("script");
+    crumbs.type = "application/ld+json";
+    crumbs.text = JSON.stringify(
+      breadcrumbs([
+        { name: "Home", path: "/" },
+        { name: "Editorial", path: "/editorial" },
+        { name: article.title || "Article", path: articlePath(article) },
+      ])
+    );
+    document.head.appendChild(crumbs);
 
     return () => {
-      created.forEach((fn) => fn());
-      document.head.removeChild(ld);
-      document.title = prevTitle;
+      cleanup();
+      if (crumbs.parentNode) crumbs.parentNode.removeChild(crumbs);
     };
   }, [article]);
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { artistPath } from "@/lib/slugs";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { X, ChevronRight } from "lucide-react";
@@ -28,7 +29,7 @@ export default function ArtistMap() {
 
   useEffect(() => {
     // The map plots counts per chapter and lists names in the sidebar.
-    base44.entities.ArtistProfile.list("-created_date", 200, "id,display_name,discipline,chapter")
+    base44.entities.ArtistProfile.list("-created_date", 200, "id,display_name,discipline,chapter,slug")
       .then(setArtists);
   }, [rev]);
 
@@ -118,7 +119,7 @@ export default function ArtistMap() {
                 : (byChapter[selectedChapter] || []).map((a) => (
                     <Link
                       key={a.id}
-                      to={`/artists/${a.id}`}
+                      to={artistPath(a)}
                       className="block px-4 py-3 hover:bg-muted/30 transition-colors"
                     >
                       <p className="font-body text-sm font-medium truncate">{a.display_name}</p>

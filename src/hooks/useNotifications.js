@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { STATUS, effectiveStatus, isModeratedCollectorType } from "@/lib/profileReadiness";
+import { isVenueType } from "@/lib/venueTypes";
+import { artistPath, spacePath, eventPath } from "@/lib/slugs";
 
 /**
  * Notifications derived from data that already exists.
@@ -173,7 +175,7 @@ export default function useNotifications(userId, options = {}) {
         who: c.user_name || "A member",
         text: `commented on your work — "${c.body?.slice(0, 60)}"`,
         at: c.created_date,
-        link: myArtists[0] ? `/artists/${myArtists[0].id}` : "/",
+        link: myArtists[0] ? artistPath(myArtists[0]) : "/",
       });
     }
 
@@ -188,7 +190,7 @@ export default function useNotifications(userId, options = {}) {
             ? `wants to commission you${q.work_title ? ` — ${q.work_title}` : ""}`
             : `enquired about "${q.work_title || "your work"}"${q.price ? ` (${q.currency || ""} ${q.price})` : ""}`,
         at: q.created_date,
-        link: myArtists[0] ? `/artists/${myArtists[0].id}` : "/",
+        link: myArtists[0] ? artistPath(myArtists[0]) : "/",
       });
     }
 
@@ -202,7 +204,7 @@ export default function useNotifications(userId, options = {}) {
         who: "A collector",
         text: `added "${w.work_title || "your work"}" to their collection`,
         at: w.created_date,
-        link: myArtists[0] ? `/artists/${myArtists[0].id}` : "/",
+        link: myArtists[0] ? artistPath(myArtists[0]) : "/",
       });
     }
 
@@ -215,7 +217,7 @@ export default function useNotifications(userId, options = {}) {
         who: "A member",
         text: "started following you",
         at: f.created_date,
-        link: myArtists[0] ? `/artists/${myArtists[0].id}` : "/",
+        link: myArtists[0] ? artistPath(myArtists[0]) : "/",
       });
     }
 
@@ -230,7 +232,7 @@ export default function useNotifications(userId, options = {}) {
           who: "AFC team",
           text: `approved "${p.display_name}" — your profile is now live`,
           at: p.reviewed_at,
-          link: p.discipline ? `/artists/${p.id}` : `/gallery/${p.id}`,
+          link: p.discipline ? artistPath(p) : spacePath(p, false),
         });
       } else if (status === STATUS.REJECTED) {
         push({
@@ -255,11 +257,11 @@ export default function useNotifications(userId, options = {}) {
       const [fArtistRes, fSpaceRes] = await Promise.allSettled([
         base44.entities.ArtistProfile.filter(
           { user_id: { $in: followingIds } }, "-updated_date", 100,
-          "id,display_name,user_id,portfolio_works,status"
+          "id,display_name,user_id,portfolio_works,status,slug"
         ),
         base44.entities.CollectorProfile.filter(
           { user_id: { $in: followingIds } }, "-updated_date", 100,
-          "id,display_name,user_id,type,status"
+          "id,display_name,user_id,type,status,slug"
         ),
       ]);
       const fArtists = settled(fArtistRes);
@@ -285,7 +287,7 @@ export default function useNotifications(userId, options = {}) {
             who: a.display_name || "An artist you follow",
             text: `added a new work — "${w.title || "Untitled"}"`,
             at: w.added_date,
-            link: `/artists/${a.id}`,
+            link: artistPath(a),
           });
         });
       }
@@ -296,7 +298,7 @@ export default function useNotifications(userId, options = {}) {
           base44.entities.GalleryWork.list("-created_date", SCAN,
             "id,title,gallery_id,created_date"),
           base44.entities.Event.list("-created_date", SCAN,
-            "id,title,organizer_id,organizer_name,created_date,start_date"),
+            "id,title,organizer_id,organizer_name,created_date,start_date,slug"),
         ]);
         for (const w of recent(settled(gwRes))) {
           const space = spaceById.get(w.gallery_id);
@@ -307,7 +309,7 @@ export default function useNotifications(userId, options = {}) {
             who: space.display_name || "A gallery you follow",
             text: `added a new work — "${w.title || "Untitled"}"`,
             at: w.created_date,
-            link: `/gallery/${space.id}`,
+            link: spacePath(space, isVenueType(space.type)),
           });
         }
         const followedUserIds = new Set(followingIds);
@@ -319,7 +321,7 @@ export default function useNotifications(userId, options = {}) {
             who: e.organizer_name || "A space you follow",
             text: `announced "${e.title}"`,
             at: e.created_date,
-            link: `/events/${e.id}`,
+            link: eventPath(e),
           });
         }
       }
@@ -329,9 +331,9 @@ export default function useNotifications(userId, options = {}) {
     if (isAdmin) {
       const [pendA, pendC] = await Promise.allSettled([
         base44.entities.ArtistProfile.filter({ status: STATUS.PENDING }, "-created_date", LIMIT,
-          "id,display_name,created_date,status"),
+          "id,display_name,created_date,status,slug"),
         base44.entities.CollectorProfile.filter({ status: STATUS.PENDING }, "-created_date", LIMIT,
-          "id,display_name,created_date,status,type"),
+          "id,display_name,created_date,status,type,slug"),
       ]);
       for (const p of [...settled(pendA), ...settled(pendC)]) {
         push({

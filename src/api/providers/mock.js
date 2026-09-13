@@ -19,6 +19,9 @@ import {
   effectiveStatus,
   isModeratedCollectorType,
 } from "../../lib/profileReadiness.js";
+// Relative, not "@/lib/slugs" — verify-provider.mjs loads this file under plain
+// Node, where the Vite alias does not exist.
+import { slugify } from "../../lib/slugs.js";
 
 const STORAGE_KEY = "afc_mock_db_v1";
 const SESSION_KEY = "afc_mock_session_v1";
@@ -49,7 +52,74 @@ function loadDb() {
   return clone(SEED);
 }
 
-let db = loadDb();
+/* ------------------------------------------------------------------ slugs */
+
+/**
+ * Which field each sluggable table derives its url from.
+ *
+ * Mirrors the triggers in migration 019. Keys are ENTITY names, which is what
+ * this provider uses as its table keys.
+ */
+const SLUG_SOURCE = {
+  ArtistProfile: "display_name",
+  CollectorProfile: "display_name",
+  Event: "title",
+};
+
+/**
+ * Give a row a unique slug, exactly as public.set_slug() does.
+ *
+ * Two behaviours are worth spelling out because they look like bugs:
+ *
+ *   - A row whose name yields no slug at all falls back to its id. One real
+ *     event is titled entirely in Chinese and has no Latin slug; an empty url
+ *     segment would be worse than a UUID.
+ *   - A RENAME DOES NOT CHANGE THE SLUG. The database trigger fires on an
+ *     update of display_name, but at that point the row still carries its old
+ *     slug, so the trigger re-slugifies that and returns — it never looks at
+ *     the new name. That is the right behaviour: a published url that silently
+ *     changed when someone fixed a typo would break every existing link and
+ *     every search result. Mirrored here so the demo behaves the same way.
+ */
+function ensureSlug(name, row, rows) {
+  const field = SLUG_SOURCE[name];
+  if (!field) return;
+  if (row.slug) return;
+
+  const base = slugify(row[field]);
+  if (!base) {
+    row.slug = String(row.id);
+    return;
+  }
+  let candidate = base;
+  let n = 1;
+  while (rows.some((r) => r.id !== row.id && r.slug === candidate)) {
+    n += 1;
+    candidate = `${base}-${n}`;
+  }
+  row.slug = candidate;
+}
+
+/**
+ * Backfill slugs across the seed, the same way migration 019 does.
+ *
+ * Ordered by created_date then id so the numbering of a duplicate name is
+ * stable between runs rather than depending on object iteration order.
+ */
+function backfillSlugs(database) {
+  for (const name of Object.keys(SLUG_SOURCE)) {
+    const rows = database[name];
+    if (!Array.isArray(rows)) continue;
+    const ordered = [...rows].sort((a, b) =>
+      String(a.created_date || "").localeCompare(String(b.created_date || "")) ||
+      String(a.id).localeCompare(String(b.id))
+    );
+    for (const row of ordered) ensureSlug(name, row, rows);
+  }
+  return database;
+}
+
+let db = backfillSlugs(loadDb());
 
 function persist() {
   if (typeof window === "undefined") return;
@@ -229,6 +299,9 @@ function entity(name) {
         row.status = STATUS.DRAFT;
       }
       guardStatusWrite(name, null, row);
+      // Stands in for the BEFORE INSERT triggers in migration 019, so a row
+      // created here comes back with its slug the way Supabase returns it.
+      ensureSlug(name, row, table(name));
       table(name).push(row);
       persist();
       return clone(row);
@@ -249,6 +322,12 @@ function entity(name) {
         updated_date: new Date().toISOString(),
       };
       guardStatusWrite(name, rows[i], next);
+      /*
+       * Only regenerate when the slug was explicitly cleared — which is how the
+       * database trigger behaves, and how an admin asks for a new url. A plain
+       * rename deliberately keeps the existing slug so published links survive.
+       */
+      if (SLUG_SOURCE[name] && !next.slug) ensureSlug(name, next, rows);
       rows[i] = next;
       persist();
       return clone(rows[i]);

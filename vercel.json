@@ -1,5 +1,41 @@
 {
+  "trailingSlash": false,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/:section(artists|gallery|venues|events|editorial)/:segment",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Bb][Oo][Tt]|[Cc][Rr][Aa][Ww][Ll]|[Ss][Pp][Ii][Dd][Ee][Rr]|facebookexternalhit|[Ww]hats[Aa]pp|[Ee]mbedly|[Qq]uora|[Pp]interest|[Ss]kype|[Cc]hat[Gg][Pp][Tt]|[Cc]laude|[Pp]erplexity|cohere-ai|anthropic-ai|[Gg]oogle-[Ee]xtended|[Ii]framely|[Mm]astodon|[Nn]uzzel|[Vv]alidator|[Pp]review).*"
+        }
+      ],
+      "destination": "/api/prerender"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/images/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    }
   ]
 }

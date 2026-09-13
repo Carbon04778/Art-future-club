@@ -147,8 +147,10 @@ for (const [rel, label] of MUST_NOT_WIRE) {
 
 check("the editorial section no longer downloads every article body",
   /cover_image_url,cover_image_alt/.test(read("../src/components/EditorialArchive.jsx")));
-check("the home page chapter list asks for five event columns",
-  /"id,title,venue,chapter,start_date"/.test(read("../src/components/CityChapters.jsx")));
+// Six columns now: `slug` joined the list so the links it renders are the
+// readable /events/<name> rather than a UUID.
+check("the home page chapter list asks only for the event columns it renders",
+  /"id,title,venue,chapter,start_date,slug"/.test(read("../src/components/CityChapters.jsx")));
 check("the venues page names its columns", /id,display_name,type,based_in/.test(read("../src/pages/Venues.jsx")));
 check("the artists directory names its columns",
   /id,display_name,discipline,based_in/.test(read("../src/pages/ArtistsDirectory.jsx")));

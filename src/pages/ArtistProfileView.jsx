@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ExpandableText from "@/components/ExpandableText";
 import MyCollection from "@/components/MyCollection";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
 import { ExternalLink, Instagram, ShoppingBag, Mail, Linkedin, LogOut, Images } from "lucide-react";
@@ -27,9 +27,13 @@ import InquiryModal from "@/components/InquiryModal";
 import PortfolioPDFExport from "@/components/PortfolioPDFExport";
 import PortfolioLightbox from "@/components/portfolio/PortfolioLightbox";
 import { STATUS, effectiveStatus } from "@/lib/profileReadiness";
+import { findBySlugOrId, shouldRedirectToSlug, artistPath } from "@/lib/slugs";
+import { absoluteUrl } from "@/lib/seo";
+import { useArtistSeo } from "@/hooks/useEntitySeo";
 
 export default function ArtistProfileView() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   // Roles live on `profiles`, not on artist_profile, so the badge needs a
   // separate lookup keyed on the profile owner.
@@ -44,24 +48,29 @@ export default function ArtistProfileView() {
 
   useEffect(() => {
     setNotFound(false);
-    base44.entities.ArtistProfile.get(id).then((p) => {
+    /*
+     * `id` is the route param, but it may be either a readable slug
+     * ("/artists/naishi-jogani") or the UUID the old links used. Resolved by
+     * slug first and then by id, so every link shared before slugs existed
+     * still opens the right profile.
+     *
+     * findBySlugOrId never rejects — it resolves null for a missing row, which
+     * covers the normal case of a profile awaiting review being hidden by the
+     * read policy. Before this page had any catch at all, that state left the
+     * spinner running forever with nothing said.
+     */
+    findBySlugOrId(base44.entities.ArtistProfile, id).then((p) => {
+      if (!p) { setNotFound(true); return; }
       setProfile(p);
+      // Tidy an old UUID url into the readable one. `replace`, so the back
+      // button still goes where the visitor came from rather than bouncing.
+      if (shouldRedirectToSlug(p, id)) navigate(artistPath(p), { replace: true });
       // Unclaimed profiles have no user_id, so there is no role to look up.
-      if (!p?.user_id) return;
+      if (!p.user_id) return;
       base44.entities.Profile.filter({ id: p.user_id })
         .then((rows) => setOwnerRole(rows[0]?.role || null))
         .catch(() => setOwnerRole(null));
     })
-      /*
-       * There was no catch here at all. `get` rejects on a missing row, and
-       * the page renders a spinner while `profile` is null — so a bad id span
-       * forever with nothing said.
-       *
-       * It matters more now: a profile awaiting review is hidden by the read
-       * policy, so it comes back as "not found" to everyone except its owner
-       * and an admin. That is a normal state, not an error, and it needs to
-       * say so rather than hang.
-       */
       .catch(() => setNotFound(true));
     base44.auth.me().then((u) => {
       setCurrentUser(u);
@@ -70,7 +79,11 @@ export default function ArtistProfileView() {
         setCurrentUserName(res[0]?.display_name || u.full_name || "Member");
       });
     }).catch(() => {});
-  }, [id]);
+  }, [id, navigate]);
+
+  // Title, description, share image and Person structured data — this page
+  // previously had none of it.
+  useArtistSeo(profile);
 
   if (notFound) {
     return (
@@ -100,7 +113,12 @@ export default function ArtistProfileView() {
   }
 
   const isOwner = currentUser && profile.user_id === currentUser.id;
-  const profileUrl = window.location.href;
+  /*
+   * The canonical slug url, not window.location.href. A visitor who arrives on
+   * an old UUID link and shares immediately would otherwise spread the UUID
+   * form again — and href also carries any ?query the page was opened with.
+   */
+  const profileUrl = absoluteUrl(artistPath(profile));
 
   const ownStatus = effectiveStatus(profile);
   const awaitingReview = ownStatus === STATUS.PENDING || ownStatus === STATUS.FLAGGED;
@@ -402,7 +420,7 @@ export default function ArtistProfileView() {
                         Collect is what overflowed the narrow grid column
                         originally, and that has not changed. */}
                     <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3">
-                      <ShareButtons url={`${window.location.href}#work-${i}`} title={`${work.title} by ${profile.display_name}`} compact />
+                      <ShareButtons url={`${profileUrl}#work-${i}`} title={`${work.title} by ${profile.display_name}`} compact />
                     </div>
                     <div className="mt-3 border-t border-border/50 pt-3">
                       <CommentsSection
@@ -483,7 +501,7 @@ export default function ArtistProfileView() {
                     send it. */}
                 <span className="ml-auto">
                   <ShareButtons
-                    url={`${window.location.href}#work-${lightbox.workIndex}`}
+                    url={`${profileUrl}#work-${lightbox.workIndex}`}
                     title={`${profile.portfolio_works[lightbox.workIndex]?.title || "Artwork"} by ${profile.display_name}`}
                     compact
                   />

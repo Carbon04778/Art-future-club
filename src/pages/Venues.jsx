@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { spacePath } from "@/lib/slugs";
 import { VENUE_TYPES, isVenueType } from "@/lib/venueTypes";
 import { Link, useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -30,7 +31,7 @@ export default function Venues() {
     base44.entities.CollectorProfile.list(
       "-updated_date",
       400,
-      "id,display_name,type,based_in,address,bio,avatar_url,cover_image_url,partnership_type,website,status"
+      "id,display_name,type,based_in,address,bio,avatar_url,cover_image_url,partnership_type,website,status,slug"
     )
       .then((rows) => setVenues(rows.filter((r) => isVenueType(r.type))))
       .catch(() => {})
@@ -129,7 +130,7 @@ export default function Venues() {
                 className="group"
                 data-artwork
               >
-                <Link to={`/venues/${v.id}`} className="block">
+                <Link to={spacePath(v, true)} className="block">
                   <div className="aspect-[4/3] overflow-hidden bg-muted">
                     {v.cover_image_url || v.avatar_url ? (
                       <Image

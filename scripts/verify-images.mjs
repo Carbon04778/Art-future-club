@@ -135,10 +135,30 @@ const walkSrc = (dir, out = []) => {
   return out;
 };
 const scanned = [...walkSrc(j(ROOT, "src")), j(ROOT, "index.html")];
+
+/**
+ * Strip comments before scanning for image references.
+ *
+ * A path written in a comment to EXPLAIN something — "og:image was a relative
+ * path like /images/x.jpg" — is not a reference; nothing ever loads it. Without
+ * this, documenting the bug this suite exists to catch made the suite fail.
+ *
+ * Only BLOCK comments and WHOLE-LINE // comments are removed. A blanket
+ * /\/\/.*$/ strip would also eat the rest of any line containing "https://",
+ * truncating real references and quietly turning this check into a no-op — a
+ * false negative, which is far worse than the false positive being fixed.
+ */
+const stripComments = (src) =>
+  src
+    .replace(/\/\*[\s\S]*?\*\//g, "")   // /* ... */ and /** ... */
+    .replace(/<!--[\s\S]*?-->/g, "")    // html
+    .replace(/^\s*\/\/.*$/gm, "");      // a line that is only a comment
+
 const missing = [];
 let refs = 0;
 for (const file of scanned) {
-  for (const m of rf(file, "utf8").matchAll(/["'`(]\/images\/([A-Za-z0-9_./-]+\.(?:webp|png|jpe?g|svg))/g)) {
+  const source = stripComments(rf(file, "utf8"));
+  for (const m of source.matchAll(/["'`(]\/images\/([A-Za-z0-9_./-]+\.(?:webp|png|jpe?g|svg))/g)) {
     refs++;
     if (!ex(j(ROOT, "public", "images", m[1]))) {
       missing.push(`/images/${m[1]} <- ${file.replace(ROOT, "").replace(/\\/g, "/")}`);

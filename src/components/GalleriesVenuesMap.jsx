@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { spacePath } from "@/lib/slugs";
 import { isVenueType, VENUE_TYPES } from "@/lib/venueTypes";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -38,7 +39,7 @@ export default function GalleriesVenuesMap() {
     base44.entities.CollectorProfile.list(
       "-updated_date",
       400,
-      "id,display_name,type,based_in,address,avatar_url,cover_image_url"
+      "id,display_name,type,based_in,address,avatar_url,cover_image_url,slug"
     )
       .then((rows) => setProfiles(rows.filter((r) => r.type === "Gallery" || isVenueType(r.type))))
       .catch(() => {})
@@ -156,7 +157,7 @@ export default function GalleriesVenuesMap() {
               </div>
               <div className="divide-y divide-border">
                 {selectedProfiles.map((p) => {
-                  const to = isVenueType(p.type) ? `/venues/${p.id}` : `/gallery/${p.id}`;
+                  const to = spacePath(p, isVenueType(p.type));
                   return (
                     <Link
                       key={p.id}

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { eventPath } from "@/lib/slugs";
 import { toLocalInput, fromLocalInput } from "@/lib/datetime";
 import { LIMITS_ENABLED } from "@/lib/featureLimits";
 import { base44 } from "@/api/base44Client";
@@ -129,7 +130,7 @@ function ExhibitionGroup({ title, events, faded, isOwner, onEdit, onDelete, dele
               <p className="font-heading text-2xl tracking-[-0.02em]">{new Date(ev.start_date).getDate()}</p>
               <p className="font-mono-caps text-[10px] text-muted-foreground">{new Date(ev.start_date).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}</p>
             </div>
-            <Link to={`/events/${ev.id}`} className="group">
+            <Link to={eventPath(ev)} className="group">
               <span className="font-mono-caps text-[10px] text-primary">{ev.event_type}</span>
               <h3 className="mt-1 font-heading text-xl tracking-[-0.01em] group-hover:text-primary transition-colors">{ev.title}</h3>
               {ev.description && <p className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-lg line-clamp-2">{ev.description}</p>}

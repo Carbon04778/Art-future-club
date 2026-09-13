@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { spacePath } from "@/lib/slugs";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -28,7 +29,7 @@ export default function GalleryShowcase() {
     // Kept on one line: verify-categories.mjs asserts this page selects only
     // galleries, and its check reads the source rather than the behaviour.
     base44.entities.CollectorProfile.filter({ type: "Gallery" }, undefined, undefined,
-      "id,display_name,based_in,bio,avatar_url,cover_image_url,interests,status"
+      "id,display_name,based_in,bio,avatar_url,cover_image_url,interests,status,slug"
     ).then(setGalleries);
     // Only ever used to build the set of galleries that have something for
     // sale, so two columns are enough — this was pulling 500 whole artworks.
@@ -152,7 +153,7 @@ export default function GalleryShowcase() {
               onMouseLeave={() => setHovered(null)}
               data-artwork
             >
-              <Link to={`/gallery/${g.id}`} className="block">
+              <Link to={spacePath(g, false)} className="block">
                 <div className="aspect-[4/3] overflow-hidden bg-muted">
                   {g.cover_image_url || g.avatar_url ? (
                     <Image

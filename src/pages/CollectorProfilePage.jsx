@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { spacePath } from "@/lib/slugs";
 // isVenueType was used below but never imported, so this page threw a
 // ReferenceError for any member who already had a non-gallery collector
 // profile — the form silently stayed in "create" mode and saving produced a
@@ -49,9 +50,9 @@ export default function CollectorProfilePage() {
           // Galleries maintain their own dedicated profile page — send them there
           // if any of the user's profiles is a Gallery (even if a Collector one exists too).
           const gallery = res.find((p) => p.type === "Gallery");
-          if (gallery) { navigate(`/gallery/${gallery.id}`, { replace: true }); return; }
+          if (gallery) { navigate(spacePath(gallery, false), { replace: true }); return; }
           const venue = res.find((p) => isVenueType(p.type));
-          if (venue) { navigate(`/venues/${venue.id}`, { replace: true }); return; }
+          if (venue) { navigate(spacePath(venue, true), { replace: true }); return; }
           // Use the most recently created collector profile.
           const p = res.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0];
           setProfileId(p.id);

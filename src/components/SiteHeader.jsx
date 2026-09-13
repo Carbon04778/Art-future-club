@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { artistPath, spacePath } from "@/lib/slugs";
 import { isVenueType } from "@/lib/venueTypes";
 import { Link, useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -39,9 +40,9 @@ export default function SiteHeader() {
         // "My Profile" links to the public preview of the user's profile.
         const gallery = collectors.find((c) => c.type === "Gallery");
         const venue = collectors.find((c) => isVenueType(c.type));
-        if (gallery) setProfileLink(`/gallery/${gallery.id}`);
-        else if (venue) setProfileLink(`/venues/${venue.id}`);
-        else if (artists.length > 0) setProfileLink(`/artists/${artists[0].id}`);
+        if (gallery) setProfileLink(spacePath(gallery, false));
+        else if (venue) setProfileLink(spacePath(venue, true));
+        else if (artists.length > 0) setProfileLink(artistPath(artists[0]));
         else if (collectors.length > 0) setProfileLink("/collector-profile/view");
         else setProfileLink("/onboarding");
       } catch {}

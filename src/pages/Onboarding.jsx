@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { artistPath, spacePath } from "@/lib/slugs";
 import { isVenueType } from "@/lib/venueTypes";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -39,11 +40,11 @@ export default function Onboarding() {
           base44.entities.CollectorProfile.filter({ user_id: u.id }),
         ]);
         if (!alive) return;
-        if (artists.length > 0) return navigate(`/artists/${artists[0].id}`, { replace: true });
+        if (artists.length > 0) return navigate(artistPath(artists[0]), { replace: true });
         const gallery = collectors.find((c) => c.type === "Gallery");
         const venue = collectors.find((c) => isVenueType(c.type));
-        if (gallery) return navigate(`/gallery/${gallery.id}`, { replace: true });
-        if (venue) return navigate(`/venues/${venue.id}`, { replace: true });
+        if (gallery) return navigate(spacePath(gallery, false), { replace: true });
+        if (venue) return navigate(spacePath(venue, true), { replace: true });
         if (collectors.length > 0) return navigate("/collector-profile/view", { replace: true });
       } catch {}
     }).catch(() => navigate("/login"));
@@ -63,16 +64,22 @@ export default function Onboarding() {
     } else {
       const profileType = role === "gallery" ? "Gallery" : role === "venue" ? "Institution" : "Collector";
       const existing = await base44.entities.CollectorProfile.filter({ user_id: user.id });
-      let collectorId;
+      /*
+       * Keep the RECORD, not just its id: the database trigger generates the
+       * slug on write and returns it, so the member lands straight on the
+       * readable url instead of on a UUID that then redirects.
+       */
+      let space;
       if (existing.length === 0) {
-        const created = await base44.entities.CollectorProfile.create({ display_name: form.display_name, type: profileType, user_id: user.id });
-        collectorId = created.id;
+        space = await base44.entities.CollectorProfile.create({ display_name: form.display_name, type: profileType, user_id: user.id });
       } else {
-        collectorId = existing[0].id;
-        await base44.entities.CollectorProfile.update(existing[0].id, { type: profileType, display_name: form.display_name });
+        space = await base44.entities.CollectorProfile.update(existing[0].id, { type: profileType, display_name: form.display_name });
+        // update may resolve without the row on some providers — fall back to
+        // what was already read so the navigate below always has an id.
+        if (!space?.id) space = existing[0];
       }
       // Galleries and venues have their own profile pages; collectors use the collector form.
-      navigate(role === "gallery" ? `/gallery/${collectorId}` : role === "venue" ? `/venues/${collectorId}` : "/collector-profile");
+      navigate(role === "collector" ? "/collector-profile" : spacePath(space, role === "venue"));
     }
     setSaving(false);
   };

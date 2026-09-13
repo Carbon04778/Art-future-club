@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { spacePath } from "@/lib/slugs";
 import { useNavigate, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -23,7 +24,7 @@ export default function CollectorProfileView() {
         if (res.length > 0) {
           const p = res[0];
           // Galleries have their own preview page.
-          if (p.type === "Gallery") { navigate(`/gallery/${p.id}`, { replace: true }); return; }
+          if (p.type === "Gallery") { navigate(spacePath(p, false), { replace: true }); return; }
           setProfile(p);
         }
         setCollection(collected);

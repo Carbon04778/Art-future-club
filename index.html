@@ -5,17 +5,84 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0a12" />
+
     <title>Art Future Club — Global Artist Community</title>
     <meta name="description" content="Art Future Club is a global community of artists, galleries, collectors and curators, with city chapters in Hong Kong, London, New York, Los Angeles, Bangkok, Milano, Toronto and Zurich." />
+
+    <!--
+      The canonical host is www: the apex 308-redirects to it. Every absolute
+      url here and in src/lib/seo.js has to use the address that actually
+      returns 200, not the one that redirects.
+
+      This canonical is overwritten per page by the SEO hooks, and replaced
+      server-side for crawlers by api/prerender.js.
+    -->
+    <link rel="canonical" href="https://www.artfutureclub.com/" />
+
     <meta property="og:site_name" content="Art Future Club" />
     <meta property="og:title" content="Art Future Club — Global Artist Community" />
     <meta property="og:description" content="A global community of artists, galleries, collectors and curators." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/images/AdobeStock_528827486.jpg" />
+    <meta property="og:url" content="https://www.artfutureclub.com/" />
+    <!--
+      ABSOLUTE, not "/images/...". Facebook, LinkedIn, X, Slack, WhatsApp and
+      iMessage all require an absolute url for og:image and silently show no
+      image at all for a relative one — which is why no link to this site has
+      ever had a preview picture.
+    -->
+    <meta property="og:image" content="https://www.artfutureclub.com/images/AdobeStock_528827486.jpg" />
+    <!--
+      The real dimensions of that file, measured, not assumed. Declaring them
+      lets a platform reserve the right space before the image has downloaded.
+
+      NOTE: 1024x674 is under the 1200x630 every platform recommends for a large
+      card. It still renders as one, but a 1200x630 export of this image would
+      look sharper in a share preview. Swap the file and these two numbers
+      together if one is made.
+    -->
+    <meta property="og:image:width" content="1024" />
+    <meta property="og:image:height" content="674" />
+    <meta property="og:image:alt" content="Art Future Club — a global community of artists, galleries, collectors and curators" />
+
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Art Future Club — Global Artist Community" />
+    <meta name="twitter:description" content="A global community of artists, galleries, collectors and curators." />
+    <meta name="twitter:image" content="https://www.artfutureclub.com/images/AdobeStock_528827486.jpg" />
+
     <link rel="manifest" href="/manifest.json" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!--
+      Organisation identity, stated once for the whole site. This is what lets a
+      search engine connect artfutureclub.com to the club's social accounts and
+      show them together rather than treating each as an unrelated page.
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Art Future Club",
+        "url": "https://www.artfutureclub.com/",
+        "logo": "https://www.artfutureclub.com/favicon.png",
+        "description": "A global community of artists, galleries, collectors and curators, with city chapters in Hong Kong, London, New York, Los Angeles, Bangkok, Milano, Toronto and Zurich.",
+        "sameAs": [
+          "https://www.instagram.com/artfutureclub/",
+          "https://www.facebook.com/artfutureclub",
+          "https://www.youtube.com/@ArtFutureClub",
+          "https://www.threads.com/@artfutureclub",
+          "https://www.linkedin.com/company/art-future-club/"
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Art Future Club",
+        "url": "https://www.artfutureclub.com/"
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

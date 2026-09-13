@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { artistPath } from "@/lib/slugs";
 import { Link, useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -39,7 +40,7 @@ export default function ArtistsDirectory() {
     base44.entities.ArtistProfile.list(
       "-created_date",
       200,
-      "id,display_name,discipline,based_in,chapter,bio,avatar_url,is_premium,is_featured,seeking,portfolio_works,status"
+      "id,display_name,discipline,based_in,chapter,bio,avatar_url,is_premium,is_featured,seeking,portfolio_works,status,slug"
     ).then(setArtists);
   }, [rev]);
 
@@ -150,7 +151,7 @@ export default function ArtistsDirectory() {
               onMouseLeave={() => setHovered(null)}
               data-artwork
             >
-              <Link to={`/artists/${a.id}`} className="block">
+              <Link to={artistPath(a)} className="block">
                 <div className="aspect-[4/3] overflow-hidden bg-muted">
                   {/* The artist's own photograph first, their work only as a
                       fallback. It was the other way round, so a directory of

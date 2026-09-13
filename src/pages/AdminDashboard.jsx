@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { artistPath } from "@/lib/slugs";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Users, Star, ShoppingBag, FileText, Trash2, Check, X } from "lucide-react";
@@ -234,7 +235,7 @@ export default function AdminDashboard() {
                         <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted flex items-center justify-center">
                           {a.avatar_url ? <Image src={a.avatar_url} alt={a.display_name} fittingType="fill" className="h-full w-full object-cover" /> : <span className="font-mono-caps text-[10px]">{a.display_name?.[0]}</span>}
                         </div>
-                        <Link to={`/artists/${a.id}`} className="font-heading text-base hover:text-primary">{a.display_name}</Link>
+                        <Link to={artistPath(a)} className="font-heading text-base hover:text-primary">{a.display_name}</Link>
                       </div>
                     </td>
                     <td className="py-4 font-mono-caps text-[11px] text-muted-foreground">{a.discipline}</td>
@@ -252,7 +253,7 @@ export default function AdminDashboard() {
                       </button>
                     </td>
                     <td className="py-4">
-                      <Link to={`/artists/${a.id}`} className="font-mono-caps text-[10px] text-primary hover:underline">View →</Link>
+                      <Link to={artistPath(a)} className="font-mono-caps text-[10px] text-primary hover:underline">View →</Link>
                     </td>
                   </tr>
                 ))}

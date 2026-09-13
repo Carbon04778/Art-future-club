@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { artistPath } from "@/lib/slugs";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { motion } from "framer-motion";
@@ -231,7 +232,7 @@ function ArtistsSidebar() {
         <ul className="divide-y divide-border">
           {artists.map((a) => (
             <li key={a.id}>
-              <Link to={`/artists/${a.id}`} className="flex items-center gap-3 py-3 hover:text-primary group">
+              <Link to={artistPath(a)} className="flex items-center gap-3 py-3 hover:text-primary group">
                 <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted flex items-center justify-center">
                   {a.avatar_url
                     ? <Image src={a.avatar_url} alt={a.display_name} fittingType="fill" className="h-full w-full object-cover" />

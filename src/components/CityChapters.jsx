@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { eventPath } from '@/lib/slugs';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Image } from '@/components/ui/image';
@@ -90,7 +91,7 @@ function ChapterBlock({ chapter, events }) {
               ? upcoming.map((e) => (
                   <li key={e.id}>
                     <Link
-                      to={`/events/${e.id}`}
+                      to={eventPath(e)}
                       className="group flex items-baseline justify-between gap-4 py-4 transition-colors hover:text-primary"
                     >
                       <div>
@@ -151,7 +152,7 @@ export default function CityChapters() {
     // Each chapter block lists at most three upcoming gatherings: a date, a
     // title and a venue. Every column of 72 events was 233 kB and the slowest
     // request on the page at 2.2 s.
-    base44.entities.Event.list("start_date", 500, "id,title,venue,chapter,start_date")
+    base44.entities.Event.list("start_date", 500, "id,title,venue,chapter,start_date,slug")
       .then(setEvents)
       .catch(() => setEvents([]));
   }, []);

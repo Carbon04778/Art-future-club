@@ -1,110 +1,136 @@
 import { useEffect } from "react";
+import { applySeo, absoluteUrl, breadcrumbs, SITE_NAME } from "@/lib/seo";
+import { spacePath } from "@/lib/slugs";
+import { STATUS, effectiveStatus } from "@/lib/profileReadiness";
 
 /**
- * Injects SEO + GEO meta tags into the document <head> for a gallery /
- * institution profile, then restores the previous <head> state on unmount
- * so tags don't leak between profiles or back to the rest of the site.
+ * SEO for a gallery / museum / venue profile.
+ *
+ * This hook already existed and set a good set of tags. Two things were wrong
+ * with it, and both are handled by src/lib/seo.js now:
+ *
+ *   - og:image was whatever the column held, which for every locally hosted
+ *     cover is a root-relative path. Every social platform requires an absolute
+ *     url and shows nothing at all for a relative one.
+ *   - There was no canonical tag. The same gallery is reachable by slug and by
+ *     id, and on both /gallery/:id and /venues/:id, so search engines had four
+ *     addresses for one page and no way to know which to rank.
+ *
+ * @param profile the collector_profile row
+ * @param opts.isVenue true on /venues/:id, so the canonical url keeps that path
  */
-const upsert = (selector) => {
-  let el = document.head.querySelector(selector);
-  if (!el) {
-    el = document.createElement("meta");
-    document.head.appendChild(el);
-  }
-  return el;
-};
-
-export function useGallerySeoMeta(profile) {
+export function useGallerySeoMeta(profile, { isVenue = false } = {}) {
   useEffect(() => {
-    if (!profile) return;
-    const prevTitle = document.title;
-    const touched = [];
+    if (!profile) return undefined;
 
-    const title = profile.seo_title || `${profile.display_name} — Art Future Club`;
-    const desc = profile.seo_description || profile.bio || "";
-    const ogImage = profile.cover_image_url || profile.avatar_url || "";
-    const keywords = [profile.seo_keywords, ...(profile.interests || []), ...(profile.seeking || [])]
+    const name = profile.display_name || "Gallery";
+    const typeLabel = profile.type || "Gallery";
+    const where = profile.based_in || "";
+
+    const title =
+      profile.seo_title || `${name} — ${typeLabel}${where ? ` in ${where}` : ""} | ${SITE_NAME}`;
+    const description = profile.seo_description || profile.bio || "";
+    const image = profile.cover_image_url || profile.avatar_url || "";
+
+    const keywords = [
+      profile.seo_keywords,
+      name,
+      typeLabel,
+      where,
+      ...(profile.interests || []),
+      ...(profile.seeking || []),
+    ]
       .filter(Boolean)
       .join(", ");
-    const url = typeof window !== "undefined" ? window.location.href : "";
 
-    document.title = title;
+    const hasGeo =
+      profile.geo_lat != null &&
+      profile.geo_lng != null &&
+      !Number.isNaN(Number(profile.geo_lat)) &&
+      !Number.isNaN(Number(profile.geo_lng));
 
-    const meta = (name, content) => {
-      if (content == null || content === "") return;
-      const el = upsert(`meta[name="${name}"]`);
-      el.setAttribute("name", name);
-      el.setAttribute("content", content);
-      touched.push(() => el.setAttribute("content", ""));
-    };
-    const prop = (p, content) => {
-      if (content == null || content === "") return;
-      const el = upsert(`meta[property="${p}"]`);
-      el.setAttribute("property", p);
-      el.setAttribute("content", content);
-      touched.push(() => el.setAttribute("content", ""));
-    };
+    // A space still awaiting review is not public, so keep it out of search.
+    const held = effectiveStatus(profile) !== STATUS.APPROVED;
 
-    meta("description", desc);
-    if (keywords) meta("keywords", keywords);
-    prop("og:title", title);
-    prop("og:description", desc);
-    prop("og:image", ogImage);
-    prop("og:type", "profile");
-    prop("og:url", url);
-    meta("twitter:card", "summary_large_image");
-    meta("twitter:title", title);
-    meta("twitter:description", desc);
-    meta("twitter:image", ogImage);
+    const canonical = absoluteUrl(spacePath(profile, isVenue));
 
-    if (profile.geo_placename) meta("geo.placename", profile.geo_placename);
-    if (profile.geo_region) meta("geo.region", profile.geo_region);
-    if (profile.geo_lat != null && profile.geo_lng != null && !Number.isNaN(Number(profile.geo_lat)) && !Number.isNaN(Number(profile.geo_lng))) {
-      meta("geo.position", `${profile.geo_lat};${profile.geo_lng}`);
-      meta("ICBM", `${profile.geo_lat}, ${profile.geo_lng}`);
-    }
-
-    // JSON-LD structured data — a museum/gallery profile
-    const ld = document.createElement("script");
-    ld.type = "application/ld+json";
-    ld.text = JSON.stringify({
-      "@context": "https://schema.org",
-      /*
-       * Map each profile type to the closest schema.org type.
-       *
-       * This only special-cased "Institution", so the nine real Museum
-       * profiles were declaring themselves to search engines as art galleries.
-       * Museum is a recognised schema.org type; the rest have no better match
-       * than a general place, and Gallery remains the sensible default.
-       */
-      "@type":
-        profile.type === "Museum" || profile.type === "Institution"
-          ? "Museum"
-          : profile.type === "Foundation"
-          ? "Organization"
-          : profile.type === "Restaurant"
-          ? "Restaurant"
-          : profile.type === "Event Space"
-          ? "EventVenue"
-          : "Gallery",
-      name: profile.display_name,
-      description: desc || undefined,
-      image: ogImage ? [ogImage] : undefined,
-      url: url || undefined,
-      ...(profile.website ? { sameAs: [profile.website] } : {}),
-      address: profile.address
-        ? { "@type": "PostalAddress", streetAddress: profile.address }
-        : undefined,
-      ...(profile.geo_lat != null && profile.geo_lng != null && !Number.isNaN(Number(profile.geo_lat)) && !Number.isNaN(Number(profile.geo_lng))
-        ? { geo: { "@type": "GeoCoordinates", latitude: Number(profile.geo_lat), longitude: Number(profile.geo_lng) } }
-        : {}),
+    const cleanup = applySeo({
+      title,
+      description,
+      image,
+      type: "profile",
+      canonical,
+      keywords,
+      noindex: held,
+      geo: {
+        placename: profile.geo_placename || where,
+        region: profile.geo_region,
+        lat: profile.geo_lat,
+        lng: profile.geo_lng,
+      },
+      jsonLd: {
+        "@context": "https://schema.org",
+        /*
+         * Map each profile type to the closest schema.org type.
+         *
+         * This only special-cased "Institution", so the nine real Museum
+         * profiles were declaring themselves to search engines as art
+         * galleries. Museum is a recognised schema.org type; the rest have no
+         * better match than a general place, and Gallery stays the default.
+         */
+        "@type":
+          profile.type === "Museum" || profile.type === "Institution"
+            ? "Museum"
+            : profile.type === "Foundation"
+            ? "Organization"
+            : profile.type === "Restaurant"
+            ? "Restaurant"
+            : profile.type === "Event Space"
+            ? "EventVenue"
+            : "Gallery",
+        name,
+        description: description || undefined,
+        image: image ? [absoluteUrl(image)] : undefined,
+        url: canonical,
+        telephone: profile.phone || undefined,
+        email: profile.email || undefined,
+        // Real opening hours are a ranking signal for a physical place and show
+        // up directly in a local search panel.
+        openingHours: profile.opening_hours || undefined,
+        ...(profile.website ? { sameAs: [profile.website] } : {}),
+        address: profile.address
+          ? {
+              "@type": "PostalAddress",
+              streetAddress: profile.address,
+              addressLocality: where || undefined,
+            }
+          : undefined,
+        ...(hasGeo
+          ? {
+              geo: {
+                "@type": "GeoCoordinates",
+                latitude: Number(profile.geo_lat),
+                longitude: Number(profile.geo_lng),
+              },
+            }
+          : {}),
+      },
     });
-    document.head.appendChild(ld);
+
+    const crumbs = document.createElement("script");
+    crumbs.type = "application/ld+json";
+    crumbs.text = JSON.stringify(
+      breadcrumbs([
+        { name: "Home", path: "/" },
+        isVenue ? { name: "Venues", path: "/venues" } : { name: "Gallery", path: "/gallery" },
+        { name, path: spacePath(profile, isVenue) },
+      ])
+    );
+    document.head.appendChild(crumbs);
 
     return () => {
-      touched.forEach((fn) => fn());
-      document.head.removeChild(ld);
-      document.title = prevTitle;
+      cleanup();
+      if (crumbs.parentNode) crumbs.parentNode.removeChild(crumbs);
     };
-  }, [profile]);
+  }, [profile, isVenue]);
 }

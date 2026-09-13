@@ -1,4 +1,71 @@
+# Art Future Club — https://www.artfutureclub.com
+#
+# The Sitemap line below used to read "https://REPLACE-WITH-YOUR-DOMAIN/..." —
+# a placeholder that was never filled in, so no crawler ever found a sitemap.
+# The host is www because the apex redirects to it.
+
 User-agent: *
 Allow: /
 
-Sitemap: https://REPLACE-WITH-YOUR-DOMAIN/sitemap.xml
+# Member-only and transactional areas. Nothing here is public, and a crawler
+# that follows these links just collects login redirects.
+Disallow: /admin
+Disallow: /messages
+Disallow: /notifications
+Disallow: /profile/edit
+Disallow: /collector-profile
+Disallow: /onboarding
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /upgrade
+
+# Tracking parameters create a duplicate of every page they are appended to.
+Disallow: /*?*ref=
+Disallow: /*?*utm_
+
+# AI crawlers are named explicitly and allowed.
+#
+# They are covered by "User-agent: *" already, but several of them are known to
+# read only the block that names them. Art Future Club wants its artists,
+# galleries and exhibitions to be findable through these assistants, so the
+# permission is stated where each one will actually see it.
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+Sitemap: https://www.artfutureclub.com/sitemap.xml

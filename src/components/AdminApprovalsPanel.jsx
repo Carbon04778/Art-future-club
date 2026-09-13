@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { artistPath, spacePath } from "@/lib/slugs";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -141,10 +142,10 @@ export default function AdminApprovalsPanel({ user }) {
             const works = row.portfolio_works || [];
             const isFlagged = effectiveStatus(row) === STATUS.FLAGGED;
             const href = row._kind === "artist"
-              ? `/artists/${row.id}`
+              ? artistPath(row)
               : isModeratedCollectorType(row.type) && row.type !== "Gallery"
-              ? `/venues/${row.id}`
-              : `/gallery/${row.id}`;
+              ? spacePath(row, true)
+              : spacePath(row, false);
 
             return (
               <li key={`${row._entity}-${row.id}`} className="border border-border p-5">

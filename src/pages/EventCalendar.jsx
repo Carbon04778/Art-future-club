@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { eventPath } from "@/lib/slugs";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -145,7 +146,7 @@ export default function EventCalendar() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.4, delay: i * 0.04 }}
-                      onClick={() => navigate(`/events/${ev.id}`)}
+                      onClick={() => navigate(eventPath(ev))}
                       className={`group cursor-pointer py-7 grid grid-cols-1 gap-6 md:grid-cols-[140px_1fr_auto] items-start transition-colors hover:text-primary ${isPast ? "opacity-50" : ""}`}
                     >
                       {/* date */}

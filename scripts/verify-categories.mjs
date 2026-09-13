@@ -59,8 +59,15 @@ check(
   "registry separates galleries from venues",
   /p\.type === 'Gallery'/.test(regCode) && /isVenueType\(p\.type\)/.test(regCode)
 );
-check("galleries link to a gallery page", /to: `\/gallery\/\$\{g\.id\}`/.test(regCode));
-check("venues link to a venue page", /to: `\/venues\/\$\{v\.id\}`/.test(regCode));
+/*
+ * These used to assert the literal `/gallery/${g.id}` template. Links are built
+ * by spacePath() now, which returns the readable slug url and falls back to the
+ * id — so the assertion is on the helper and, critically, on the isVenue flag,
+ * which is the thing that decides /gallery vs /venues. spacePath's own mapping
+ * is covered by verify:seo.
+ */
+check("galleries link to a gallery page", /to: spacePath\(g, false\)/.test(regCode));
+check("venues link to a venue page", /to: spacePath\(v, true\)/.test(regCode));
 check("nothing links to an event page", !/to: `\/events\//.test(regCode));
 check("a venue shows its real kind", /type: v\.type \|\| 'Venue'/.test(regCode));
 check("a venue uses its own image", /image: v\.avatar_url/.test(regCode));

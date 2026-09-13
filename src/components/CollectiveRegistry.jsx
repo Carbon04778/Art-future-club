@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { artistPath, spacePath } from '@/lib/slugs';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Image } from '@/components/ui/image';
@@ -17,8 +18,8 @@ export default function CollectiveRegistry() {
       // Named columns: this index renders a name, a type, a city and a hover
       // image. Pulling every column meant 233 kB of gallery records to show
       // four rows.
-      const ARTIST_COLS = 'id,display_name,based_in,chapter,avatar_url,is_featured';
-      const SPACE_COLS = 'id,display_name,type,based_in,avatar_url';
+      const ARTIST_COLS = 'id,display_name,based_in,chapter,avatar_url,is_featured,slug';
+      const SPACE_COLS = 'id,display_name,type,based_in,avatar_url,slug';
 
       const [featuredArtists, recentArtists, profiles] = await Promise.all([
         base44.entities.ArtistProfile.filter({ is_featured: true }, '-updated_date', 5, ARTIST_COLS).catch(() => []),
@@ -46,7 +47,7 @@ export default function CollectiveRegistry() {
         type: 'Artist',
         city: a.based_in || a.chapter || '—',
         image: a.avatar_url || FALLBACK,
-        to: `/artists/${a.id}`,
+        to: artistPath(a),
       }));
 
       const galleryEntries = galleries.slice(0, 4).map((g) => ({
@@ -55,7 +56,7 @@ export default function CollectiveRegistry() {
         type: 'Gallery',
         city: g.based_in || '—',
         image: g.avatar_url || FALLBACK,
-        to: `/gallery/${g.id}`,
+        to: spacePath(g, false),
       }));
 
       // Real venue profiles — labelled with their actual kind, so a museum
@@ -66,7 +67,7 @@ export default function CollectiveRegistry() {
         type: v.type || 'Venue',
         city: v.based_in || '—',
         image: v.avatar_url || FALLBACK,
-        to: `/venues/${v.id}`,
+        to: spacePath(v, true),
       }));
 
       const combined = [...artistEntries, ...galleryEntries, ...venueEntries].slice(0, 9);

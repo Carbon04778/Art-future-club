@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { artistPath, spacePath, eventPath } from '@/lib/slugs';
 import { isVenueType } from "@/lib/venueTypes";
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -63,7 +64,7 @@ export default function CityChapterDetail() {
     base44.entities.ArtistProfile.list(
       '-created_date',
       500,
-      'id,display_name,discipline,based_in,chapter,avatar_url'
+      'id,display_name,discipline,based_in,chapter,avatar_url,slug'
     )
       .then((all) => {
         const city = chapter.city.trim().toLowerCase();
@@ -81,7 +82,7 @@ export default function CityChapterDetail() {
     base44.entities.CollectorProfile.list(
       '-updated_date',
       500,
-      'id,display_name,type,based_in,address,bio,partnership_type'
+      'id,display_name,type,based_in,address,bio,partnership_type,slug'
     )
       .then((rows) => {
         const map = {};
@@ -118,7 +119,7 @@ export default function CityChapterDetail() {
     base44.entities.Event.list(
       'start_date',
       500,
-      'id,title,description,event_type,chapter,venue,address,start_date'
+      'id,title,description,event_type,chapter,venue,address,start_date,slug'
     )
       .then((rows) => {
         const city = chapter.city.trim().toLowerCase();
@@ -245,7 +246,7 @@ export default function CityChapterDetail() {
                 transition={{ duration: 0.5, delay: i * 0.07 }}
               >
                 <Link
-                  to={`/events/${e.id}`}
+                  to={eventPath(e)}
                   className="group grid grid-cols-1 gap-4 py-8 md:grid-cols-[14rem_1fr_auto]"
                 >
                   <div>
@@ -312,7 +313,7 @@ export default function CityChapterDetail() {
             spotlight.map((a, i) => (
               <li key={a.id} className="py-6">
                 <Link
-                  to={`/artists/${a.id}`}
+                  to={artistPath(a)}
                   className="group flex flex-wrap items-center justify-between gap-6"
                 >
                   <div className="flex min-w-0 items-center gap-4">
@@ -380,7 +381,7 @@ export default function CityChapterDetail() {
             {venues.slice(0, VENUE_LIMIT).map((v) => (
                 <Link
                   key={v.id}
-                  to={`/venues/${v.id}`}
+                  to={spacePath(v, true)}
                   className="block bg-background p-8 transition-colors hover:bg-muted/40"
                 >
                   {v.partnership_type && (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { artistPath } from "@/lib/slugs";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -124,7 +125,7 @@ export default function TrendingSection() {
               {topArtists.map((artist, i) => (
                 <motion.div key={artist.id} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }} transition={{ delay: i * 0.08 }}>
-                  <Link to={`/artists/${artist.id}`} className="group flex items-center gap-3">
+                  <Link to={artistPath(artist)} className="group flex items-center gap-3">
                     <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-muted flex items-center justify-center">
                       {artist.avatar_url
                         ? <Image src={artist.avatar_url} alt={artist.display_name} fittingType="fill" className="h-full w-full object-cover" />
