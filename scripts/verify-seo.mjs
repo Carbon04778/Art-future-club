@@ -401,7 +401,17 @@ check("the prerenderer returns 404 for a missing record",
 check("the prerenderer tolerates the slug column not existing yet",
   prerender.includes("res.ok ? await res.json() : null"));
 check("the prerenderer strips the shell's own og tags before adding its own",
-  /replace\(\/\\s\*<meta\\s\+property="og:/.test(prerender) || prerender.includes('property="og:[^"]*"'));
+  prerender.includes('property="og:[^"]*"'));
+/*
+ * Caught on the live deployment, not here: index.html declares a canonical for
+ * the home page, so a prerendered profile was shipping TWO canonical tags. A
+ * search engine treats conflicting canonicals as no signal at all and decides
+ * for itself, which brings back the exact duplicate this was meant to collapse.
+ */
+check("the prerenderer strips the shell's canonical so only one is emitted",
+  /<link\\s\+rel="canonical"/.test(prerender));
+check("the prerenderer KEEPS the shell's Organization and WebSite structured data",
+  !prerender.includes('application/ld\\+json"') || !/replace\([^)]*ld\+json/.test(prerender));
 
 const sitemap = read("../api/sitemap.js");
 check("the sitemap tolerates the slug column not existing yet",

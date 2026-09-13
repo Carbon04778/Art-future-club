@@ -94,6 +94,41 @@ const React = (await import("react")).default;
 const { createRoot } = await import("react-dom/client");
 const App = (await import("../src/App.jsx")).default;
 
+/**
+ * Render a route and wait until it has actually rendered.
+ *
+ * This used to be a flat `setTimeout(resolve, 450)` — a guess at how long React
+ * plus the demo provider's simulated 120ms latency would take. On a loaded
+ * machine that guess was sometimes wrong, and the route was measured before it
+ * had painted and reported EMPTY. Running this suite four times in a row gave
+ * 46/46, 45/46, 46/46, 46/46: a test that fails at random, which is worse than
+ * no test, because the habit it teaches is to re-run until it goes green.
+ *
+ * So poll for content instead of guessing, then keep waiting a little longer
+ * after it appears so a second round of effects (a follow-up fetch resolving,
+ * a lazily loaded section) is still included in what gets measured. The cap is
+ * generous; a genuinely blank route just spends it and is still reported EMPTY.
+ */
+async function renderUntilSettled(root, container, { cap = 4000, quiet = 220 } = {}) {
+  root.render(React.createElement(App));
+  const started = Date.now();
+  let lastLength = -1;
+  let stableSince = 0;
+
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 40));
+    const length = (container.textContent || "").trim().length;
+
+    if (length !== lastLength) {
+      lastLength = length;
+      stableSince = Date.now();
+    }
+    // Settled: there is content, and it has stopped changing.
+    if (length >= 20 && Date.now() - stableSince >= quiet) return;
+    if (Date.now() - started >= cap) return;
+  }
+}
+
 const results = [];
 
 for (const route of ROUTES) {
@@ -103,11 +138,7 @@ for (const route of ROUTES) {
   const before = errors.length;
 
   const root = createRoot(container);
-  await new Promise((resolve) => {
-    root.render(React.createElement(App));
-    // let effects + the provider's simulated latency settle
-    setTimeout(resolve, 450);
-  });
+  await renderUntilSettled(root, container);
 
   const text = (container.textContent || "").replace(/\s+/g, " ").trim();
   const newErrors = errors.slice(before);
@@ -149,10 +180,7 @@ for (const route of AUTHED) {
   container.innerHTML = "";
   const before = errors.length;
   const root = createRoot(container);
-  await new Promise((resolve) => {
-    root.render(React.createElement(App));
-    setTimeout(resolve, 500);
-  });
+  await renderUntilSettled(root, container);
   const text = (container.textContent || "").replace(/\s+/g, " ").trim();
   results.push({
     route: `${route}  [signed in]`,
@@ -169,29 +197,58 @@ window.localStorage.setItem(
   JSON.stringify({ id: "user_sara", email: "sara@example.com", full_name: "Sara Wu", role: "user" })
 );
 
-async function renderAndGetText(route) {
+/**
+ * @param route      the path to render
+ * @param waitForFor when given, keep waiting until this regex matches the html
+ *
+ * Generic text-stability is the wrong signal for this check. The Admin link adds
+ * a handful of characters and appears only after auth.me() and a role lookup
+ * have both resolved — so the page could sit "stable" for the quiet period and
+ * then gain the link a moment later. That made the admin-gating check fail about
+ * one run in five, claiming a bug that was not there.
+ *
+ * For the positive case (an admin MUST see the link) we can wait for the thing
+ * itself. For the negative case (a member must NOT) there is nothing to wait
+ * for, so it waits the full cap — which is the conservative direction: the
+ * longer it waits, the more chance a wrongly rendered link has to show up.
+ */
+async function renderAndGetText(route, waitFor = null) {
   window.history.pushState({}, "", route);
   const container = document.getElementById("root");
   container.innerHTML = "";
   const root = createRoot(container);
-  await new Promise((resolve) => {
-    root.render(React.createElement(App));
-    setTimeout(resolve, 500);
-  });
+  await renderUntilSettled(root, container);
+
+  if (waitFor) {
+    const deadline = Date.now() + 4000;
+    while (Date.now() < deadline && !waitFor.test(container.innerHTML)) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  } else {
+    // Nothing to wait for, so give any late-arriving markup a generous grace
+    // period. The longer this waits, the more chance a link that should NOT be
+    // there has to appear and be caught.
+    await new Promise((r) => setTimeout(r, 1200));
+  }
+
   const html = container.innerHTML;
   root.unmount();
   return html;
 }
 
+const ADMIN_LINK = /href="\/admin"/;
+
 const memberHtml = await renderAndGetText("/");
-const memberSeesAdmin = /href="\/admin"/.test(memberHtml);
+const memberSeesAdmin = ADMIN_LINK.test(memberHtml);
 
 window.localStorage.setItem(
   "afc_mock_session_v1",
   JSON.stringify({ id: "user_lin", email: "admin@artfuture.club", full_name: "Lin", role: "admin" })
 );
-const adminHtml = await renderAndGetText("/");
-const adminSeesAdmin = /href="\/admin"/.test(adminHtml);
+// Wait for the link itself: it appears only once auth.me() and the role lookup
+// have resolved, which is later than the page looking settled.
+const adminHtml = await renderAndGetText("/", ADMIN_LINK);
+const adminSeesAdmin = ADMIN_LINK.test(adminHtml);
 
 console.log("\n  ADMIN LINK GATING");
 console.log(`    normal member sees Admin link : ${memberSeesAdmin ? "YES  <-- BUG" : "no   (correct)"}`);

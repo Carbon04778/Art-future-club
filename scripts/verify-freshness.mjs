@@ -66,10 +66,25 @@ check("the demo provider genuinely drops unrequested columns",
   !("bio" in (slim[0] || { bio: 1 })));
 
 const sb = read("../src/api/providers/supabase.js");
+/*
+ * These used to assert the literal `.select(columns || "*")`. list and filter
+ * route through selectTolerantly() now, which passes the list to select() and
+ * retries without a column the database does not have — so the assertions moved
+ * to the intent rather than the old inline shape.
+ */
 check("the Supabase provider passes the column list to select()",
-  /\.select\(columns \|\| "\*"\)/.test(sb));
+  /select\(cols\)/.test(sb) && /build\(columns \|\| "\*"\)/.test(sb));
 check("the Supabase provider still defaults to every column",
-  (sb.match(/columns \|\| "\*"/g) || []).length >= 2);
+  /columns \|\| "\*"/.test(sb));
+check("list and filter both go through the tolerant select",
+  (sb.match(/selectTolerantly\(/g) || []).length >= 3);
+/*
+ * The reason that function exists: naming columns couples the deployed front end
+ * to the deployed schema, and asking for one the database has not got yet is a
+ * hard 400 with NO ROWS — which emptied every listing page on the live site.
+ */
+check("a column the database lacks degrades to a missing field, not a missing page",
+  sb.includes('"42703"') && /missingColumnFrom/.test(sb));
 
 /* ================================================= 2. the revalidation signal */
 

@@ -110,6 +110,68 @@ function fail(error, context) {
   throw err;
 }
 
+/* ------------------------------------------------- a column that isn't there */
+
+/**
+ * PostgREST's error for selecting a column that does not exist.
+ *
+ * THIS TOOK THE SITE DOWN, so it is worth being precise about.
+ *
+ * Naming columns instead of `select("*")` is a large performance win, but it
+ * couples the deployed front end to the deployed schema. When `slug` was added
+ * to eleven column lists and the migration that creates the column had not yet
+ * been run, every one of those queries came back 400 — not "no slug", but no
+ * rows at all. The artists directory, the galleries, the venues, the events, the
+ * city chapters, the maps and the notifications were all simply empty.
+ *
+ * A missing column must degrade to a missing FIELD, never to a missing page. So
+ * the offending column is dropped and the query retried once. The moment the
+ * migration runs, the first attempt succeeds and this never engages again.
+ */
+const UNDEFINED_COLUMN = "42703";
+
+/** `column artist_profile.slug does not exist` -> `slug` */
+function missingColumnFrom(error) {
+  if (!error || error.code !== UNDEFINED_COLUMN) return null;
+  const m = /column\s+(?:[\w.]+\.)?"?([\w]+)"?\s+does not exist/i.exec(error.message || "");
+  return m ? m[1] : null;
+}
+
+/**
+ * Run a select, and if it fails only because one named column is absent from
+ * the database, drop that column and run it again.
+ *
+ * @param build   (columns) => a PostgREST query for that column list
+ * @param columns the requested column list, or undefined for every column
+ * @param label   used in the error message when it genuinely fails
+ */
+async function selectTolerantly(build, columns, label) {
+  const { data, error } = await build(columns || "*");
+  if (!error) return data ?? [];
+
+  const missing = missingColumnFrom(error);
+  // `*` cannot name a missing column, so there is nothing to retry without.
+  if (!missing || !columns) fail(error, label);
+
+  const reduced = columns
+    .split(",")
+    .map((c) => c.trim())
+    .filter((c) => c && c !== missing)
+    .join(",");
+  if (!reduced || reduced === columns) fail(error, label);
+
+  if (typeof console !== "undefined") {
+    console.warn(
+      `[afc] ${label}: column "${missing}" is not in the database yet — ` +
+        "returning rows without it. Run the pending migration."
+    );
+  }
+
+  const retry = await build(reduced);
+  if (retry.error) fail(retry.error, label);
+  return retry.data ?? [];
+}
+
 /* ----------------------------------------------------------------- entities */
 
 function entity(name) {
@@ -129,19 +191,27 @@ function entity(name) {
      * Always include `id`: React keys and every link are built from it.
      */
     async list(sort, limit, columns) {
-      let q = applySort(client().from(table).select(columns || "*"), sort);
-      if (limit) q = q.limit(limit);
-      const { data, error } = await q;
-      if (error) fail(error, `${name}.list`);
-      return data ?? [];
+      return selectTolerantly(
+        (cols) => {
+          let q = applySort(client().from(table).select(cols), sort);
+          if (limit) q = q.limit(limit);
+          return q;
+        },
+        columns,
+        `${name}.list`
+      );
     },
 
     async filter(where, sort, limit, columns) {
-      let q = applySort(applyWhere(client().from(table).select(columns || "*"), where), sort);
-      if (limit) q = q.limit(limit);
-      const { data, error } = await q;
-      if (error) fail(error, `${name}.filter`);
-      return data ?? [];
+      return selectTolerantly(
+        (cols) => {
+          let q = applySort(applyWhere(client().from(table).select(cols), where), sort);
+          if (limit) q = q.limit(limit);
+          return q;
+        },
+        columns,
+        `${name}.filter`
+      );
     },
 
     async get(id) {

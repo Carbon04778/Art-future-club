@@ -455,12 +455,26 @@ export default async function handler(req, res) {
 
     const seo = describe(route, row, path);
     const html = shell
-      // Drop the shell's own site-wide tags so they cannot compete with the
-      // page-specific ones. Title, description, og:* and twitter:* only.
+      /*
+       * Drop the shell's own site-wide tags so they cannot compete with the
+       * page-specific ones.
+       *
+       * The canonical link matters most. index.html declares
+       * <link rel="canonical" href="https://www.artfutureclub.com/">, and
+       * leaving it in place meant a prerendered profile shipped TWO canonicals —
+       * the home page and itself. Conflicting canonicals are not a tie-break;
+       * a search engine discards both signals and decides for itself, so the
+       * duplicate it was added to collapse came straight back.
+       *
+       * The JSON-LD in the shell is deliberately kept: Organization and WebSite
+       * describe the site, and sit quite correctly alongside the Person or Event
+       * describing this page.
+       */
       .replace(/\s*<title>[\s\S]*?<\/title>/i, "")
       .replace(/\s*<meta\s+name="description"[^>]*>/gi, "")
       .replace(/\s*<meta\s+property="og:[^"]*"[^>]*>/gi, "")
       .replace(/\s*<meta\s+name="twitter:[^"]*"[^>]*>/gi, "")
+      .replace(/\s*<link\s+rel="canonical"[^>]*>/gi, "")
       .replace("</head>", `  ${headTags(seo, crumbTrail(route, seo, path))}\n  </head>`)
       .replace('<div id="root"></div>', `<div id="root">\n      ${bodyMarkup(seo)}\n    </div>`);
 

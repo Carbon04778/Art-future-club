@@ -12,6 +12,15 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 const calls = [];
 let nextResult = { data: [], error: null };
 
+/*
+ * Most checks want one fixed response, so `nextResult` stays. But testing the
+ * retry for a column the database does not have needs the FIRST select to fail
+ * and the second to succeed, so a factory can take over and answer per call.
+ */
+let resultFactory = null;
+const setNextResultFactory = (fn) => { resultFactory = fn; };
+const resolveResult = () => (resultFactory ? resultFactory() : nextResult);
+
 /* ------------------------------------------- recording supabase-js stub ---- */
 
 function makeQuery(table) {
@@ -29,7 +38,7 @@ function makeQuery(table) {
     delete()     { chain.ops.push(["delete"]);       return q; },
     single()     { chain.ops.push(["single"]);       return q; },
     maybeSingle(){ chain.ops.push(["maybeSingle"]);  return q; },
-    then(res)    { calls.push(chain); return Promise.resolve(nextResult).then(res); },
+    then(res)    { calls.push(chain); return Promise.resolve(resolveResult()).then(res); },
   };
   return q;
 }
@@ -241,6 +250,81 @@ await functions.invoke("geocodeAddress", { address: "Central" });
 const fn = calls.find((c) => Array.isArray(c) && c[0] === "fn");
 check("functions.invoke passes name + body",
   fn?.[1] === "geocodeAddress" && fn?.[2]?.body?.address === "Central");
+
+/* ------------------------------- a column the database does not have yet ----
+ *
+ * THIS TOOK THE LIVE SITE DOWN, so it is tested properly.
+ *
+ * `slug` was added to eleven column lists and deployed before the migration
+ * that creates the column had been run. PostgREST answers a request for an
+ * unknown column with a hard 400 and NO ROWS — so the artists directory, the
+ * galleries, the venues, the events, the city chapters, the maps and the
+ * notifications all rendered completely empty. The column lists were correct;
+ * the schema simply had not caught up.
+ *
+ * A missing column must degrade to a missing FIELD, never to a missing page.
+ */
+
+const UNDEFINED_COLUMN_ERROR = {
+  code: "42703",
+  message: 'column artist_profile.slug does not exist',
+  details: null,
+  hint: null,
+};
+
+/** Fail the first select, succeed the second — what the real retry sees. */
+function failOnceThenSucceed(rows) {
+  let served = 0;
+  return () => {
+    served += 1;
+    return served === 1
+      ? { data: null, error: UNDEFINED_COLUMN_ERROR }
+      : { data: rows, error: null };
+  };
+}
+
+calls.length = 0;
+setNextResultFactory(failOnceThenSucceed([{ id: "a1", display_name: "Recovered Artist" }]));
+
+const recovered = await entities.ArtistProfile.list("-created_date", 5, "id,display_name,slug");
+check("a query naming a column the database lacks still returns its rows",
+  Array.isArray(recovered) && recovered.length === 1, JSON.stringify(recovered).slice(0, 90));
+check("the rows come back without the missing field, not empty",
+  recovered[0]?.display_name === "Recovered Artist", JSON.stringify(recovered[0]));
+const selects = calls.filter((c) => c.ops).map((c) => c.ops.find((o) => o[0] === "select")?.[1]);
+check("it retried exactly once", selects.length === 2, `${selects.length} selects: ${selects.join(" | ")}`);
+check("the first attempt asked for the full list including slug",
+  selects[0] === "id,display_name,slug", String(selects[0]));
+check("the retry dropped ONLY the missing column",
+  selects[1] === "id,display_name", String(selects[1]));
+
+calls.length = 0;
+setNextResultFactory(failOnceThenSucceed([{ id: "g1", display_name: "Recovered Gallery" }]));
+const recoveredFilter = await entities.CollectorProfile.filter({ type: "Gallery" }, null, 5, "id,display_name,type,slug");
+check("filter recovers the same way as list",
+  recoveredFilter[0]?.display_name === "Recovered Gallery", JSON.stringify(recoveredFilter).slice(0, 80));
+check("filter's retry keeps its where clause",
+  calls.filter((c) => c.ops).every((c) => c.ops.some((o) => o[0] === "eq" && o[2] === "Gallery")));
+
+/* A genuine error must still be an error — this must not swallow failures. */
+calls.length = 0;
+setNextResultFactory(() => ({ data: null, error: { code: "42501", message: "permission denied for table artist_profile" } }));
+let raised = false;
+try {
+  await entities.ArtistProfile.list("-created_date", 5, "id,display_name");
+} catch { raised = true; }
+check("an unrelated error is still raised rather than silently retried", raised);
+
+calls.length = 0;
+setNextResultFactory(() => ({ data: null, error: UNDEFINED_COLUMN_ERROR }));
+raised = false;
+try {
+  await entities.ArtistProfile.list("-created_date", 5);
+} catch { raised = true; }
+check("with no column list there is nothing to drop, so it raises",
+  raised && calls.filter((c) => c.ops).length === 1, `${calls.filter((c) => c.ops).length} attempts`);
+
+setNextResultFactory(null);
 
 /* ------------------------------------------------------------------ report */
 
