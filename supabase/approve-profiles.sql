@@ -182,7 +182,44 @@ returning id, email, role;
 
 
 -- ---------------------------------------------------------------------------
--- 9. CONFIRM — what is live now
+-- 9. EVERY MEMBER, AND WHETHER THEY EVER SIGNED IN
+-- ---------------------------------------------------------------------------
+-- The Supabase Dashboard shows this too, under Authentication -> Users, with a
+-- CSV export. This version adds what the dashboard cannot: their role, and what
+-- they have actually built.
+--
+-- last_sign_in_at is NULL for someone who registered and never came back.
+--
+-- auth.users is only readable from a direct database connection. That is the
+-- correct arrangement: email addresses should never be reachable with the
+-- public anon key that ships in the browser.
+
+select
+  u.email,
+  p.full_name,
+  p.role,
+  u.created_at                          as signed_up,
+  u.last_sign_in_at,
+  (u.email_confirmed_at is not null)    as email_confirmed,
+  (select count(*) from public.artist_profile    ap where ap.user_id = u.id) as artist_profiles,
+  (select count(*) from public.collector_profile cp where cp.user_id = u.id) as space_profiles
+from auth.users u
+left join public.profiles p on p.id = u.id
+order by u.last_sign_in_at desc nulls last;
+
+-- Older Supabase projects may not have every column above. If one is rejected,
+-- drop that line — the minimal form always works:
+--
+--   select email, created_at, last_sign_in_at from auth.users
+--   order by last_sign_in_at desc nulls last;
+
+-- Just the addresses, for a mailing list:
+--   select string_agg(email, ', ' order by email) from auth.users
+--   where email_confirmed_at is not null;
+
+
+-- ---------------------------------------------------------------------------
+-- 10. CONFIRM — what is live now
 -- ---------------------------------------------------------------------------
 
 -- `is distinct from`, not `<>`. A NULL status makes `status <> 'approved'`
