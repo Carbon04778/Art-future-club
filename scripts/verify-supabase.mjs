@@ -120,7 +120,9 @@ const EXPECTED_ENTITIES = [
   "Article", "ArtistProfile", "CollectedWork", "CollectorProfile", "Comment",
   "Event", "Follow", "ForumPost", "ForumReply", "GalleryWork", "Inquiry",
   "Like", "Message", "NewsletterSubscriber", "Notification", "NotificationRead",
-  "OpenCall", "Subscription", "Profile",
+  // `profiles` holds every member's email, so it is admin-and-own-row only
+  // since 020. PublicProfile is the view carrying the three public columns.
+  "OpenCall", "Subscription", "Profile", "PublicProfile",
 ];
 const missing = EXPECTED_ENTITIES.filter((e) => !entities[e]);
 const extra = Object.keys(entities).filter((e) => !EXPECTED_ENTITIES.includes(e));

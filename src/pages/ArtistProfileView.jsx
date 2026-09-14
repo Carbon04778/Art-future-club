@@ -67,7 +67,14 @@ export default function ArtistProfileView() {
       if (shouldRedirectToSlug(p, id)) navigate(artistPath(p), { replace: true });
       // Unclaimed profiles have no user_id, so there is no role to look up.
       if (!p.user_id) return;
-      base44.entities.Profile.filter({ id: p.user_id })
+      /*
+       * PublicProfile, not Profile. This is a public page, and the `profiles`
+       * table also holds every member's email address — its read policy used to
+       * be `using (true)`, which, because RLS filters rows and not columns, let
+       * the anon key in this bundle read all of them. Migration 020 closed the
+       * table and added this view, which exposes only id, full_name and role.
+       */
+      base44.entities.PublicProfile.filter({ id: p.user_id }, undefined, 1, "id,role")
         .then((rows) => setOwnerRole(rows[0]?.role || null))
         .catch(() => setOwnerRole(null));
     })

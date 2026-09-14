@@ -65,7 +65,20 @@ const TABLES = {
   // 018 — the notifications themselves are derived and never stored.
   NotificationRead: "notification_read",
   // Roles live on profiles; the admin members panel reads and updates them.
+  // Since 020 this table is readable only by its owner and by admins, because
+  // it also holds every member's email address.
   Profile: "profiles",
+  /*
+   * The three columns of `profiles` that are genuinely public: id, full_name,
+   * role. A view, added by migration 020.
+   *
+   * Anything on a public page that needs something about another member reads
+   * THIS, never Profile. The table's read policy used to be `using (true)`,
+   * which — because RLS filters rows and not columns — handed the anon key in
+   * the browser bundle every member's email and a list of which accounts were
+   * administrators.
+   */
+  PublicProfile: "profiles_public",
 };
 
 /* ------------------------------------------------------------ query helpers */

@@ -332,6 +332,100 @@ check("pending files are cleared after saving, so they are not re-uploaded",
 check("submitting is blocked while a picture is unsaved",
   /unsavedChanges/.test(submitPanelSrc) && /busy \|\| unsavedChanges/.test(submitPanelSrc));
 
+/* ================================================== member email privacy (020)
+ *
+ * 002_rls.sql gave public.profiles `for select using (true)`, meaning to expose
+ * display names. RLS filters ROWS, not COLUMNS, so it exposed the whole row —
+ * and that table holds `email` and `role`. Verified against production before
+ * 020 was written: 39 member addresses and 6 admin accounts were readable with
+ * the anon key that ships inside the JavaScript bundle.
+ */
+
+const rls020 = readFileSync(filePath("../supabase/migrations/020_profiles_email_privacy.sql"), "utf8");
+
+check("020 stops the blanket public read of profiles",
+  /drop policy if exists profiles_read on public\.profiles;/.test(rls020));
+check("020 restricts profiles to your own row or an admin",
+  /id = auth\.uid\(\)\s*\n\s*or public\.is_admin\(\)/.test(rls020));
+check("020 adds a view for the genuinely public columns",
+  /create view public\.profiles_public as/.test(rls020));
+check("the view exposes id, full_name and role — and nothing else",
+  /select id, full_name, role\s*\n\s*from public\.profiles;/.test(rls020));
+check("the view does NOT expose email",
+  !/select[^;]*email[^;]*from public\.profiles;/.test(rls020));
+check("the view is readable by anonymous visitors",
+  /grant select on public\.profiles_public to anon, authenticated;/.test(rls020));
+check("the view deliberately pins security_invoker, or it would return nothing",
+  /security_invoker = false/.test(rls020));
+check("020 is safe to re-run",
+  /drop view if exists public\.profiles_public;/.test(rls020) &&
+  /drop policy if exists profiles_read/.test(rls020));
+
+/* The app side: a PUBLIC page must never read the email-bearing table. */
+
+const stripComments = (s) =>
+  s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+const PUBLIC_PAGES = [
+  "../src/pages/ArtistProfileView.jsx",
+  "../src/pages/GalleryProfile.jsx",
+  "../src/pages/EventDetail.jsx",
+  "../src/pages/ArtistsDirectory.jsx",
+  "../src/pages/GalleryShowcase.jsx",
+  "../src/pages/Venues.jsx",
+  "../src/components/TrendingSection.jsx",
+  "../src/components/CollectiveRegistry.jsx",
+];
+for (const rel of PUBLIC_PAGES) {
+  const src = stripComments(readFileSync(filePath(rel), "utf8"));
+  check(`${rel.split("/").pop()} does not read the email-bearing profiles table`,
+    !/entities\.Profile\./.test(src),
+    (src.match(/entities\.Profile\.\w+/g) || []).join(", "));
+}
+
+const artistView = stripComments(readFileSync(filePath("../src/pages/ArtistProfileView.jsx"), "utf8"));
+check("the owner badge reads the public view instead",
+  /entities\.PublicProfile\.filter/.test(artistView));
+check("and asks only for the columns it needs",
+  /PublicProfile\.filter\(\{ id: p\.user_id \}, undefined, 1, "id,role"\)/.test(artistView));
+
+/* The demo provider must withhold what the real database withholds. */
+
+const mockSrc = readFileSync(filePath("../src/api/providers/mock.js"), "utf8");
+check("the demo provider models the view rather than aliasing the table",
+  /PublicProfile: \{ from: "Profile", columns: \["id", "full_name", "role"\] \}/.test(mockSrc));
+check("the demo view is read-only, like a real one",
+  /create: readOnly,\s*\n\s*update: readOnly,\s*\n\s*delete: readOnly,/.test(mockSrc));
+
+/*
+ * The demo seed carries no Profile rows at all, so one is created here rather
+ * than assumed. That is the only way to prove the projection actually drops a
+ * column: a view over an empty table hides an email trivially.
+ */
+const { entities: mockEntities } = await import("../src/api/providers/mock.js");
+await mockEntities.Profile.create({
+  id: "user_probe",
+  email: "probe@example.com",
+  full_name: "Probe Person",
+  role: "admin",
+});
+
+const publicRows = await mockEntities.PublicProfile.list(null, 5);
+check("the demo view returns rows", publicRows.length > 0, `${publicRows.length}`);
+check("the underlying table really does hold the email, so this is a fair test",
+  (await mockEntities.Profile.list(null, 5)).some((r) => r.email === "probe@example.com"));
+check("NO row from the demo view carries an email",
+  publicRows.every((r) => !("email" in r)),
+  JSON.stringify(publicRows[0] || {}));
+check("it still carries the role the badge needs",
+  publicRows.every((r) => "role" in r && "id" in r));
+
+let viewWriteRejected = false;
+try {
+  await mockEntities.PublicProfile.update("anything", { role: "admin" });
+} catch { viewWriteRejected = true; }
+check("writing through the view is refused", viewWriteRejected);
+
 /* ------------------------------------------------------------------ report */
 
 console.log("");

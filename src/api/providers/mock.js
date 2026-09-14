@@ -367,9 +367,57 @@ export const ENTITY_NAMES = [
   "Profile",
 ];
 
-export const entities = Object.fromEntries(
-  ENTITY_NAMES.map((n) => [n, entity(n)])
-);
+/* ------------------------------------------------------------------- views */
+
+/**
+ * Demo equivalents of read-only database views.
+ *
+ * `PublicProfile` mirrors public.profiles_public from migration 020: the three
+ * columns of `profiles` that are genuinely public. The table itself also holds
+ * every member's email address, which is why a public page must read this and
+ * never Profile.
+ *
+ * Enforced here, not just documented, so the demo build cannot quietly hand out
+ * a field the real database would withhold — the whole value of this provider
+ * is that it behaves like the thing it stands in for.
+ */
+const VIEWS = {
+  PublicProfile: { from: "Profile", columns: ["id", "full_name", "role"] },
+};
+
+function viewEntity(name, { from, columns }) {
+  const source = entity(from);
+  const pick = (row) =>
+    Object.fromEntries(columns.filter((c) => c in row).map((c) => [c, row[c]]));
+
+  const readOnly = async () => {
+    const err = new Error(`${name} is a read-only view — write to ${from} instead.`);
+    err.status = 405;
+    throw err;
+  };
+
+  return {
+    async list(sort, limit, cols) {
+      return project((await source.list(sort, limit)).map(pick), cols);
+    },
+    async filter(where, sort, limit, cols) {
+      return project((await source.filter(where, sort, limit)).map(pick), cols);
+    },
+    async get(id) {
+      // Still rejects for a missing row: `source.get` throws, and that is the
+      // documented contract.
+      return pick(await source.get(id));
+    },
+    create: readOnly,
+    update: readOnly,
+    delete: readOnly,
+  };
+}
+
+export const entities = Object.fromEntries([
+  ...ENTITY_NAMES.map((n) => [n, entity(n)]),
+  ...Object.entries(VIEWS).map(([n, def]) => [n, viewEntity(n, def)]),
+]);
 
 /* -------------------------------------------------------------------- auth */
 
