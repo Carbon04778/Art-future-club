@@ -78,7 +78,10 @@ export default function GalleryProfile() {
     base44.auth.me().then((u) => setUser(u)).catch(() => {});
   }, [id, navigate, onVenuePath]);
 
-  const isOwner = user?.id === profile?.user_id || user?.role === "admin";
+  // Admins can edit and manage any gallery, so they count as owners for the
+  // buttons. Ownership PROPER is still the member whose account claimed it.
+  const isActualOwner = Boolean(user?.id) && user.id === profile?.user_id;
+  const isOwner = isActualOwner || user?.role === "admin";
 
   const reloadWorks = () => base44.entities.GalleryWork.filter({ gallery_id: profile.id }).then(setWorks);
 
@@ -142,8 +145,13 @@ export default function GalleryProfile() {
 
       {/* Shown to the owner whether or not they are editing, so an unpublished
           gallery always says so and always offers the way forward. Visitors
-          never reach an unapproved profile at all — the read policy hides it. */}
-      {isOwner && isModeratedCollectorType(profile.type) && (
+          never reach an unapproved profile at all — the read policy hides it.
+
+          The actual owner only, NOT admins: the banner is written to the
+          member ("Your profile is public..."), and an admin opening someone
+          else's gallery was being told it was theirs. Admins review from the
+          dashboard queue instead. */}
+      {isActualOwner && isModeratedCollectorType(profile.type) && (
         <div className="mx-auto max-w-3xl px-6 pt-8 md:px-10">
           <SubmitForReview
             profile={profile}
