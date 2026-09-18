@@ -77,8 +77,6 @@ if (!rows.length) fail(`No rows for --city ${CITY}. Cities: ${[...new Set(all.ma
 /* -------------------------------------------------------------- main */
 const supabase = createClient(URL_, ANON, { auth: { persistSession: false } });
 const rl = createInterface({ input: stdin, output: stdout });
-await main();
-
 async function main() {
   try {
     const me = await signIn();
@@ -306,3 +304,5 @@ function readEnv() {
     if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
   }
 }
+
+await main();
