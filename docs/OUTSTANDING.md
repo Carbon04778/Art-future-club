@@ -11,7 +11,7 @@ Tick things off here as they land. Last updated 2026-09-18.
 | City | Rows | Status |
 | --- | --- | --- |
 | Bangkok | 25 | **Done** 2026-09-18 — 25 imported, 0 failed |
-| Boston | 50 | In progress |
+| Boston | 50 | **Done** 2026-09-18 — 50 imported (12 needed a retry, see below) |
 | Los Angeles | 113 | Not started |
 | Maine | 50 | Not started |
 | Toronto | 64 | Not started |
@@ -32,6 +32,25 @@ Pasting it into the SQL editor would remove every imported city.
 To undo a single city use the script instead:
 `node scripts/import-galleries.mjs --revert --city <city>`
 
+### Uploads are flaky on this connection — always re-run and read the last line
+
+Bostons first run ended `Imported 38. Failed 12.` Every failure was
+`upload: fetch failed` — a dropped TLS connection to Supabase storage, not a
+data problem. Re-running the same command imported all 12 with no failures.
+
+`downloadDrive()` retries four times with a backoff, but `uploadImage()` has
+**no retry at all**, so one blip loses the row. Worth adding a retry around the
+storage upload. Until then treat a re-run as a normal part of importing a city.
+
+Read the final `Imported N. Failed M.` line, not the progress counter — the
+counter only advances on success, so failures stay invisible until the end.
+
+A failed upload leaves no bad row: `uploadImage()` runs before the insert, so
+the row is simply never created and the retry picks it up.
+
+Verified after the retry: 50/50 Boston rows present and approved, and all 50
+logo URLs actually serving (Bangkoks 25 too).
+
 ## Claim path
 
 See `docs/CLAIMING-LISTINGS.md` for how claiming works end to end.
@@ -48,6 +67,10 @@ See `docs/CLAIMING-LISTINGS.md` for how claiming works end to end.
       | Cartel Artspace | @cartel_art_space | +66 89 508 3859 |
       | Adult Material | @adultmaterialgallery | — |
       | 10 10 Art Space | @1010artspace | — |
+
+      Boston adds six more with no claim address: Arden Gallery, Christopher
+      Peter Art, Concord Art, Panopticon Gallery, Jules Place, Galatea Fine
+      Art. (44 of Bostons 50 do have one.)
 
       Later cities may add more of these — the importer writes `claim_email`
       only where the manifest has an email. Re-check after each city.
