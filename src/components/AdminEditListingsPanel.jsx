@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import FocalPointPicker from "@/components/FocalPointPicker";
 import ImageCropBox from "@/components/ImageCropBox";
 import { base44 } from "@/api/base44Client";
@@ -26,67 +26,190 @@ const PARTNERSHIP_TYPES = ["", "Paid Member", "Partner"];
  * Row-level security already allowed an admin to update and delete these
  * rows; only the interface was missing. No migration is required.
  */
+/** Rows per request. The list is paged server-side — see migration 021. */
+const PAGE_SIZE = 50;
+
+/**
+ * What each filter chip means as a query. A null value reaches applyWhere's
+ * null branch in the provider, which becomes "is null" and not "eq null".
+ */
+const FILTERS = {
+  All: {},
+  Artists: { kind: "artist" },
+  "Galleries & venues": { kind: "collector" },
+  Unclaimed: { user_id: null },
+};
+
+/** The columns the search box looks in — the same three it always searched. */
+const SEARCH_COLUMNS = ["display_name", "claim_email", "based_in"];
+
+/**
+ * Only what the list renders. The editor also needs cover images, focal
+ * points, socials and bio, so it fetches the full row when it opens: no point
+ * pulling all of that for fifty rows an admin is only scanning.
+ */
+const LIST_COLUMNS =
+  "kind,id,display_name,type,discipline,based_in,claim_email,user_id,status,created_date";
+
 export default function AdminEditListingsPanel() {
-  const [artists, setArtists] = useState([]);
-  const [collectors, setCollectors] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [count, setCount] = useState(0);
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
+  const [capped, setCapped] = useState(false);
   const [editing, setEditing] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
 
-  const load = () => {
-    setLoading(true);
-    Promise.allSettled([
-      base44.entities.ArtistProfile.list("-created_date", 500),
-      base44.entities.CollectorProfile.list("-created_date", 500),
-    ])
-      .then(([a, c]) => {
-        setArtists(a.status === "fulfilled" ? a.value : []);
-        setCollectors(c.status === "fulfilled" ? c.value : []);
-      })
-      .finally(() => setLoading(false));
-  };
+  /*
+   * Whether admin_listings is actually in the database. A ref and not state
+   * because load() reads it on the way through: as state it would have to be a
+   * dependency, and setting it would run the whole query a second time.
+   */
+  const hasView = useRef(true);
+
+  /* One query 300ms after the last keystroke, rather than one per keystroke. */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(query.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
 
   const rev = useDataRevision();
-  useEffect(load, [rev]);
+
+  /*
+   * One paged query against admin_listings (migration 021), so the filters,
+   * the search and the total all cover every listing instead of the first 500.
+   *
+   * The total is the important part. This panel used to read both tables
+   * capped at 500 rows each and filter the merge in the browser, which meant
+   * that past the cap the oldest listings were simply absent, the search could
+   * not find them, and nothing on the page said so.
+   *
+   * FALLBACK: when the view is not in the database yet, do what the panel used
+   * to do — but say on screen that the list is capped instead of quietly
+   * showing a short one.
+   */
+  const load = useCallback(async () => {
+    setLoading(true);
+    const where = FILTERS[filter] || {};
+    const from = page * PAGE_SIZE;
+
+    if (hasView.current) {
+      try {
+        const res = await base44.entities.AdminListing.page({
+          where,
+          search: { q: search, columns: SEARCH_COLUMNS },
+          sort: "-created_date",
+          limit: PAGE_SIZE,
+          offset: from,
+          columns: LIST_COLUMNS,
+        });
+        setRows(res.rows.map((r) => ({ ...r, _kind: r.kind })));
+        setCount(res.count);
+        setCapped(false);
+        setLoading(false);
+        return;
+      } catch (e) {
+        // Anything wrong with the view — absent, or not granted — falls back
+        // rather than leaving an admin looking at an empty page.
+        hasView.current = false;
+        if (typeof console !== "undefined") {
+          console.warn(
+            "[afc] admin_listings is unavailable, falling back to a capped " +
+              "client-side list. Run migration 021. " + (e?.message || "")
+          );
+        }
+      }
+    }
+
+    const [a, c] = await Promise.allSettled([
+      base44.entities.ArtistProfile.list("-created_date", 500),
+      base44.entities.CollectorProfile.list("-created_date", 500),
+    ]);
+    const merged = [
+      ...(a.status === "fulfilled" ? a.value : []).map((r) => ({
+        ...r, kind: "artist", _kind: "artist",
+      })),
+      ...(c.status === "fulfilled" ? c.value : []).map((r) => ({
+        ...r, kind: "collector", _kind: "collector",
+      })),
+    ]
+      .filter((r) => {
+        if (filter === "Artists") return r._kind === "artist";
+        if (filter === "Galleries & venues") return r._kind === "collector";
+        if (filter === "Unclaimed") return !r.user_id;
+        return true;
+      })
+      .filter((r) =>
+        SEARCH_COLUMNS.map((k) => r[k] || "")
+          .join(" ")
+          .toLowerCase()
+          .includes(search.toLowerCase())
+      );
+
+    setRows(merged.slice(from, from + PAGE_SIZE));
+    setCount(merged.length);
+    setCapped(true);
+    setLoading(false);
+  }, [filter, search, page, rev]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  /* Deleting the last row of the last page must not leave it stranded. */
+  useEffect(() => {
+    const lastPage = Math.max(0, Math.ceil(count / PAGE_SIZE) - 1);
+    if (page > lastPage) setPage(lastPage);
+  }, [count, page]);
 
   const flash = (msg) => {
     setDone(msg);
     setTimeout(() => setDone(""), 2500);
   };
 
-  const rows = [
-    ...artists.map((a) => ({ ...a, _kind: "artist" })),
-    ...collectors.map((c) => ({ ...c, _kind: "collector" })),
-  ]
-    .filter((r) => {
-      if (filter === "Artists") return r._kind === "artist";
-      if (filter === "Galleries & venues") return r._kind === "collector";
-      if (filter === "Unclaimed") return !r.user_id;
-      return true;
-    })
-    .filter((r) =>
-      `${r.display_name || ""} ${r.claim_email || ""} ${r.based_in || ""}`
-        .toLowerCase()
-        .includes(query.trim().toLowerCase())
-    );
+  /**
+   * The list rows carry only LIST_COLUMNS, so the editor opens on the full row
+   * from the underlying table rather than on the summary the list showed.
+   */
+  const openEditor = async (r) => {
+    if (editing?.id === r.id) {
+      setEditing(null);
+      return;
+    }
+    setError("");
+    setBusyId(r.id);
+    try {
+      const entity = r._kind === "artist" ? "ArtistProfile" : "CollectorProfile";
+      const full = await base44.entities[entity].get(r.id);
+      setEditing({ ...full, _kind: r._kind });
+    } catch (e) {
+      setError(String(e?.message || e));
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const save = async (row, patch) => {
     setError("");
     setBusyId(row.id);
     try {
       const entity = row._kind === "artist" ? "ArtistProfile" : "CollectorProfile";
-      const updated = await base44.entities[entity].update(row.id, patch);
-      const apply = (list) =>
-        list.map((x) => (x.id === row.id ? { ...x, ...updated } : x));
-      if (row._kind === "artist") setArtists(apply);
-      else setCollectors(apply);
+      await base44.entities[entity].update(row.id, patch);
       setEditing(null);
       flash(`${patch.display_name || row.display_name} saved.`);
+      // Re-read rather than patching the row in place: a rename can move it
+      // out of the current search or page, and the list should show where it
+      // actually is now.
+      await load();
     } catch (e) {
       setError(String(e?.message || e));
     } finally {
@@ -100,9 +223,10 @@ export default function AdminEditListingsPanel() {
     try {
       const entity = row._kind === "artist" ? "ArtistProfile" : "CollectorProfile";
       await base44.entities[entity].delete(row.id);
-      if (row._kind === "artist") setArtists((p) => p.filter((x) => x.id !== row.id));
-      else setCollectors((p) => p.filter((x) => x.id !== row.id));
       flash(`${row.display_name} deleted.`);
+      // The total has changed, so re-read: the count in the header has to stay
+      // true, and the page may now be short or empty.
+      await load();
     } catch (e) {
       setError(String(e?.message || e));
     } finally {
@@ -134,7 +258,10 @@ export default function AdminEditListingsPanel() {
           <button
             key={f}
             type="button"
-            onClick={() => setFilter(f)}
+            onClick={() => {
+              setFilter(f);
+              setPage(0);
+            }}
             className={`border px-3 py-1.5 font-mono-caps text-[10px] transition-colors ${
               filter === f
                 ? "border-primary text-primary"
@@ -145,6 +272,44 @@ export default function AdminEditListingsPanel() {
           </button>
         ))}
       </div>
+
+      {capped && (
+        <p className="mt-3 font-mono-caps text-[10px] text-amber-600">
+          Showing the most recent 500 of each kind only — admin_listings is not
+          in the database yet. Run migration 021 for the full list.
+        </p>
+      )}
+
+      {!loading && count > 0 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+          <p className="font-mono-caps text-[10px] text-muted-foreground">
+            Showing {page * PAGE_SIZE + 1}&ndash;{Math.min((page + 1) * PAGE_SIZE, count)} of {count}
+          </p>
+          {count > PAGE_SIZE && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((n) => Math.max(0, n - 1))}
+                disabled={page === 0}
+                className="border border-border px-3 py-1.5 font-mono-caps text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="font-mono-caps text-[10px] text-muted-foreground">
+                {page + 1} / {Math.ceil(count / PAGE_SIZE)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((n) => n + 1)}
+                disabled={(page + 1) * PAGE_SIZE >= count}
+                className="border border-border px-3 py-1.5 font-mono-caps text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
       {done && (
@@ -193,7 +358,7 @@ export default function AdminEditListingsPanel() {
                   )}
                   <button
                     type="button"
-                    onClick={() => setEditing(editing?.id === r.id ? null : r)}
+                    onClick={() => openEditor(r)}
                     disabled={busyId === r.id}
                     className="flex items-center gap-1.5 border border-border px-3 py-1.5 font-mono-caps text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
                   >

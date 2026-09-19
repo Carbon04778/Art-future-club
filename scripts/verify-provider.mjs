@@ -180,6 +180,114 @@ check("homepage featured query returns rows", featured.length >= 2, `got ${featu
 const gwt = await entities.GalleryWork.list("-created_date", 100);
 check("gallery works seeded", gwt.length >= 4, `got ${gwt.length}`);
 
+/* ------------------------------------------- contract: page() and counting */
+
+/*
+ * page() exists so a long admin list can be paged server-side with an exact
+ * total. The total is the point: a capped list that silently drops its oldest
+ * rows is the fault it was added to prevent, so the count must describe every
+ * matching row and not only the page that came back.
+ */
+
+const allSpaces = await entities.CollectorProfile.list();
+const firstPage = await entities.CollectorProfile.page({ sort: "-created_date", limit: 2 });
+check("page returns { rows, count }", Array.isArray(firstPage.rows) && typeof firstPage.count === "number");
+check("page honours limit", firstPage.rows.length <= 2, `got ${firstPage.rows.length}`);
+check(
+  "page count is the total, not the page size",
+  firstPage.count === allSpaces.length,
+  `count ${firstPage.count} vs ${allSpaces.length} rows`
+);
+
+const secondPage = await entities.CollectorProfile.page({ sort: "-created_date", limit: 2, offset: 2 });
+check(
+  "page offset moves the window",
+  secondPage.rows.every((r) => !firstPage.rows.some((f) => f.id === r.id)),
+  "page 2 overlaps page 1"
+);
+check("page count is stable across pages", secondPage.count === firstPage.count);
+
+const beyond = await entities.CollectorProfile.page({ limit: 5, offset: 10000 });
+check(
+  "page past the end returns no rows but keeps the count",
+  beyond.rows.length === 0 && beyond.count === firstPage.count
+);
+
+/* search: an OR of case-insensitive contains across the named columns */
+const named = allSpaces.find((r) => (r.display_name || "").length > 3);
+const fragment = named.display_name.slice(1, 4);
+const searched = await entities.CollectorProfile.page({
+  search: { q: fragment, columns: ["display_name", "based_in"] },
+  limit: 500,
+});
+check(
+  "page search matches a substring",
+  searched.rows.some((r) => r.id === named.id),
+  `"${fragment}" did not find ${named.display_name}`
+);
+check("page search narrows the count", searched.count <= firstPage.count && searched.count >= 1, `got ${searched.count}`);
+
+const upper = await entities.CollectorProfile.page({
+  search: { q: fragment.toUpperCase(), columns: ["display_name"] },
+  limit: 500,
+});
+const lower = await entities.CollectorProfile.page({
+  search: { q: fragment.toLowerCase(), columns: ["display_name"] },
+  limit: 500,
+});
+check("page search ignores case", upper.count === lower.count, `${upper.count} vs ${lower.count}`);
+
+const unsearched = await entities.CollectorProfile.page({
+  search: { q: "   ", columns: ["display_name"] },
+  limit: 1,
+});
+check("page with a blank search applies no filter", unsearched.count === firstPage.count);
+
+const projected = await entities.CollectorProfile.page({ limit: 1, columns: "id,display_name" });
+check(
+  "page projects the named columns only",
+  Object.keys(projected.rows[0] || {}).every((k) => k === "id" || k === "display_name"),
+  Object.keys(projected.rows[0] || {}).join(",")
+);
+
+/* ------------------------------------- contract: the admin_listings union */
+
+const listings = await entities.AdminListing.page({ sort: "-created_date", limit: 500 });
+const artistCount = (await entities.ArtistProfile.list()).length;
+check(
+  "AdminListing unions both tables",
+  listings.count === artistCount + allSpaces.length,
+  `${listings.count} vs ${artistCount} + ${allSpaces.length}`
+);
+check(
+  "AdminListing tags every row with a kind",
+  listings.rows.every((r) => r.kind === "artist" || r.kind === "collector")
+);
+check(
+  "AdminListing carries both kinds",
+  listings.rows.some((r) => r.kind === "artist") && listings.rows.some((r) => r.kind === "collector")
+);
+check(
+  "AdminListing nulls a column the source lacks",
+  listings.rows.filter((r) => r.kind === "artist").every((r) => r.type === null) &&
+    listings.rows.filter((r) => r.kind === "collector").every((r) => r.discipline === null)
+);
+
+const unclaimed = await entities.AdminListing.page({ where: { user_id: null }, limit: 500 });
+check(
+  "AdminListing filters on a null column",
+  unclaimed.rows.every((r) => r.user_id === null || r.user_id === undefined),
+  "a claimed row came back as unclaimed"
+);
+
+let viewWriteRejected = false;
+try {
+  await entities.AdminListing.update("whatever", { status: "approved" });
+} catch {
+  viewWriteRejected = true;
+}
+check("AdminListing rejects writes — it is a read-only view", viewWriteRejected);
+
 /* ----------------------------------------------------------------- report */
 
 console.log(`\n  passed: ${pass}`);

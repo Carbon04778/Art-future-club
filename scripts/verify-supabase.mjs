@@ -123,6 +123,9 @@ const EXPECTED_ENTITIES = [
   // `profiles` holds every member's email, so it is admin-and-own-row only
   // since 020. PublicProfile is the view carrying the three public columns.
   "OpenCall", "Subscription", "Profile", "PublicProfile",
+  // admin_listings, the read-only union of artist_profile and collector_profile
+  // added by migration 021 so the admin panel can page and count across both.
+  "AdminListing",
 ];
 const missing = EXPECTED_ENTITIES.filter((e) => !entities[e]);
 const extra = Object.keys(entities).filter((e) => !EXPECTED_ENTITIES.includes(e));

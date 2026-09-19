@@ -79,6 +79,14 @@ const TABLES = {
    * administrators.
    */
   PublicProfile: "profiles_public",
+  /*
+   * artist_profile and collector_profile unioned into one pageable list, added
+   * by migration 021. READ-ONLY, and admin-only in practice: it carries
+   * claim_email and status, and runs with security_invoker so the caller's own
+   * RLS applies. The admin panel reads this and writes through ArtistProfile /
+   * CollectorProfile, choosing by the `kind` column.
+   */
+  AdminListing: "admin_listings",
 };
 
 /* ------------------------------------------------------------ query helpers */
@@ -114,6 +122,21 @@ function applyWhere(query, where = {}) {
     query = condition === null ? query.is(column, null) : query.eq(column, condition);
   }
   return query;
+}
+
+/**
+ * Case-insensitive "contains" across several columns, as one OR.
+ *
+ * Commas and parentheses separate terms in PostgREST's or() syntax, so a query
+ * containing either would change the meaning of the filter rather than being
+ * searched for. They are stripped rather than escaped: that syntax has no
+ * escape for them, and a search box is not worth a 400.
+ */
+function applySearch(query, search) {
+  const q = (search && search.q ? search.q : "").trim().replace(/[,()]/g, " ").trim();
+  const columns = (search && search.columns) || [];
+  if (!q || !columns.length) return query;
+  return query.or(columns.map((c) => c + ".ilike.*" + q + "*").join(","));
 }
 
 function fail(error, context) {
@@ -225,6 +248,58 @@ function entity(name) {
         columns,
         `${name}.filter`
       );
+    },
+
+    /**
+     * One page of rows, plus the total number that match.
+     *
+     * list() and filter() deliberately return a bare array, which is why this
+     * is a separate method rather than a new argument on them: every existing
+     * call site keeps its shape, and only a caller that needs to paginate has
+     * to deal with { rows, count }.
+     *
+     * The count is what makes truncation impossible to hide. A capped list that
+     * silently drops its oldest rows is the fault this exists to prevent, so
+     * callers should render the total, not only the page.
+     *
+     *   const { rows, count } = await Entity.page({
+     *     where: { status: "pending" },
+     *     search: { q: "ines", columns: ["display_name", "claim_email"] },
+     *     sort: "-created_date", limit: 50, offset: 100,
+     *     columns: "id,display_name",
+     *   });
+     *
+     * `search` is an OR of case-insensitive contains across the named columns.
+     * A missing or empty q applies no search at all.
+     */
+    async page({ where, search, sort, limit = 50, offset = 0, columns } = {}) {
+      const build = (cols) => {
+        let q = client().from(table).select(cols, { count: "exact" });
+        q = applyWhere(q, where);
+        q = applySearch(q, search);
+        q = applySort(q, sort);
+        return q.range(offset, offset + limit - 1);
+      };
+
+      let res = await build(columns || "*");
+      // Same tolerance as selectTolerantly: a column the database does not have
+      // yet must degrade to a missing field, never to an empty page.
+      const missing = missingColumnFrom(res.error);
+      if (missing && columns) {
+        const reduced = columns.split(",").map((c) => c.trim())
+          .filter((c) => c && c !== missing).join(",");
+        if (reduced && reduced !== columns) {
+          if (typeof console !== "undefined") {
+            console.warn(
+              "[afc] " + name + ".page: column \"" + missing + "\" is not in the " +
+                "database yet — returning rows without it. Run the pending migration."
+            );
+          }
+          res = await build(reduced);
+        }
+      }
+      if (res.error) fail(res.error, name + ".page");
+      return { rows: res.data ?? [], count: res.count ?? 0 };
     },
 
     async get(id) {

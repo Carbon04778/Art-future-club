@@ -250,6 +250,20 @@ function table(name) {
   return db[name];
 }
 
+/**
+ * The demo half of applySearch in the Supabase provider: case-insensitive
+ * "contains" across several columns, ORed together. Kept in step with it so a
+ * search behaves the same in both builds.
+ */
+function searchRows(rows, search) {
+  const q = ((search && search.q) || "").trim().toLowerCase();
+  const columns = (search && search.columns) || [];
+  if (!q || !columns.length) return rows;
+  return rows.filter((r) =>
+    columns.some((c) => String(r[c] == null ? "" : r[c]).toLowerCase().includes(q))
+  );
+}
+
 function entity(name) {
   return {
     async list(sort, limit, columns) {
@@ -267,6 +281,24 @@ function entity(name) {
         sort
       );
       return project(clone(limit ? rows.slice(0, limit) : rows), columns);
+    },
+
+    /**
+     * One page of rows plus the total that match — the demo counterpart of
+     * page() in the Supabase provider. Same contract: { rows, count }, where
+     * the count is of everything matching, not of the page.
+     */
+    async page({ where, search, sort, limit = 50, offset = 0, columns } = {}) {
+      await wait();
+      // Visibility first, then the filters, exactly as list() does it.
+      let rows = visible(name, table(name));
+      if (where) rows = rows.filter((r) => matches(r, where));
+      rows = searchRows(rows, search);
+      rows = sortRows(rows, sort);
+      return {
+        rows: project(clone(rows.slice(offset, offset + limit)), columns),
+        count: rows.length,
+      };
     },
 
     async get(id) {
@@ -403,6 +435,10 @@ function viewEntity(name, { from, columns }) {
     async filter(where, sort, limit, cols) {
       return project((await source.filter(where, sort, limit)).map(pick), cols);
     },
+    async page(opts = {}) {
+      const { rows, count } = await source.page({ ...opts, columns: undefined });
+      return { rows: project(rows.map(pick), opts.columns), count };
+    },
     async get(id) {
       // Still rejects for a missing row: `source.get` throws, and that is the
       // documented contract.
@@ -414,9 +450,91 @@ function viewEntity(name, { from, columns }) {
   };
 }
 
+/**
+ * Demo equivalent of a view that unions two tables.
+ *
+ * `AdminListing` mirrors public.admin_listings from migration 021: artists and
+ * spaces as one pageable list, so the admin panel can page and count across
+ * both rather than merging two capped queries in the browser.
+ *
+ * Read-only, like the real view — the panel writes through ArtistProfile and
+ * CollectorProfile, choosing by `kind`. A column absent from a given source
+ * comes back null (an artist has no `type`, a space no `discipline`), which is
+ * what the null casts in the SQL union produce.
+ */
+const UNION_VIEWS = {
+  AdminListing: {
+    sources: [
+      { from: "ArtistProfile", kind: "artist" },
+      { from: "CollectorProfile", kind: "collector" },
+    ],
+    columns: [
+      "kind", "id", "display_name", "type", "discipline", "based_in",
+      "claim_email", "user_id", "status", "created_date", "slug", "avatar_url",
+    ],
+  },
+};
+
+function unionViewEntity(name, { sources, columns }) {
+  const readOnly = async () => {
+    const err = new Error(
+      `${name} is a read-only view — write to the underlying table instead.`
+    );
+    err.status = 405;
+    throw err;
+  };
+
+  /* Every row from every source, shaped to the view's columns. */
+  const load = async () => {
+    const out = [];
+    for (const { from, kind } of sources) {
+      // No limit, so the source entity applies visibility to the whole table.
+      for (const row of await entity(from).list()) {
+        const shaped = { kind };
+        for (const c of columns) {
+          if (c !== "kind") shaped[c] = c in row && row[c] !== undefined ? row[c] : null;
+        }
+        out.push(shaped);
+      }
+    }
+    return out;
+  };
+
+  return {
+    async list(sort, limit, cols) {
+      const rows = sortRows(await load(), sort);
+      return project(limit ? rows.slice(0, limit) : rows, cols);
+    },
+    async filter(where, sort, limit, cols) {
+      const rows = sortRows((await load()).filter((r) => matches(r, where)), sort);
+      return project(limit ? rows.slice(0, limit) : rows, cols);
+    },
+    async page({ where, search, sort, limit = 50, offset = 0, columns: cols } = {}) {
+      let rows = await load();
+      if (where) rows = rows.filter((r) => matches(r, where));
+      rows = searchRows(rows, search);
+      rows = sortRows(rows, sort);
+      return { rows: project(rows.slice(offset, offset + limit), cols), count: rows.length };
+    },
+    async get(id) {
+      const row = (await load()).find((r) => r.id === id);
+      if (!row) {
+        const err = new Error(`${name} ${id} not found`);
+        err.status = 404;
+        throw err;
+      }
+      return row;
+    },
+    create: readOnly,
+    update: readOnly,
+    delete: readOnly,
+  };
+}
+
 export const entities = Object.fromEntries([
   ...ENTITY_NAMES.map((n) => [n, entity(n)]),
   ...Object.entries(VIEWS).map(([n, def]) => [n, viewEntity(n, def)]),
+  ...Object.entries(UNION_VIEWS).map(([n, def]) => [n, unionViewEntity(n, def)]),
 ]);
 
 /* -------------------------------------------------------------------- auth */

@@ -103,7 +103,17 @@ async function editOpens({ label, Component, props = {}, expect }) {
       const text = (container.textContent || "").trim();
       check(`${label}: the form is not blank`, text.length > 400, `${text.length} chars`);
       if (expect) {
-        check(`${label}: the form is prefilled`, text.includes(expect));
+        /*
+         * Checked on the form CONTROLS, not on container text. The row being
+         * edited is still in the list behind the form, so its name is on the
+         * page whether the form opened or not — a text check passes even when
+         * the editor never rendered, which is exactly the regression this is
+         * supposed to catch.
+         */
+        const filled = [...container.querySelectorAll("input, textarea")].some(
+          (el) => (el.value || "").includes(expect)
+        );
+        check(`${label}: the form is prefilled`, filled, `no field holds "${expect}"`);
       }
     }
   } catch (err) {
@@ -160,10 +170,22 @@ const EventsPanel = await loadPanel("AdminEventsPanel", {
 });
 await editOpens({ label: "Events", Component: EventsPanel, expect: "City of Lights" });
 
+/*
+ * get() matters here: the panel lists summary rows (admin_listings carries only
+ * the columns the list renders) and fetches the full row when the editor opens.
+ * Without it the form would open empty, which the prefilled check above now
+ * notices.
+ */
+const byId = (rows) => async (id) => {
+  const row = rows.find((r) => r.id === id);
+  if (!row) throw new Error(`not found: ${id}`);
+  return row;
+};
+
 const ListingsPanel = await loadPanel("AdminEditListingsPanel", {
   entities: {
-    ArtistProfile: { ...noop, list: async () => ARTISTS },
-    CollectorProfile: { ...noop, list: async () => GALLERIES },
+    ArtistProfile: { ...noop, list: async () => ARTISTS, get: byId(ARTISTS) },
+    CollectorProfile: { ...noop, list: async () => GALLERIES, get: byId(GALLERIES) },
   },
   integrations: uploads,
 });
