@@ -131,11 +131,22 @@ See `docs/CLAIMING-LISTINGS.md` for how claiming works end to end.
 
 - [x] **Migration 013** recovered from the live database and committed as
       `supabase/migrations/013_claim_profile.sql` (2026-09-18).
-- [ ] **Migration 012 is still missing.** Applied by hand in the SQL editor,
-      never committed, contents unknown — absent from v11 and v12 alike. Dump
-      it from the Supabase dashboard and commit it so the repo matches the
-      database. Do not write a guessed body: applying a guess would overwrite
-      whatever is really there.
+- [ ] **Migration 012 is reconstructed, not recovered — verify it.**
+      `supabase/migrations/012_claim_email.sql` adds the `claim_email` column
+      to both profile tables, which is the one thing provably missing: nothing
+      in the committed migrations creates it, while 013 matches on it and both
+      admin panels write it. Unlike 013 there was no way to dump it, because
+      nothing recovers a plain ALTER TABLE after the fact.
+
+      Every statement is `if not exists`, so running it against the live
+      database changes nothing except possibly adding the index. The file
+      itself lists what is evidence and what is inference, and carries the two
+      queries to check the real column type and indexes. The type (`text`) and
+      the index are inference — the PostgREST OpenAPI endpoint that serves
+      column types is disabled on this project, and there is no service-role
+      key or database password locally, so neither could be confirmed.
+
+      If the database disagrees with the file, trust the database.
 
 `.env` holds only `VITE_SUPABASE_URL`, the anon key and the admin login — no
 service-role key or database password — so dumps have to come from the
