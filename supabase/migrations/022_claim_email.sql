@@ -1,12 +1,22 @@
 -- ===========================================================================
--- 012  claim_email — the address an admin-created listing is filed under
+-- 022  claim_email — the address an admin-created listing is filed under
 --
 -- RECONSTRUCTED, NOT RECOVERED. READ THIS BEFORE RUNNING IT.
 --
--- Migrations 012 and 013 were applied by hand in the Supabase SQL editor and
--- never committed. 013 was recovered verbatim with pg_get_functiondef. 012 was
--- not: nothing dumps a plain ALTER TABLE after the fact, so this file is
--- reconstructed from what the database and the code prove must be there.
+-- NUMBERING: this was first written as 012, which was wrong. 012 is
+-- 012_admin_delete_subscribers.sql — AdminSubscribersPanel.jsx names that file
+-- and describes what it does. claim_email was never a numbered migration at
+-- all: it was added by hand, probably alongside 013, and no file ever recorded
+-- it. It sits at the end rather than pretending to a number it never had.
+--
+-- ORDER, IF YOU EVER REPLAY FROM AN EMPTY DATABASE: 013 reads claim_email, so
+-- run this BEFORE 013 despite the number. Against the existing database the
+-- order is irrelevant — the column is already there and every statement below
+-- is a no-op.
+--
+-- 013 was recovered verbatim with pg_get_functiondef. This could not be:
+-- nothing dumps a plain ALTER TABLE after the fact, so it is reconstructed
+-- from what the database and the code prove must be there.
 --
 -- WHAT IS EVIDENCE
 --

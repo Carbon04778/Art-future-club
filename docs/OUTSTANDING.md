@@ -131,22 +131,28 @@ See `docs/CLAIMING-LISTINGS.md` for how claiming works end to end.
 
 - [x] **Migration 013** recovered from the live database and committed as
       `supabase/migrations/013_claim_profile.sql` (2026-09-18).
-- [ ] **Migration 012 is reconstructed, not recovered — verify it.**
-      `supabase/migrations/012_claim_email.sql` adds the `claim_email` column
-      to both profile tables, which is the one thing provably missing: nothing
-      in the committed migrations creates it, while 013 matches on it and both
-      admin panels write it. Unlike 013 there was no way to dump it, because
-      nothing recovers a plain ALTER TABLE after the fact.
+- [ ] **Two reconstructed migrations — verify both against the database.**
+      Neither could be dumped the way 013 was, because nothing recovers a
+      plain ALTER TABLE or a dropped policy after the fact. Both are written to
+      be safe to re-run, and both separate evidence from inference in their
+      headers. If the database disagrees with either file, trust the database.
 
-      Every statement is `if not exists`, so running it against the live
-      database changes nothing except possibly adding the index. The file
-      itself lists what is evidence and what is inference, and carries the two
-      queries to check the real column type and indexes. The type (`text`) and
-      the index are inference — the PostgREST OpenAPI endpoint that serves
-      column types is disabled on this project, and there is no service-role
-      key or database password locally, so neither could be confirmed.
+      - `012_admin_delete_subscribers.sql` — the real 012. A DELETE policy on
+        newsletter_subscriber so an admin can honour an unsubscribe.
+        `AdminSubscribersPanel.jsx` names the file and its error message tells
+        the admin to run it, so the intent is certain; only the SQL was lost.
+        Check with: `select policyname, cmd from pg_policies where tablename =
+        'newsletter_subscriber';` — if a DELETE policy is already there under
+        another name, this adds a second one (harmless, policies are ORed).
 
-      If the database disagrees with the file, trust the database.
+      - `022_claim_email.sql` — the `claim_email` column on both profile
+        tables. Provably missing: nothing in the committed migrations creates
+        it, while 013 matches on it and both admin panels write it. It was
+        never a numbered migration, so it sits at the end rather than claiming
+        a number. **A replay from an empty database must run it before 013.**
+        The type (`text`) and the index are inference — the PostgREST OpenAPI
+        endpoint that serves column types is disabled on this project, and
+        there is no service-role key or database password locally.
 
 `.env` holds only `VITE_SUPABASE_URL`, the anon key and the admin login — no
 service-role key or database password — so dumps have to come from the
