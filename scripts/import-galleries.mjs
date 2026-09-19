@@ -91,7 +91,21 @@ async function main() {
     else await importRows();
   } finally {
     rl.close();
-    await supabase.auth.signOut().catch(() => {});
+    /*
+     * scope: "local" — NOT the default.
+     *
+     * supabase-js signs out with scope "global" unless told otherwise, which
+     * revokes every refresh token the account has, on every device. Running
+     * this script therefore logged the admin out of their own browser: not at
+     * once, but whenever their access token next expired, up to an hour later.
+     * It happened three times in one morning before anyone connected the two.
+     *
+     * "local" clears this process's session and nothing else. Since the client
+     * above is created with persistSession: false there is nothing on disk to
+     * clear either, so this is close to a no-op — which is exactly what a
+     * command-line script should be doing to a human's live session.
+     */
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
   }
 }
 
