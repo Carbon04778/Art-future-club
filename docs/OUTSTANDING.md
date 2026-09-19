@@ -51,6 +51,30 @@ the row is simply never created and the retry picks it up.
 Verified after the retry: 50/50 Boston rows present and approved, and all 50
 logo URLs actually serving (Bangkoks 25 too).
 
+## Row caps that still truncate silently
+
+`AdminEditListingsPanel` was fixed in migration 021 — it pages server-side with
+an exact count, so nothing can hide. Two surfaces with the same shape were left
+alone deliberately, to keep that change to one page:
+
+| Where | Cap | Risk today |
+| --- | --- | --- |
+| `AdminApprovalsPanel.jsx:41-42` | 500 per table | Low — only 7 listings are non-approved |
+| `Venues.jsx:31` | 400 venue rows | None yet — every imported row is `type: "Gallery"`, which has its own page |
+
+- [ ] **The approvals queue is the one to fix next.** It is the moderation
+      review list, it caps at 500 rows per table, and like the old edit panel it
+      filters client-side, so past the cap a held profile would be invisible to
+      the person meant to review it. `AdminListing.page()` and the
+      admin_listings view already exist — it needs the same treatment, filtered
+      to `status is distinct from 'approved'`.
+- [ ] **Venues** caps at 400 and filters by chapter in the browser. Galleries
+      are not affected (they render from `GalleryShowcase`, which has no explicit
+      limit), but venue types will cross 400 eventually.
+
+Raising a cap only moves the cliff. The fix in both cases is a count on screen,
+so a truncated list cannot look like a complete one.
+
 ## Claim path
 
 See `docs/CLAIMING-LISTINGS.md` for how claiming works end to end.
