@@ -12,10 +12,10 @@ Tick things off here as they land. Last updated 2026-09-18.
 | --- | --- | --- |
 | Bangkok | 25 | **Done** 2026-09-18 — 25 imported, 0 failed |
 | Boston | 50 | **Done** 2026-09-18 — 50 imported (12 needed a retry, see below) |
-| Los Angeles | 113 | Not started |
-| Maine | 50 | Not started |
-| Toronto | 64 | Not started |
-| Zurich | 57 | Not started |
+| Los Angeles | 113 | **Done** 2026-09-19 — took four passes, 27 lost to dropped uploads before the retry fix |
+| Maine | 50 | **Done** 2026-09-19 — 50 imported, 0 failed, first pass |
+| Toronto | 64 | **Done** 2026-09-19 — 64 imported, 0 failed |
+| Zurich | 57 | **Not started** — the only city left. Owner asked to stop after Toronto. |
 
 Four manifest rows will never import, and that is correct:
 
@@ -32,7 +32,30 @@ Pasting it into the SQL editor would remove every imported city.
 To undo a single city use the script instead:
 `node scripts/import-galleries.mjs --revert --city <city>`
 
-### Uploads are flaky on this connection — always re-run and read the last line
+### Fixed: the upload had no retry (2026-09-19)
+
+`uploadImage()` retried nothing while `downloadDrive()` retried four times, so
+one dropped TLS connection lost a row. That cost 12 of Boston's 50 and 27 of Los
+Angeles's 113, and meant repeated full passes over a city.
+
+Both are now wrapped in a shared `withRetry()` — five attempts for the upload,
+six for Drive, linear backoff, and failures labelled so a bare "fetch failed" no
+longer hides which step dropped. Maine and Toronto then imported 114 rows across
+two cities with **zero** failures, on the same connection.
+
+### Running the script signed the owner out of the live site (2026-09-19)
+
+`supabase-js` declares `signOut(options = { scope: 'global' })`, and the script
+called `signOut()` bare. Global scope revokes every refresh token the account
+holds **on every device**, so each import run logged the owner out of
+artfutureclub.com. Not at once — the access token keeps working until it
+expires, so it surfaced up to an hour later, three times in one morning.
+
+Now `signOut({ scope: "local" })`. If it ever recurs, check whether "single
+session per user" is enabled in Supabase auth settings; the proper fix then is a
+separate service account for scripts rather than the owner's own login.
+
+### Still worth knowing: read the last line, not the counter
 
 Bostons first run ended `Imported 38. Failed 12.` Every failure was
 `upload: fetch failed` — a dropped TLS connection to Supabase storage, not a
