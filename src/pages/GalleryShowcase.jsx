@@ -11,7 +11,21 @@ import { chapterFilterOptions } from "@/lib/chaptersData";
 import { useDataRevision } from "@/lib/dataRevision";
 import { useProgressiveList, staggerDelay } from "@/hooks/useProgressiveList";
 
-const INTERESTS = ["All", "Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media"];
+/*
+ * "Uncategorised" is not a discipline — it selects galleries that have no
+ * interests set at all.
+ *
+ * Without it those galleries were reachable only under "All": the moment a
+ * visitor touched any discipline chip they vanished, with nothing to say they
+ * existed. That was fine while every listing was added by hand with its
+ * disciplines chosen, and stopped being fine when the September 2026 import
+ * added 302 galleries the manifest had no category data for.
+ *
+ * Deliberately NOT solved by treating an empty list as matching everything: a
+ * gallery would then appear under Photography without anyone having said it
+ * shows photography, which is worse than admitting we do not know.
+ */
+const INTERESTS = ["All", "Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media", "Uncategorised"];
 const CHAPTERS = chapterFilterOptions("All Chapters");
 
 export default function GalleryShowcase() {
@@ -45,7 +59,12 @@ export default function GalleryShowcase() {
   }, new Set());
 
   const filtered = galleries.filter((g) => {
-    if (filter !== "All" && !(g.interests || []).includes(filter)) return false;
+    const disciplines = g.interests || [];
+    if (filter === "Uncategorised") {
+      if (disciplines.length) return false;
+    } else if (filter !== "All" && !disciplines.includes(filter)) {
+      return false;
+    }
     if (chapter !== "All Chapters" && g.based_in && !g.based_in.includes(chapter)) return false;
     if (forSaleOnly && !saleByGallery.has(g.id)) return false;
     if (search) {

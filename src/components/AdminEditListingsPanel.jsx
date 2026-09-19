@@ -13,6 +13,21 @@ const DISCIPLINES = [
   "Digital Art", "Mixed Media", "Other",
 ];
 
+/*
+ * Must match the discipline filter on the Galleries page, which reads
+ * profile.interests — and must match the list in AdminCreatePanel, which is
+ * where these get set when a listing is created.
+ *
+ * A listing with none of these appears under "All" and under "Uncategorised",
+ * but under no discipline. The September 2026 gallery import left all 302 rows
+ * empty because the manifest carried no category data, and until this editor
+ * offered the field there was no way to correct one without SQL.
+ */
+const INTERESTS = [
+  "Painting", "Sculpture", "Photography", "Installation", "Video Art",
+  "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media",
+];
+
 const PARTNERSHIP_TYPES = ["", "Paid Member", "Partner"];
 
 /**
@@ -465,7 +480,15 @@ function EditForm({ row, onCancel, onSave, busy }) {
     instagram: row.instagram || "",
     ...(row._kind === "artist"
       ? { discipline: row.discipline || DISCIPLINES[0], chapter: row.chapter || CHAPTER_OPTIONS[0] }
-      : { type: row.type || "Gallery", address: row.address || "", partnership_type: row.partnership_type || "" }),
+      : {
+          type: row.type || "Gallery",
+          address: row.address || "",
+          partnership_type: row.partnership_type || "",
+          // Collector-branch only: interests is a collector_profile column, and
+          // `common` below spreads the whole form into the patch, so putting it
+          // here keeps it out of an artist update entirely.
+          interests: row.interests || [],
+        }),
   });
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -699,6 +722,46 @@ function EditForm({ row, onCancel, onSave, busy }) {
           <label className="font-mono-caps text-[10px] text-muted-foreground">Short bio</label>
           <textarea rows={3} className={`${field} mt-1`} value={form.bio} onChange={(e) => set("bio", e.target.value)} />
         </div>
+
+        {row._kind === "collector" && (
+          <div className="md:col-span-2">
+            <label className="font-mono-caps text-[10px] text-muted-foreground">
+              Disciplines — what the Galleries page filters by
+            </label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {INTERESTS.map((d) => {
+                const on = (form.interests || []).includes(d);
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() =>
+                      set(
+                        "interests",
+                        on
+                          ? form.interests.filter((x) => x !== d)
+                          : [...(form.interests || []), d]
+                      )
+                    }
+                    className={`border px-3 py-1.5 font-mono-caps text-[10px] transition-colors ${
+                      on
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border text-muted-foreground hover:border-foreground"
+                    }`}
+                  >
+                    {d}
+                  </button>
+                );
+              })}
+            </div>
+            {!(form.interests || []).length && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                None chosen — this listing appears under &ldquo;All&rdquo; and
+                under &ldquo;Uncategorised&rdquo;, but not under any discipline.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Artwork — artists only. Galleries manage their works from their own

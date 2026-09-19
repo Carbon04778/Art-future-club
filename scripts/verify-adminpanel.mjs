@@ -164,10 +164,34 @@ for (const f of ["title", "year", "medium", "dimensions", "image_url", "availabl
 }
 
 // --- must stay in step with the public filter pages ---
-check("galleries page still filters on `interests`", /interests \|\| \[\]\)\.includes\(filter\)/.test(showcase));
+/*
+ * Asserted as separate facts rather than one exact expression: the page must
+ * read g.interests with a default, and must match the chosen chip against that
+ * list. The single regex this replaced pinned the precise spelling, so adding
+ * the Uncategorised branch failed it without anything actually being broken.
+ */
+check("galleries page reads `interests` with a default", showcase.includes("g.interests || []"));
+check("galleries page matches the chosen discipline", showcase.includes(".includes(filter)"));
+/*
+ * Uncategorised selects the galleries with no disciplines at all. It is why a
+ * listing with an empty list stays reachable: before it existed such a gallery
+ * vanished the moment any chip was pressed, which hid all 302 rows of the
+ * September 2026 gallery import.
+ */
+check("galleries page offers an Uncategorised chip", showcase.includes('"Uncategorised"'));
+check(
+  "Uncategorised selects the galleries with no disciplines",
+  showcase.includes('filter === "Uncategorised"') && showcase.includes("disciplines.length")
+);
 check("panel collects `interests`", /interests,/.test(src));
 
-const listOf = (t) => (t.match(/"([^"]+)"/g) || []).map((x) => x.slice(1, -1)).filter((x) => x !== "All");
+/*
+ * "All" and "Uncategorised" are selectors, not disciplines — neither is ever
+ * stored on a profile, so neither belongs in the cross-check below.
+ */
+const SENTINELS = ["All", "Uncategorised"];
+const listOf = (t) =>
+  (t.match(/"([^"]+)"/g) || []).map((x) => x.slice(1, -1)).filter((x) => !SENTINELS.includes(x));
 const panelInterests = listOf((src.match(/const INTERESTS = \[([\s\S]*?)\]/) || [])[1] || "");
 const pageInterests = listOf((showcase.match(/const INTERESTS = \[([\s\S]*?)\]/) || [])[1] || "");
 const missing = pageInterests.filter((d) => !panelInterests.includes(d));
