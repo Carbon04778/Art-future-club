@@ -175,16 +175,45 @@ function rowToInsert(r, avatar_url) {
   };
 }
 
+/**
+ * Retry a network step that is safe to repeat.
+ *
+ * WHY THIS EXISTS
+ *
+ * The storage upload had no retry at all while the Drive download had four, and
+ * on a flaky connection that cost 12 of Boston's 50 rows and 27 of Los
+ * Angeles's 113 — every one of them "upload: fetch failed", a dropped TLS
+ * connection rather than anything wrong with the data. Each loss meant another
+ * full pass over the city.
+ *
+ * Both steps are idempotent, so repeating them is safe: the upload is
+ * upsert: true, and the download only writes a cache file.
+ */
+async function withRetry(label, fn, attempts = 5) {
+  let lastErr;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (attempt < attempts) await sleep(800 * attempt);
+    }
+  }
+  throw new Error(`${label}: ${lastErr?.message || lastErr}`);
+}
+
 async function uploadImage(r) {
   const raw = await downloadDrive(r.image.id);
   const webp = await sharp(raw)
     .resize(MAX_EDGE, MAX_EDGE, { fit: "inside", withoutEnlargement: true })
     .webp({ quality: 82 })
     .toBuffer();
-  const { error } = await supabase.storage.from(BUCKET).upload(r.storagePath, webp, {
-    contentType: "image/webp", cacheControl: "31536000", upsert: true,
+  await withRetry("upload", async () => {
+    const { error } = await supabase.storage.from(BUCKET).upload(r.storagePath, webp, {
+      contentType: "image/webp", cacheControl: "31536000", upsert: true,
+    });
+    if (error) throw new Error(error.message);
   });
-  if (error) throw new Error(`upload: ${error.message}`);
   return supabase.storage.from(BUCKET).getPublicUrl(r.storagePath).data.publicUrl;
 }
 
@@ -193,18 +222,16 @@ async function downloadDrive(fileId) {
   mkdirSync(cacheDir, { recursive: true });
   const cached = join(cacheDir, `${fileId}.bin`);
   if (existsSync(cached)) return readFileSync(cached);
-  let lastErr;
-  for (let attempt = 1; attempt <= 4; attempt++) {
-    try {
-      const res = await fetch(`https://drive.google.com/uc?export=download&id=${fileId}`, { headers: { "User-Agent": "Mozilla/5.0" } });
-      const type = res.headers.get("content-type") || "";
-      if (!res.ok || !type.startsWith("image/")) throw new Error(`drive http ${res.status} ${type}`);
-      const buf = Buffer.from(await res.arrayBuffer());
-      writeFileSync(cached, buf);
-      return buf;
-    } catch (e) { lastErr = e; await sleep(1500 * attempt); }
-  }
-  throw lastErr;
+  // Six attempts rather than four, and labelled: a bare "fetch failed" in the
+  // failure list gave no clue whether Drive or the upload had dropped.
+  return withRetry("drive", async () => {
+    const res = await fetch(`https://drive.google.com/uc?export=download&id=${fileId}`, { headers: { "User-Agent": "Mozilla/5.0" } });
+    const type = res.headers.get("content-type") || "";
+    if (!res.ok || !type.startsWith("image/")) throw new Error(`http ${res.status} ${type}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    writeFileSync(cached, buf);
+    return buf;
+  }, 6);
 }
 
 /* --------------------------------------------------------------- revert */
