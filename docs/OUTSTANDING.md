@@ -15,13 +15,27 @@ Tick things off here as they land. Last updated 2026-09-18.
 | Los Angeles | 113 | **Done** 2026-09-19 — took four passes, 27 lost to dropped uploads before the retry fix |
 | Maine | 50 | **Done** 2026-09-19 — 50 imported, 0 failed, first pass |
 | Toronto | 64 | **Done** 2026-09-19 — 64 imported, 0 failed |
-| Zurich | 57 | **Not started** — the only city left. Owner asked to stop after Toronto. |
+| Zurich | 57 | **Done** 2026-09-20 — 48 imported, 0 failed; 9 were added by hand first and correctly skipped |
 
-Four manifest rows will never import, and that is correct:
+**The import is complete: 350 of 363 manifest rows are live.** Verified
+2026-09-20 across all six cities — every one approved, with a logo that
+actually serves (350/350 HEAD-checked), a real slug, and coordinates on all
+but one. `collector_profile` went from 168 rows to 503.
+
+Thirteen manifest rows will never import, and that is correct:
 
 - **NEST** — no verified image, so the importer skips it by design.
 - **Hauser & Wirth**, **David Zwirner**, **Gagosian** — already on the site as
   unclaimed galleries. Skipped as duplicates rather than creating a second copy.
+- **Nine Zurich galleries** added by hand through Add Listing on 2026-09-19,
+  before the Zurich run: Galerie Andrea Caratsch, Annemarie Verna Galerie,
+  Galerie Bruno Bischofberger, Galerie Eva Presenhuber, Galerie Urs Meile,
+  Hauser & Wirth Zürich, Karma International, Mai 36 Galerie, Galerie Mark
+  Müller. The name check caught all nine. Note they have disciplines set (the
+  panel asks) while the 48 imported Zurich rows do not, and they are not in
+  the revert file.
+- **Caviar20** (Toronto) imported but has **no coordinates** — the manifest's
+  geo field was empty. It will not appear on the map until an address is set.
 
 ### Careful with the revert file
 
@@ -82,7 +96,7 @@ alone deliberately, to keep that change to one page:
 
 | Where | Cap | Risk today |
 | --- | --- | --- |
-| `AdminApprovalsPanel.jsx:41-42` | 500 per table | Low — only 7 listings are non-approved |
+| `AdminApprovalsPanel.jsx:41-42` | 500 per table | **Now crossed** — 503 collector rows, 3 fall outside. Checked 2026-09-20: the 3 dropped are all approved and both held rows are inside the window, so nothing is hidden *today*. An old draft would be. |
 | `Venues.jsx:31` | 400 venue rows | None yet — every imported row is `type: "Gallery"`, which has its own page |
 
 - [ ] **The approvals queue is the one to fix next.** It is the moderation
@@ -102,25 +116,22 @@ so a truncated list cannot look like a complete one.
 
 See `docs/CLAIMING-LISTINGS.md` for how claiming works end to end.
 
-- [ ] **Six Bangkok galleries have no claim address** and so cannot be claimed
-      by registering. Need real email addresses — do not guess, `claim_email`
-      decides who can take over the page. Add via the Edit Listings panel.
+- [ ] **Nineteen imported galleries have no claim address** and so cannot be
+      claimed by registering. The manifest had no email for them. Do not guess
+      one — `claim_email` decides who can take over the page. Add via the Edit
+      Listings panel once known. Final count 2026-09-20, all six cities:
 
-      | Gallery | Instagram | Phone |
+      | City | Missing | Galleries |
       | --- | --- | --- |
-      | VS Gallery | — | +66 89 013 9966 |
-      | Play Art House | @playarthouse | +66 91 048 7187 |
-      | Ming Art Space | @ming.artspace | — |
-      | Cartel Artspace | @cartel_art_space | +66 89 508 3859 |
-      | Adult Material | @adultmaterialgallery | — |
-      | 10 10 Art Space | @1010artspace | — |
+      | Bangkok | 6 | VS Gallery, Play Art House, Ming Art Space, Cartel Artspace, Adult Material, 10 10 Art Space |
+      | Boston | 6 | Arden Gallery, Christopher Peter Art, Concord Art, Panopticon Gallery, Jules Place, Galatea Fine Art |
+      | Maine | 4 | Notch8 Gallery, Sidle House, The Wright Gallery, Triangle Gallery |
+      | Toronto | 3 | Galerie de Bellefeuille Toronto, Izzy Gallery, Caviar20 |
+      | Los Angeles | 0 | — |
+      | Zurich | 0 | — |
 
-      Boston adds six more with no claim address: Arden Gallery, Christopher
-      Peter Art, Concord Art, Panopticon Gallery, Jules Place, Galatea Fine
-      Art. (44 of Bostons 50 do have one.)
-
-      Later cities may add more of these — the importer writes `claim_email`
-      only where the manifest has an email. Re-check after each city.
+      The other 331 carry one, and no address is shared between two unclaimed
+      listings, so the `limit 1` in `claim_my_profile()` cannot bite.
 
 - [ ] **A listing cannot be self-claimed if the owner already has a profile.**
       The `not exists` guards in `claim_my_profile()` skip the claim for anyone
