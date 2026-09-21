@@ -155,13 +155,12 @@ data, and is its save or delete blocked by RLS on the live database.
 - [ ] **Deploy the Edit Listings fix.** The blank-template bug is live on the
       site since the 19 September push. Port `81c1ea8` to v11 and push —
       with approval.
-- [ ] **Role protection in the repo is not what the database does.** Committed
-      005 blocks every browser role change; the live trigger says "only an
-      admin may change a role", and the live profiles RLS lets an admin update
-      other members' rows. Both are uncommitted. Dump and commit verbatim:
-      `select pg_get_functiondef('public.protect_role_column'::regproc);` and
-      `select policyname, cmd, roles, qual, with_check from pg_policies where
-      tablename = 'profiles';`
+- [x] ~~Role protection in the repo is not what the database does~~ —
+      recovered verbatim on 2026-09-22 as `023_admin_role_management.sql`:
+      the live trigger adds `and not public.is_admin()`, the live
+      `profiles_update_own` adds `or public.is_admin()`. Nothing else differed.
+- [x] ~~022 type and nullability were inference~~ — verified the same day
+      against information_schema: `text`, nullable, no default, both tables.
 - [x] ~~Migration 012 may not be applied~~ — it is. Verified live by deleting a
       throwaway subscriber as admin.
 
@@ -193,9 +192,8 @@ column that gates access on a real account as part of a check.
         it, while 013 matches on it and both admin panels write it. It was
         never a numbered migration, so it sits at the end rather than claiming
         a number. **A replay from an empty database must run it before 013.**
-        The type (`text`) and the index are inference — the PostgREST OpenAPI
-        endpoint that serves column types is disabled on this project, and
-        there is no service-role key or database password locally.
+        The type (`text`) was verified on 2026-09-22; only the index is an
+        addition rather than a recovery.
 
 `.env` holds only `VITE_SUPABASE_URL`, the anon key and the admin login — no
 service-role key or database password — so dumps have to come from the

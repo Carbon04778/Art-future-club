@@ -1,7 +1,7 @@
 -- ===========================================================================
 -- 022  claim_email — the address an admin-created listing is filed under
 --
--- RECONSTRUCTED, NOT RECOVERED. READ THIS BEFORE RUNNING IT.
+-- RECONSTRUCTED, THEN VERIFIED. Safe to run; see the note below.
 --
 -- NUMBERING: this was first written as 012, which was wrong. 012 is
 -- 012_admin_delete_subscribers.sql — AdminSubscribersPanel.jsx names that file
@@ -30,13 +30,15 @@
 --   * No committed migration creates it. 001_schema.sql does not mention it;
 --     grep finds it only in 013 and 021, both of which only ever read it.
 --
--- WHAT IS INFERENCE
+-- VERIFIED 2026-09-22 against information_schema.columns, run by the owner in
+-- the SQL editor: both columns are `text`, nullable, no default. So the column
+-- definitions below are confirmed, not inferred. Only the index remains an
+-- addition rather than a recovery.
+--
+-- WHAT WAS INFERENCE, NOW CONFIRMED
 --
 --   * `text`. Every other string column in 001_schema.sql is text, and the
---     column holds arbitrary addresses with no length seen. The declared type
---     could not be verified from here: this project has the PostgREST OpenAPI
---     endpoint disabled, which is what serves column types, and there is no
---     service-role key or database password on the machine this was written on.
+--     column holds arbitrary addresses with no length seen. Confirmed above.
 --   * The index below. claim_my_profile() looks up
 --     `user_id is null and lower(claim_email) = <address>`, so a partial
 --     functional index is the natural companion — but whether the original 012
