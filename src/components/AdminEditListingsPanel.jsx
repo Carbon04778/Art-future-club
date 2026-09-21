@@ -412,8 +412,16 @@ export default function AdminEditListingsPanel() {
                 </div>
               </div>
 
+              {/*
+                * row={editing}, NOT row={r}. `r` is the list row from
+                * admin_listings and carries only the ten columns the list
+                * renders. `editing` is the full row openEditor() fetched from
+                * the table, with the bio, works, chapter and socials the form
+                * needs. Rendering from `r` opened every editor on a blank
+                * template that ignored what the listing already had.
+                */}
               {editing?.id === r.id && (
-                <EditForm row={r} onCancel={() => setEditing(null)} onSave={save} busy={busyId === r.id} />
+                <EditForm row={editing} onCancel={() => setEditing(null)} onSave={save} busy={busyId === r.id} />
               )}
             </li>
           ))}

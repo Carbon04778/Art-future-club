@@ -182,14 +182,38 @@ const byId = (rows) => async (id) => {
   return row;
 };
 
+/*
+ * The real panel reads admin_listings (migration 021), which carries ONLY the
+ * columns the list renders — no bio, no works, no chapter. The editor must
+ * therefore open on the full row from get(), not on the list row. Mocking the
+ * view with exactly that narrow shape is what makes this test able to tell
+ * the difference: without it the panel fell back to list() with full rows and
+ * the bug — form rendered from the list row — was invisible.
+ */
+const LIST_COLUMNS = ["kind", "id", "display_name", "type", "discipline", "based_in",
+  "claim_email", "user_id", "status", "created_date"];
+const narrow = (rows, kind) => rows.map((r) => {
+  const out = { kind };
+  for (const c of LIST_COLUMNS) if (c !== "kind") out[c] = c in r ? r[c] : null;
+  return out;
+});
+const listingRows = [...narrow(ARTISTS, "artist"), ...narrow(GALLERIES, "collector")];
+
 const ListingsPanel = await loadPanel("AdminEditListingsPanel", {
   entities: {
     ArtistProfile: { ...noop, list: async () => ARTISTS, get: byId(ARTISTS) },
     CollectorProfile: { ...noop, list: async () => GALLERIES, get: byId(GALLERIES) },
+    AdminListing: {
+      ...noop,
+      page: async ({ limit = 50, offset = 0 } = {}) =>
+        ({ rows: listingRows.slice(offset, offset + limit), count: listingRows.length }),
+    },
   },
   integrations: uploads,
 });
-await editOpens({ label: "Edit listings", Component: ListingsPanel, expect: "Yulia" });
+// "Spilt Coffee" is a portfolio work title. It exists only on the full row, so
+// finding it in a form field proves the editor opened on get(), not the list.
+await editOpens({ label: "Edit listings", Component: ListingsPanel, expect: "Spilt Coffee" });
 
 const ArticlesPanel = await loadPanel("AdminArticlesPanel", {
   entities: { Article: { ...noop, list: async () => ARTICLES } },
