@@ -168,7 +168,8 @@ const EventsPanel = await loadPanel("AdminEventsPanel", {
   entities: { Event: { ...noop, list: async () => EVENTS } },
   integrations: uploads,
 });
-await editOpens({ label: "Events", Component: EventsPanel, expect: "City of Lights" });
+// "A show." is the description — a textarea, not the title the list row shows.
+await editOpens({ label: "Events", Component: EventsPanel, expect: "A show." });
 
 /*
  * get() matters here: the panel lists summary rows (admin_listings carries only
@@ -224,7 +225,8 @@ await editOpens({
   label: "Editorial",
   Component: ArticlesPanel,
   props: { user: { id: "u1", full_name: "Admin" } },
-  expect: "A Real Article",
+  // The body, not the title: proves the editor opened on the full article.
+  expect: "Body text.",
 });
 
 rmSync(".tmp-forms", { recursive: true, force: true });

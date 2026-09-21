@@ -138,6 +138,38 @@ See `docs/CLAIMING-LISTINGS.md` for how claiming works end to end.
       who already owns an artist/collector profile. Those need an admin to
       merge by hand. No tooling for this yet.
 
+## Admin panel audit (2026-09-21)
+
+Every edit form checked for two things: does it open on the listing's real
+data, and is its save or delete blocked by RLS on the live database.
+
+| Panel | Opens on real data | Live permission | Note |
+| --- | --- | --- | --- |
+| Edit Listings | **Was broken** — fixed in `81c1ea8`, not yet deployed | update works | test now demands a work title, which only the full row has |
+| Events | Yes (`select *`) | update/delete include admin | capped at 500 |
+| Articles | Yes (`select *`) | admin/editor `for all` | capped at 200 |
+| Approvals | n/a (actions) | status change allowed for admin by 017's trigger | capped at 500, now crossed |
+| Members | n/a (role dropdown) | **works live** — see below | repo says it should not |
+| Subscribers | n/a (delete) | **works — 012 is live** | fake row inserted and deleted to prove it |
+
+- [ ] **Deploy the Edit Listings fix.** The blank-template bug is live on the
+      site since the 19 September push. Port `81c1ea8` to v11 and push —
+      with approval.
+- [ ] **Role protection in the repo is not what the database does.** Committed
+      005 blocks every browser role change; the live trigger says "only an
+      admin may change a role", and the live profiles RLS lets an admin update
+      other members' rows. Both are uncommitted. Dump and commit verbatim:
+      `select pg_get_functiondef('public.protect_role_column'::regproc);` and
+      `select policyname, cmd, roles, qual, with_check from pg_policies where
+      tablename = 'profiles';`
+- [x] ~~Migration 012 may not be applied~~ — it is. Verified live by deleting a
+      throwaway subscriber as admin.
+
+Incident during this audit: a probe changed the owner's own role to test the
+trigger and could not change it back, locking the account out of admin until
+the owner ran the fix in the SQL editor. Lesson recorded: never write to a
+column that gates access on a real account as part of a check.
+
 ## Repo / database drift
 
 - [x] **Migration 013** recovered from the live database and committed as
