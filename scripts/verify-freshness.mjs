@@ -148,7 +148,25 @@ const WIRED = [
 for (const [rel, label] of WIRED) {
   const src = read(rel);
   check(`${label} subscribes to the data revision`, /useDataRevision\(\)/.test(src));
-  check(`${label} actually refetches on it`, /\[\s*rev\s*\]|,\s*rev\s*\]/.test(src));
+  /*
+   * Either `rev` itself in the dependencies, or `heldRev` — the copy the two
+   * panels with an inline editor hold still while that editor is open, so a
+   * refetch cannot unmount it (dataRevision.js says not to refetch under
+   * editable form state). heldRev catches up to rev the moment the editor
+   * closes, so the panel still refetches on the signal; it just waits.
+   *
+   * Plain string checks rather than regexes: the exact spellings are what the
+   * panels use, and a regex here once lost its escapes in transit and matched
+   * nothing meaningful while still passing.
+   */
+  const refetches =
+    src.includes("[rev]") || src.includes(", rev]") ||
+    src.includes("[heldRev]") || src.includes(", heldRev]");
+  check(`${label} actually refetches on it`, refetches);
+  if (src.includes("heldRev")) {
+    check(`${label} lets the held revision catch up when the editor closes`,
+      src.includes("if (!editing) setHeldRev(rev)"));
+  }
 }
 
 /* ------------------------- and the pages that deliberately did NOT opt in */

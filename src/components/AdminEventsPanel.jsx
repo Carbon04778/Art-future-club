@@ -29,6 +29,9 @@ const EVENT_TYPES = [
 export default function AdminEventsPanel() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Only the first fetch replaces the list with a spinner. Later refreshes
+  // keep the list mounted so an open editor survives them.
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
   const [editing, setEditing] = useState(null);
@@ -42,11 +45,24 @@ export default function AdminEventsPanel() {
     base44.entities.Event.list("-start_date", 500)
       .then(setEvents)
       .catch((e) => setError(String(e?.message || e)))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setLoadedOnce(true);
+      });
   };
 
   const rev = useDataRevision();
-  useEffect(load, [rev]);
+  /*
+   * Held while an editor is open. dataRevision fires on the window regaining
+   * focus, and picking an image opens the OS file dialog, which does exactly
+   * that. Refetching then unmounted the open editor and lost what was typed.
+   * Ignore bumps while editing; catch up once when the editor closes.
+   */
+  const [heldRev, setHeldRev] = useState(rev);
+  useEffect(() => {
+    if (!editing) setHeldRev(rev);
+  }, [rev, editing]);
+  useEffect(load, [heldRev]);
 
   const flash = (msg) => {
     setDone(msg);
@@ -153,7 +169,7 @@ export default function AdminEventsPanel() {
         </p>
       )}
 
-      {loading ? (
+      {loading && !loadedOnce ? (
         <div className="flex justify-center py-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>

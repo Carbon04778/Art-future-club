@@ -71,6 +71,10 @@ export default function AdminEditListingsPanel() {
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  // False until the first fetch completes. Only that first fetch shows the
+  // spinner in place of the list — later refreshes keep the list mounted, so
+  // an open editor is not unmounted underneath the admin.
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
@@ -98,6 +102,19 @@ export default function AdminEditListingsPanel() {
   }, [query]);
 
   const rev = useDataRevision();
+  /*
+   * The revision is HELD while an editor is open. dataRevision.js fires on any
+   * write and on the window regaining focus — and choosing an image opens the
+   * OS file dialog, which takes focus and gives it back. Refetching then
+   * unmounted the open editor and threw away everything typed, including a
+   * work that had just been added. dataRevision.js says not to wire it into
+   * editable form state for exactly this reason. So: while editing, ignore
+   * bumps; when the editor closes, catch up in one refetch.
+   */
+  const [heldRev, setHeldRev] = useState(rev);
+  useEffect(() => {
+    if (!editing) setHeldRev(rev);
+  }, [rev, editing]);
 
   /*
    * One paged query against admin_listings (migration 021), so the filters,
@@ -131,6 +148,7 @@ export default function AdminEditListingsPanel() {
         setCount(res.count);
         setCapped(false);
         setLoading(false);
+        setLoadedOnce(true);
         return;
       } catch (e) {
         // Anything wrong with the view — absent, or not granted — falls back
@@ -174,7 +192,8 @@ export default function AdminEditListingsPanel() {
     setCount(merged.length);
     setCapped(true);
     setLoading(false);
-  }, [filter, search, page, rev]);
+    setLoadedOnce(true);
+  }, [filter, search, page, heldRev]);
 
   useEffect(() => {
     load();
@@ -295,9 +314,10 @@ export default function AdminEditListingsPanel() {
         </p>
       )}
 
-      {!loading && count > 0 && (
+      {loadedOnce && count > 0 && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
           <p className="font-mono-caps text-[10px] text-muted-foreground">
+            {loading && <Loader2 className="mr-2 inline h-3 w-3 animate-spin" />}
             Showing {page * PAGE_SIZE + 1}&ndash;{Math.min((page + 1) * PAGE_SIZE, count)} of {count}
           </p>
           {count > PAGE_SIZE && (
@@ -333,7 +353,7 @@ export default function AdminEditListingsPanel() {
         </p>
       )}
 
-      {loading ? (
+      {loading && !loadedOnce ? (
         <div className="flex justify-center py-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>

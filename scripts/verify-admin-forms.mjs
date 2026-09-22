@@ -37,6 +37,7 @@ globalThis.ResizeObserver = window.ResizeObserver = class {
 const React = (await import("react")).default;
 const { createRoot } = await import("react-dom/client");
 const { MemoryRouter } = await import("react-router-dom");
+const { bumpDataRevision } = await import("../src/lib/dataRevision.js");
 
 let pass = 0;
 const failures = [];
@@ -162,6 +163,69 @@ const ARTICLES = [
     published: true, body: "Body text.", images: [] },
 ];
 
+
+/**
+ * Open the editor, type something unsaved, and (for artists) add a work — then
+ * fire the data-revision signal, exactly as regaining window focus does.
+ *
+ * WHY: choosing an image opens the OS file dialog, which takes focus off the
+ * window. On return, dataRevision bumps and the panel refetches its list. If
+ * the refetch swaps the list for a spinner, the open editor is unmounted and
+ * everything typed — and the new work — is thrown away. The panel then
+ * remounts the editor from the saved row, so it looks as though "it reloaded
+ * and added nothing". dataRevision.js says not to wire it into editable form
+ * state for precisely this reason.
+ */
+async function editSurvivesRefresh({ label, Component, props = {}, addWork = false }) {
+  container.innerHTML = "";
+  const root = createRoot(container);
+  try {
+    await new Promise((r) => {
+      root.render(React.createElement(MemoryRouter, null, React.createElement(Component, props)));
+      setTimeout(r, 500);
+    });
+    const edit = [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "Edit");
+    edit.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 500));
+
+    // Type into the first ordinary text field of the form — an unsaved edit.
+    const input = container.querySelector("form input:not([type=file]):not([type=checkbox]):not([type=range])");
+    check(`${label}: the open form has a text field`, !!input);
+    const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+    setValue.call(input, "UNSAVED-TYPING");
+    input.dispatchEvent(new window.Event("input", { bubbles: true }));
+
+    const removeButtons = () =>
+      [...container.querySelectorAll("button")].filter((b) =>
+        /remove work/i.test(b.getAttribute("aria-label") || b.textContent)
+      ).length;
+    let before = 0;
+    if (addWork) {
+      before = removeButtons();
+      const add = [...container.querySelectorAll("button")].find((b) => /add work/i.test(b.textContent));
+      check(`${label}: an Add work button is offered`, !!add);
+      add?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 100));
+      check(`${label}: Add work adds a work`, removeButtons() === before + 1, `${before} -> ${removeButtons()}`);
+    }
+
+    // What regaining focus does. (The focus listener itself is throttled to
+    // once per ten seconds, so it is called directly here.)
+    bumpDataRevision();
+    await new Promise((r) => setTimeout(r, 900));
+
+    const stillTyped = [...container.querySelectorAll("input")].some((el) => el.value === "UNSAVED-TYPING");
+    check(`${label}: unsaved typing survives a list refresh`, stillTyped, "the editor was unmounted and remounted from the saved row");
+    if (addWork) {
+      check(`${label}: the added work survives a list refresh`, removeButtons() === before + 1, `${before + 1} expected, ${removeButtons()} present`);
+    }
+  } catch (err) {
+    check(`${label}: survives refresh without crashing`, false, err.message);
+  } finally {
+    root.unmount();
+  }
+}
+
 /* ---------------------------------------------------------------- tests */
 
 const EventsPanel = await loadPanel("AdminEventsPanel", {
@@ -170,6 +234,7 @@ const EventsPanel = await loadPanel("AdminEventsPanel", {
 });
 // "A show." is the description — a textarea, not the title the list row shows.
 await editOpens({ label: "Events", Component: EventsPanel, expect: "A show." });
+await editSurvivesRefresh({ label: "Events", Component: EventsPanel });
 
 /*
  * get() matters here: the panel lists summary rows (admin_listings carries only
@@ -215,6 +280,7 @@ const ListingsPanel = await loadPanel("AdminEditListingsPanel", {
 // "Spilt Coffee" is a portfolio work title. It exists only on the full row, so
 // finding it in a form field proves the editor opened on get(), not the list.
 await editOpens({ label: "Edit listings", Component: ListingsPanel, expect: "Spilt Coffee" });
+await editSurvivesRefresh({ label: "Edit listings", Component: ListingsPanel, addWork: true });
 
 const ArticlesPanel = await loadPanel("AdminArticlesPanel", {
   entities: { Article: { ...noop, list: async () => ARTICLES } },
