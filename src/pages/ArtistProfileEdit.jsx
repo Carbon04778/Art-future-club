@@ -137,10 +137,14 @@ export default function ArtistProfileEdit() {
   const addWork = () => {
     // Limits are currently disabled — see src/lib/featureLimits.js.
     if (atLimit(form.portfolio_works.length, FREE_ARTWORK_LIMIT)) { setUpgradePrompt(true); return; }
-    // Prepended, not appended: a new work appears at the top of the list where
-    // it can be filled in immediately, rather than below everything already
-    // there. Display order follows this array, so newest also shows first.
-    set("portfolio_works", [{ title: "", year: "", medium: "", dimensions: "", description: "", image_url: "", additional_images: [] }, ...form.portfolio_works]);
+    // Appended, so a new work takes the next number here (five works, add
+    // one, it is Work 6) and existing works keep theirs. It used to be
+    // prepended on the belief that display order followed this array — but
+    // ArtistProfileView reverses the array for display, so a prepended work
+    // was actually shown LAST on the public profile. Appending puts the
+    // newest work first on the page, which is what was wanted all along, and
+    // matches both admin panels.
+    set("portfolio_works", [...form.portfolio_works, { title: "", year: "", medium: "", dimensions: "", description: "", image_url: "", additional_images: [] }]);
   };
   const updateWork = (i, key, val) => {
     const works = [...form.portfolio_works];
