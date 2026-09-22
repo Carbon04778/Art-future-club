@@ -471,6 +471,7 @@ function EditForm({ row, onCancel, onSave, busy }) {
    * Existing works keep their image_url; `file` is set only when a new
    * picture is chosen, so nothing is re-uploaded needlessly.
    */
+  const worksRef = useRef(null);
   const [works, setWorks] = useState(() =>
     (row.portfolio_works || []).map((w) => ({
       title: w.title || "",
@@ -803,6 +804,7 @@ function EditForm({ row, onCancel, onSave, busy }) {
             Existing pieces keep their image unless you choose a new one.
           </p>
 
+          <div ref={worksRef}>
           {works.map((w, i) => (
             <div key={i} className="mt-4 border border-border p-3">
               <div className="flex items-center justify-between">
@@ -871,20 +873,33 @@ function EditForm({ row, onCancel, onSave, busy }) {
               )}
             </div>
           ))}
+          </div>
 
           <button
             type="button"
-            onClick={() =>
+            onClick={() => {
+              // Appended, so a new work takes the next number — 5 works, add
+              // one, it is Work 6. It used to go to the top, which shuffled
+              // every existing number down by one and looked as though the
+              // wrong work had been touched. Add Listing already appends.
               setWorks((prev) => [
-                // Newest first, matching the artist's own editor.
+                ...prev,
                 {
                   title: "", year: "", medium: "", dimensions: "", description: "",
                   available_for_sale: false, price: "", currency: "USD",
                   image_url: "", additional_images: [], file: null,
                 },
-                ...prev,
-              ])
-            }
+              ]);
+              // It is now the last block, possibly below the fold. Bring it
+              // into view and put the cursor in its title, so adding a work
+              // visibly does something rather than appearing to do nothing.
+              requestAnimationFrame(() => {
+                const titles = worksRef.current?.querySelectorAll('input[placeholder="Title"]');
+                const last = titles?.[titles.length - 1];
+                last?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+                last?.focus?.();
+              });
+            }}
             className="mt-4 inline-flex items-center gap-2 border border-border px-4 py-2 font-mono-caps text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           >
             <Plus className="h-3 w-3" /> Add work

@@ -207,6 +207,14 @@ async function editSurvivesRefresh({ label, Component, props = {}, addWork = fal
       add?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
       await new Promise((r) => setTimeout(r, 100));
       check(`${label}: Add work adds a work`, removeButtons() === before + 1, `${before} -> ${removeButtons()}`);
+      // Appended, not prepended: the existing work keeps its place and number,
+      // and the new blank one takes the next number. Prepending shuffled every
+      // number down by one, which read as the wrong work having been changed.
+      const titles = [...container.querySelectorAll('form input[placeholder="Title"]')];
+      check(`${label}: the existing work is still first`, titles[0]?.value === "Spilt Coffee", `first title is "${titles[0]?.value}"`);
+      check(`${label}: the new work is last and blank`, titles[titles.length - 1]?.value === "", `last title is "${titles[titles.length - 1]?.value}"`);
+      const headings = [...container.querySelectorAll("span")].filter((el) => { const t = el.textContent.trim(); return t.startsWith("Work ") && t.slice(5) !== "" && [...t.slice(5)].every((ch) => ch >= "0" && ch <= "9"); });
+      check(`${label}: the new work is numbered ${before + 1}`, headings[headings.length - 1]?.textContent.trim() === `Work ${before + 1}`, headings.map((h) => h.textContent.trim()).join(", "));
     }
 
     // What regaining focus does. (The focus listener itself is throttled to
