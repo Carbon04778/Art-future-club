@@ -68,6 +68,35 @@ const absolute = (v) => {
   return `${SITE_URL}/${s.replace(/^\/+/, "")}`;
 };
 
+/*
+ * The image a link preview shows.
+ *
+ * WhatsApp, Telegram, Signal and iMessage silently drop an og:image much over
+ * ~300 KB, and uploaded originals routinely are (21 of 39 artist portraits,
+ * median 800 KB, some near 4 MB). Supabase's own on-the-fly resize keeps the
+ * source format, so a PNG portrait stayed over a megabyte. So a stored image
+ * is served through api/og-image.js instead, which returns a 1200x630 JPEG of
+ * a few tens of KB whatever the source. Anything not in this project's
+ * storage is passed through untouched. The reasoning is in that file.
+ */
+const OG_W = 1200;
+const OG_H = 630;
+const STORAGE_OBJECT = "/storage/v1/object/public/";
+const isStored = (abs) => !!SUPABASE_URL && abs.startsWith(`${SUPABASE_URL}${STORAGE_OBJECT}`);
+const ogImage = (url) => {
+  const abs = absolute(url);
+  if (!isStored(abs)) return abs;
+  return `${SITE_URL}/api/og-image?src=${encodeURIComponent(abs)}`;
+};
+
+/* When a profile has no image at all, the card should still carry the site's
+ * own picture rather than none: an empty card is the one outcome every
+ * platform renders worst. This is the image index.html uses for the home page. */
+const DEFAULT_OG_IMAGE = `${SITE_URL}/images/AdobeStock_528827486.jpg`;
+
+// Named exports are for verify-seo only; Vercel invokes the default export.
+export { ogImage, isStored, DEFAULT_OG_IMAGE, OG_W, OG_H };
+
 const clamp = (text, max = 160) => {
   const flat = String(text || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   return flat.length <= max ? flat : `${flat.slice(0, max - 1).replace(/\s+\S*$/, "")}…`;
@@ -312,7 +341,8 @@ function describe(route, row, path) {
 /* ---------------------------------------------------------------- markup */
 
 function headTags(seo, crumbs) {
-  const img = absolute(seo.image);
+  const img = seo.image ? ogImage(seo.image) : DEFAULT_OG_IMAGE;
+  const transformed = isStored(absolute(seo.image || ""));
   const desc = clamp(seo.description);
   const out = [
     `<title>${esc(seo.title)}</title>`,
@@ -327,9 +357,13 @@ function headTags(seo, crumbs) {
     `<meta name="twitter:title" content="${esc(seo.title)}">`,
     `<meta name="twitter:description" content="${esc(desc)}">`,
   ];
-  if (img) {
-    out.push(`<meta property="og:image" content="${esc(img)}">`);
-    out.push(`<meta name="twitter:image" content="${esc(img)}">`);
+  out.push(`<meta property="og:image" content="${esc(img)}">`);
+  out.push(`<meta name="twitter:image" content="${esc(img)}">`);
+  // Declared dimensions let Facebook and WhatsApp render the large card on the
+  // first share instead of a small one until they have fetched the file.
+  if (transformed) {
+    out.push(`<meta property="og:image:width" content="${OG_W}">`);
+    out.push(`<meta property="og:image:height" content="${OG_H}">`);
   }
   if (seo.noindex) out.push(`<meta name="robots" content="noindex, follow">`);
   out.push(

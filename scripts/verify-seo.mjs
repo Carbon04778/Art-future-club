@@ -378,6 +378,43 @@ const BOTS = [
 ];
 for (const b of BOTS) check(`crawler matched: ${b.slice(0, 42)}`, ua.test(b));
 
+/* ---------------------------------------- the preview image itself */
+/*
+ * A link preview's picture is only as good as the file behind og:image.
+ * WhatsApp, Telegram, Signal and iMessage drop anything much over ~300 KB,
+ * and artist portraits are uploaded originals (21 of 39 were over the limit,
+ * median 800 KB). Supabase's own resize keeps the source format, so a PNG
+ * stayed over a megabyte. So the prerender sends crawlers through
+ * api/og-image.js, which returns a 1200x630 JPEG whatever the source.
+ */
+process.env.VITE_SUPABASE_URL ||= "https://test-project.supabase.co";
+const SB = process.env.VITE_SUPABASE_URL;
+const { ogImage, isStored, DEFAULT_OG_IMAGE, OG_W, OG_H } = await import("../api/prerender.js");
+const stored = `${SB}/storage/v1/object/public/uploads/u1/portrait.png`;
+const og = ogImage(stored);
+check("a stored image is served through api/og-image", og.startsWith("https://www.artfutureclub.com/api/og-image?src="), og);
+check("the source is passed encoded, exactly once", og.endsWith(encodeURIComponent(stored)), og);
+check("card size is the 1.91:1 standard", OG_W === 1200 && OG_H === 630);
+check("a non-storage image is passed through untouched", ogImage("https://example.com/pic.jpg") === "https://example.com/pic.jpg");
+check("a site-relative image is made absolute, not proxied", ogImage("/images/x.jpg") === "https://www.artfutureclub.com/images/x.jpg", ogImage("/images/x.jpg"));
+check("another host is never treated as stored", !isStored("https://evil.example/storage/v1/object/public/x.png"));
+check("a profile with no image gets the site image, never nothing", DEFAULT_OG_IMAGE.startsWith("https://www.artfutureclub.com/images/"), DEFAULT_OG_IMAGE);
+
+/* api/og-image.js itself, offline: a synthetic 3000x2000 PNG through the
+ * same conversion crawlers get. */
+const { isAllowedSource, toCard } = await import("../api/og-image.js");
+check("og-image accepts this project's public storage", isAllowedSource(stored));
+check("og-image refuses any other host (not an open proxy)", !isAllowedSource("https://evil.example/x.png") && !isAllowedSource(""));
+const sharp = (await import("sharp")).default;
+const bigPng = await sharp({ create: { width: 3000, height: 2000, channels: 3, background: { r: 120, g: 40, b: 200 } } })
+  .composite([{ input: Buffer.from(`<svg width="3000" height="2000"><circle cx="900" cy="1000" r="600" fill="#ffcc00"/><rect x="1800" y="300" width="900" height="1400" fill="#00ccaa"/></svg>`), top: 0, left: 0 }])
+  .png().toBuffer();
+const card = await toCard(bigPng);
+const cardMeta = await sharp(card).metadata();
+check("og-image returns a JPEG whatever the source", cardMeta.format === "jpeg", cardMeta.format);
+check("og-image returns exactly the card size", cardMeta.width === OG_W && cardMeta.height === OG_H, `${cardMeta.width}x${cardMeta.height}`);
+check("og-image output is under the 300 KB preview limit", card.length < 300 * 1024, `${Math.round(card.length / 1024)} KB from a ${Math.round(bigPng.length / 1024)} KB PNG`);
+
 const HUMANS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
