@@ -288,6 +288,63 @@ try {
 }
 check("AdminListing rejects writes — it is a read-only view", viewWriteRejected);
 
+/* ------------------------------- a capped list must not lose rows it wants */
+
+/*
+ * THE BUG THIS EXISTS TO CATCH.
+ *
+ * Venues.jsx fetched the 400 most recently updated collector_profile rows and
+ * then picked out the venue types IN THE BROWSER. That works only while the
+ * table is smaller than the cap. On 2026-09-22 the gallery import wrote 350
+ * rows in four days, pushing every venue — last edited a week earlier — out of
+ * the 400 most recent. Seventeen of nineteen venues disappeared from the
+ * Venues page, and because the filtering happened after the fetch, the page
+ * could not tell it was showing two of nineteen.
+ *
+ * The rule: when you want rows of a kind, ASK for that kind. Never fetch a
+ * capped page of everything and sieve it afterwards.
+ */
+
+const VENUE_KINDS = ["Institution", "Museum", "Foundation", "Event Space", "Restaurant"];
+
+const everySpace = await entities.CollectorProfile.list("-updated_date");
+const everyVenue = everySpace.filter((r) => VENUE_KINDS.includes(r.type));
+check("the demo data has at least one venue to lose", everyVenue.length >= 1, `${everyVenue.length}`);
+
+/* Make the venues the OLDEST rows, exactly as the import did to the real ones. */
+for (const r of everySpace) {
+  if (!VENUE_KINDS.includes(r.type)) {
+    await entities.CollectorProfile.update(r.id, { updated_date: new Date().toISOString() });
+  }
+}
+const nonVenueCount = everySpace.length - everyVenue.length;
+
+/* The old approach: cap first, filter second. */
+const cappedPage = await entities.CollectorProfile.list("-updated_date", nonVenueCount);
+const survivors = cappedPage.filter((r) => VENUE_KINDS.includes(r.type));
+check(
+  "filtering a capped list in the browser DOES lose rows (the bug, reproduced)",
+  survivors.length < everyVenue.length,
+  `${survivors.length} of ${everyVenue.length} survived — the cap no longer hides anything, so this check is not proving what it claims`
+);
+
+/* The fix: ask the database for the kind you want. */
+const askedFor = await entities.CollectorProfile.filter(
+  { type: { $in: VENUE_KINDS } },
+  "-updated_date",
+  nonVenueCount
+);
+check(
+  "asking for the kind returns every one of them, whatever else was edited",
+  askedFor.length === everyVenue.length,
+  `got ${askedFor.length}, expected ${everyVenue.length}`
+);
+check(
+  "and returns nothing else",
+  askedFor.every((r) => VENUE_KINDS.includes(r.type)),
+  askedFor.map((r) => r.type).join(", ")
+);
+
 /* ----------------------------------------------------------------- report */
 
 console.log(`\n  passed: ${pass}`);

@@ -24,15 +24,32 @@ export default function Venues() {
   const rev = useDataRevision();
 
   useEffect(() => {
-    // Every venue type, not just "Institution". Filtering on that one value
-    // meant a Museum, Restaurant or Event Space never appeared here at all.
-    // `status` is required — UnpublishedBadge reads it to tell the owner (and
-    // an admin) that a listing is not public yet.
-    base44.entities.CollectorProfile.list(
+    /*
+     * Every venue type, not just "Institution". Filtering on that one value
+     * meant a Museum, Restaurant or Event Space never appeared here at all.
+     * `status` is required — UnpublishedBadge reads it to tell the owner (and
+     * an admin) that a listing is not public yet.
+     *
+     * THE TYPES ARE CONSTRAINED IN THE QUERY, NOT AFTER IT.
+     *
+     * This used to fetch the 400 most recently updated collector_profile rows
+     * and pick the venue types out of them here. That worked only while the
+     * table was smaller than the cap. The September 2026 gallery import wrote
+     * 350 rows in four days, pushing every venue — last edited a week before —
+     * out of the window: 17 of 19 vanished from this page, and because the
+     * filtering happened after the fetch, nothing could tell that 2 of 19 were
+     * being shown. Asking the database for the kind we want makes the cap
+     * irrelevant to which rows arrive.
+     */
+    base44.entities.CollectorProfile.filter(
+      { type: { $in: VENUE_TYPES } },
       "-updated_date",
       400,
       "id,display_name,type,based_in,address,bio,avatar_url,cover_image_url,partnership_type,website,status,slug"
     )
+      // isVenueType still guards the render: the query and the helper must
+      // agree, and if VENUE_TYPES ever gains a value the query misses, a wrong
+      // row is dropped here rather than displayed as a venue.
       .then((rows) => setVenues(rows.filter((r) => isVenueType(r.type))))
       .catch(() => {})
       .finally(() => setLoading(false));

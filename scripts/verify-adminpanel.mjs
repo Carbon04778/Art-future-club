@@ -202,6 +202,28 @@ check("galleries page matches chapter against based_in", /based_in && !g\.based_
 check("venues page matches chapter against based_in", /based_in \|\| ""\)\.includes\(chapter\)/.test(venues));
 check("panel uses a chapter dropdown for based_in, not free text",
   /value=\{form\.based_in\}[\s\S]{0,220}CHAPTER_OPTIONS\.map/.test(src));
+/*
+ * Venues.jsx used to fetch the 400 most recently updated collector_profile
+ * rows and pick the venue types out of them in the browser. That held only
+ * while the table was smaller than the cap: the September 2026 gallery import
+ * added 350 rows in four days and pushed 17 of the 19 venues out of the
+ * window, so the Venues page showed two of nineteen and could not tell.
+ *
+ * Ask the database for the kind you want. Never sieve a capped page.
+ */
+check("venues page asks the database for venue types",
+  venues.includes("$in: VENUE_TYPES"),
+  "Venues.jsx must constrain type in the query, not after it");
+/*
+ * The unconstrained fetch is the fault, not client-side filtering as such:
+ * Venues.jsx keeps an isVenueType() guard at render time so the query and the
+ * helper must agree, and a row the query wrongly returned is dropped rather
+ * than shown as a venue. What must never come back is a capped page of
+ * everything.
+ */
+check("venues page does not fetch an unconstrained page of every space",
+  !venues.includes("CollectorProfile.list("),
+  "found an unconstrained .list() — the cap decides which rows arrive");
 check("venues page genuinely does not filter on interests", !/interests/.test(venues));
 check("venues page renders partnership_type", /v\.partnership_type/.test(venues));
 check("panel collects partnership_type", /partnership_type: form\.partnership_type/.test(src));

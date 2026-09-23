@@ -40,7 +40,13 @@ These were all learned the hard way during the week this file covers.
    `verify-admin-forms` passed while the editor was opening blank, because
    its mock had no `AdminListing` and the panel silently fell back to full
    rows. When a code path has a fallback, mock the *real* path.
-8. **Quote real output.** Never describe a result that was not seen.
+8. **Ask for the rows you want; never sieve a capped page.** Fetching the N
+   most recent of everything and filtering in the browser works only while
+   the table is smaller than N. The September import added 350 rows and
+   pushed 17 of 19 venues out of the Venues page's 400-row window — and
+   because the filtering happened after the fetch, the page could not tell it
+   was showing 2 of 19. Constrain the query.
+9. **Quote real output.** Never describe a result that was not seen.
 
 ---
 
@@ -58,12 +64,12 @@ as of that date (a lower number means something was removed — look):
 | Script | Checks | What it proves |
 | --- | --- | --- |
 | `verify:imports` | files: 103 | every component used in JSX is imported |
-| `verify` (provider) | 51 | mock provider contract: list/filter/get/create, `page()` returning `{rows, count}`, the `AdminListing` union view, read-only view rejects writes |
+| `verify` (provider) | 55 | mock provider contract: list/filter/get/create, `page()` returning `{rows, count}`, the `AdminListing` union view, read-only view rejects writes |
 | `verify:backend` | 7 | backend auto-selection |
 | `verify:supabase` | 49 | real provider emits correct PostgREST queries; exact entity set incl. `AdminListing` |
 | `verify:images` | 14 | image handling |
 | `verify:layout` | 28 | layout |
-| `verify:adminpanel` | 60 | admin panel fields match the public pages; Galleries page reads `interests` with a default and matches the chosen chip; "Uncategorised" chip exists and selects empty-discipline rows; sentinel chips excluded from the discipline cross-check |
+| `verify:adminpanel` | 62 | admin panel fields match the public pages; Galleries page reads `interests` with a default and matches the chosen chip; "Uncategorised" chip exists and selects empty-discipline rows; sentinel chips excluded from the discipline cross-check |
 | `verify:moderation` | 76 | moderation gate |
 | `verify:notifications` | 21 | notifications |
 | `verify:gallery-works` | 18 | gallery works |
@@ -212,13 +218,25 @@ the probe in §7 for logos serving and claim coverage.
 - [ ] NOT DONE: after the append change, add a work as an artist and confirm
       it appears FIRST on the public profile (the view reverses the array).
 
+### 4b-ii. Venues page (`/venues`) — all 19 must appear
+
+- [x] Automated two ways. `verify` (provider) reproduces the failure mode:
+      a capped list filtered in the browser loses rows, the same query
+      constrained by type does not. `verify:adminpanel` asserts Venues.jsx
+      constrains `type` in the query and never calls an unconstrained
+      `CollectorProfile.list(`.
+- [x] Verified live 2026-09-23 as an anonymous visitor: 19 venues returned
+      (9 Museum, 7 Institution, 3 Event Space), including M+, Tai Kwun,
+      HKMoA and the Hong Kong Palace Museum.
+- [ ] NOT DONE: open `/venues` in a browser and count 19.
+
 ### 4c. Row caps — a listing beyond the cap is silently absent
 
 | Page | Cap | State 2026-09-20 |
 | --- | --- | --- |
 | Edit Listings | — | fixed: server-side paging with an exact count |
 | Approvals panel | 500 per table | **crossed** — 503 collector rows, 3 outside. The 3 are all approved and both held rows are inside, so nothing hidden today. An old draft would be. |
-| Venues | 400 | not crossed; galleries are not venue types |
+| Venues | 400, but now **type-constrained** | **Broke 2026-09-22, fixed 2026-09-23.** The import pushed 17 of 19 venues out of the window. Now asks the database for venue types, so the cap cannot decide which rows arrive. |
 | Events admin | 500 | not crossed |
 | Articles admin | 200 | 106 articles |
 | GalleryShowcase | none | unbounded `select *` |
