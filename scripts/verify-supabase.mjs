@@ -68,6 +68,9 @@ const stub = {
 
 const src = readFileSync(new URL("../src/api/providers/supabase.js", import.meta.url), "utf8")
   .replace(/import\s*{\s*createClient\s*}\s*from\s*"@supabase\/supabase-js";/, "")
+  // The copy runs from .tmp/, so the provider's one relative import has to be
+  // pointed back at src/. Everything else it imports is a package.
+  .replace('from "../../lib/addressQuery.js"', 'from "../src/lib/addressQuery.js"')
   .replace(/import\.meta\.env\.VITE_SUPABASE_URL/g, '"https://test.supabase.co"')
   .replace(/import\.meta\.env\.VITE_SUPABASE_ANON_KEY/g, '"anon-test-key"')
   .replace(/export const supabase = url && anonKey[\s\S]*?: null;/, "export const supabase = globalThis.__STUB__;");

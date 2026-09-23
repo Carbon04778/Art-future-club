@@ -29,6 +29,13 @@ export default function GeoAddressField({ value, onChange }) {
   /* Address edited since the coordinates were last resolved — so the shown
    * coordinates no longer necessarily match the text. */
   const [stale, setStale] = useState(false);
+  /* How the pin was found: the address as written, or a simplified form of it.
+   * A Hong Kong address beginning with a floor and unit cannot be matched at
+   * all, so the lookup retries progressively simpler queries — which means the
+   * pin may be the street or the district rather than the door, and the page
+   * should say so rather than implying a precision we do not have. */
+  const [precision, setPrecision] = useState(null);
+  const [matched, setMatched] = useState('');
 
   const query = value?.address || "";
 
@@ -52,13 +59,16 @@ export default function GeoAddressField({ value, onChange }) {
     try {
       const res = await base44.functions.invoke("geocodeAddress", { address: addr });
       if (res?.error) { setError(res.error); return; }
-      const { lat, lng, placename, region } = res.data || res;
+      const hit = res.data || res;
+      const { lat, lng, placename, region } = hit;
       onChange({
         geo_placename: placename || addr,
         geo_region: region || "",
         geo_lat: typeof lat === "string" ? Number(lat) : lat,
         geo_lng: typeof lng === "string" ? Number(lng) : lng,
       });
+      setPrecision(hit.precision || "exact");
+      setMatched(hit.matched || "");
       setStale(false);
     } catch (e) {
       setError(e?.message || "Geocoding failed");
@@ -71,6 +81,8 @@ export default function GeoAddressField({ value, onChange }) {
    * wiping it here would silently delete it from the profile. */
   const clear = () => {
     onChange({ geo_placename: "", geo_region: "", geo_lat: "", geo_lng: "" });
+    setPrecision(null);
+    setMatched("");
     setStale(false);
     setError("");
   };
@@ -116,6 +128,13 @@ export default function GeoAddressField({ value, onChange }) {
         </p>
       )}
 
+      {resolved && !error && precision === "approximate" && matched && (
+        <p className="font-mono-caps text-[10px] text-yellow-600">
+          Pinned from &ldquo;{matched}&rdquo; — the full address could not be found,
+          so the pin is the street or area rather than the exact door. The address
+          you typed is saved unchanged.
+        </p>
+      )}
       {resolved && !error && (
         <div className="flex items-center justify-between gap-3 border border-border px-4 py-3 bg-muted/30">
           <div className="min-w-0">

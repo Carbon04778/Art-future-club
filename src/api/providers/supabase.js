@@ -14,6 +14,10 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+// Relative, not the @ alias: verify-supabase.mjs loads this file under plain
+// node, which does not resolve vite aliases. mock.js imports ../../lib/slugs.js
+// for the same reason.
+import { addressCandidates, matchPrecision } from "../../lib/addressQuery.js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -644,30 +648,57 @@ export const integrations = { Core: { UploadFile, InvokeLLM } };
  * Nominatim's usage policy allows roughly one request per second, which suits
  * a human typing an address into a form.
  */
-async function geocodeInBrowser({ address }) {
-  if (!address) throw new Error("Address is required");
+const nominatimSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** One Nominatim lookup. Returns the hit, or null when nothing matched. */
+async function nominatimSearch(query) {
   const url = new URL("https://nominatim.openstreetmap.org/search");
-  url.searchParams.set("q", address);
+  url.searchParams.set("q", query);
   url.searchParams.set("format", "json");
   url.searchParams.set("limit", "1");
   url.searchParams.set("addressdetails", "1");
 
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`Address lookup failed (${res.status})`);
-
   const [hit] = await res.json();
-  if (!hit) throw new Error("Address not found. Try a simpler address.");
+  return hit || null;
+}
 
-  const a = hit.address ?? {};
-  return {
-    lat: parseFloat(hit.lat),
-    lng: parseFloat(hit.lon),
-    placename:
-      a.suburb || a.neighbourhood || a.city_district || a.city || a.town || address,
-    region: [a.city || a.town || a.state, a.country].filter(Boolean).join(", "),
-    display_name: hit.display_name,
-  };
+async function geocodeInBrowser({ address }) {
+  if (!address) throw new Error("Address is required");
+
+  /*
+   * Each simplification in turn, stopping at the first that resolves. A Hong
+   * Kong gallery address opens with a floor and unit that Nominatim cannot
+   * match at all — see src/lib/addressQuery.js. The stored address is never
+   * altered; only the query is.
+   */
+  const candidates = addressCandidates(address);
+  for (let i = 0; i < candidates.length; i++) {
+    const hit = await nominatimSearch(candidates[i]);
+    if (hit) {
+      const a = hit.address ?? {};
+      return {
+        lat: parseFloat(hit.lat),
+        lng: parseFloat(hit.lon),
+        placename:
+          a.suburb || a.neighbourhood || a.city_district || a.city || a.town || address,
+        region: [a.city || a.town || a.state, a.country].filter(Boolean).join(", "),
+        display_name: hit.display_name,
+        // So the page can say the pin is the street or district rather than
+        // the door, instead of implying a precision we do not have.
+        precision: matchPrecision(i),
+        matched: candidates[i],
+      };
+    }
+    // Nominatim's policy is about one request a second. Only pause when there
+    // is another attempt to make.
+    if (i < candidates.length - 1) await nominatimSleep(1100);
+  }
+
+  throw new Error(
+    "Address not found. Check the street name and city, or drop the building name."
+  );
 }
 
 async function invoke(name, payload) {
