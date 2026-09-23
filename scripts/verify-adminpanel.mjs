@@ -266,6 +266,26 @@ check(
   !galleryMapSrc.includes("CHAPTER_COORDS"),
   "GalleryMap is plotting cities again"
 );
+const artistMapSrc = readFileSync(new URL("../src/pages/ArtistMap.jsx", import.meta.url), "utf8");
+/*
+ * /map opened with GalleriesVenuesMap and then showed a second map below it —
+ * two maps on one page, neither of which located anything, both drawing the
+ * same eight chapter dots.
+ */
+check(
+  "the artist map page uses the real map, not the old chapter one",
+  // The import and the element, not the file: the comment there names the old
+  // component to explain why it went, and a whole-file match caught that.
+  artistMapSrc.includes("import SpacesMap") &&
+    !artistMapSrc.includes("import GalleriesVenuesMap") &&
+    !artistMapSrc.includes("<GalleriesVenuesMap"),
+  "GalleriesVenuesMap is back on /map"
+);
+check(
+  "/map shows one galleries map, not two",
+  (artistMapSrc.match(/<SpacesMap/g) || []).length === 1,
+  "more than one SpacesMap on the page"
+);
 check(
   "every filtered listing is fed to the map",
   mapSrc.includes("sc.load(") && mapSrc.includes("matching.map((r) =>"),

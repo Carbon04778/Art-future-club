@@ -6,7 +6,7 @@ import { X, ChevronRight } from "lucide-react";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import SlimFooter from "@/components/SlimFooter";
-import GalleriesVenuesMap from "@/components/GalleriesVenuesMap";
+import SpacesMap from "@/components/SpacesMap";
 import { useDataRevision } from "@/lib/dataRevision";
 
 // Chapter city coordinates
@@ -45,10 +45,21 @@ export default function ArtistMap() {
 
   return (
     <>
-      <div className="px-6 py-12 md:px-10">
-        <GalleriesVenuesMap />
+      {/*
+        * The galleries and venues map, the real one: a pin per listing at its
+        * own coordinates. This slot used to hold GalleriesVenuesMap, which was
+        * the same eight-dot chapter map as the old gallery map — so the page
+        * showed two maps, neither of which located anything.
+        *
+        * Its own padding, so it is dropped outside the wrapper below.
+        */}
+      <SpacesMap title="Galleries & Venues" />
 
-        <div className="my-16 border-t border-border" />
+      <div className="px-6 md:px-10">
+        <div className="my-4 border-t border-border" />
+      </div>
+
+      <div className="px-6 pb-12 md:px-10">
 
         <p className="font-mono-caps text-[11px] text-muted-foreground">AFC — Global Network</p>
         <h1 className="mt-3 font-heading text-5xl font-medium tracking-[-0.02em] md:text-6xl mb-3">Artist Residency Map</h1>
