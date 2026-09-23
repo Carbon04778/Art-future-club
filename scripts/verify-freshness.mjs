@@ -135,7 +135,9 @@ const WIRED = [
   ["../src/pages/GalleryShowcase.jsx", "galleries page"],
   ["../src/pages/Venues.jsx", "venues page"],
   ["../src/pages/ArtistMap.jsx", "artist map"],
-  ["../src/pages/GalleryMap.jsx", "gallery map"],
+  // GalleryMap is a thin wrapper now; SpacesMap is what loads the listings,
+  // so that is where the subscription has to be.
+  ["../src/components/SpacesMap.jsx", "spaces map"],
   ["../src/components/GalleriesVenuesMap.jsx", "galleries & venues map"],
   ["../src/pages/CityChapterDetail.jsx", "chapter page"],
   ["../src/pages/Editorial.jsx", "editorial index"],

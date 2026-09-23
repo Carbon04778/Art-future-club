@@ -235,6 +235,110 @@ check("galleries page queries type Gallery", /type: "Gallery"/.test(showcase));
 // shared isVenueType helper.
 check("venues page includes every venue type", /isVenueType\(r\.type\)/.test(venues));
 
+/* ------------------------------------------- the maps plot real coordinates */
+
+/*
+ * THE BUG THIS EXISTS TO CATCH.
+ *
+ * Every map on the site drew EIGHT dots — one per chapter city, from a
+ * hardcoded coordinate table — and decided which dot a listing belonged to by
+ * testing whether its address text contained a chapter name. So 46 Zurich
+ * galleries were one point in the middle of Zurich, zooming in found nothing,
+ * and the 139 listings whose address matched no chapter name never appeared at
+ * all. Every listing already carried its own geo_lat/geo_lng, resolved from its
+ * address by the Locate button, and no map read them.
+ *
+ * A map of a directory plots the entries. If these checks ever fail, the map
+ * has gone back to plotting cities.
+ */
+
+const mapSrc = readFileSync(new URL("../src/components/SpacesMap.jsx", import.meta.url), "utf8");
+const galleryMapSrc = readFileSync(new URL("../src/pages/GalleryMap.jsx", import.meta.url), "utf8");
+
+check("the map reads each listing's own coordinates", mapSrc.includes("r.geo_lat") && mapSrc.includes("r.geo_lng"));
+check(
+  "no hardcoded table of city coordinates survives in the map",
+  !mapSrc.includes("CHAPTER_COORDS"),
+  "a coordinate table is back — listings would collapse onto city centres"
+);
+check(
+  "the gallery map page no longer plots chapter dots",
+  !galleryMapSrc.includes("CHAPTER_COORDS"),
+  "GalleryMap is plotting cities again"
+);
+check(
+  "every filtered listing is fed to the map",
+  mapSrc.includes("sc.load(") && mapSrc.includes("matching.map((r) =>"),
+  "the plotted set is not driven by the filtered listings"
+);
+check(
+  "pins are drawn from the cluster index, so nothing is plotted twice",
+  mapSrc.includes("index.getClusters(") && mapSrc.includes("<Marker"),
+  "markers are not coming from the index"
+);
+/*
+ * Clustering is computed with supercluster rather than a Leaflet plugin:
+ * react-leaflet-markercluster hangs outright under jsdom and took the render
+ * smoke test with it. supercluster is arithmetic over coordinates with no DOM,
+ * so it runs anywhere, and the bubbles are drawn in the site's own black.
+ */
+check("markers are clustered", mapSrc.includes("new Supercluster("), "498 pins with no clustering is a blot");
+check(
+  "a cluster opens when tapped instead of being a dead end",
+  mapSrc.includes("getClusterExpansionZoom"),
+  "tapping a cluster must zoom into it"
+);
+check(
+  "the view is framed on the data, not a fixed world view",
+  mapSrc.includes("fitBounds"),
+  "a fixed centre/zoom cannot suit six countries"
+);
+
+/* The list beside the map — "points are not listed" was the other complaint. */
+check("the map has a list beside it", mapSrc.includes("inView"), "no list panel");
+check(
+  "the list shows what is in view, so map and list cannot disagree",
+  mapSrc.includes("bounds.contains"),
+  "the list is not tied to the viewport"
+);
+check("choosing from the list moves the map", mapSrc.includes("flyTo"));
+
+/* Reachability, which is what a visitor actually wants from it. */
+check("each pin offers directions", mapSrc.includes("directionsUrl"));
+check(
+  "directions prefer the written address over bare coordinates",
+  mapSrc.includes("row.address"),
+  "an approximate pin would send someone to the wrong door"
+);
+check("the map offers find-my-location", mapSrc.includes("navigator.geolocation"));
+check(
+  "pins are drawn differently for galleries and venues",
+  mapSrc.includes("isVenueType(type)"),
+  "a museum and a commercial gallery look identical"
+);
+
+/* Every listing, not a capped page — the fault that hid 17 of 19 venues. */
+check(
+  "the map pages through every listing rather than taking one capped page",
+  mapSrc.includes("offset += PAGE") && mapSrc.includes("all.length >= count"),
+  "a single capped request would silently drop listings"
+);
+check(
+  "the map asks only for approved listings of the kinds it plots",
+  mapSrc.includes('status: "approved"') && mapSrc.includes("$in: kinds"),
+  "unapproved or irrelevant rows would be pinned"
+);
+
+/* Tiles: the old ones were rate-limited, which is why zooming felt broken. */
+check(
+  "tiles come from CARTO, not the rate-limited OSM endpoint",
+  // The tile URL itself, not the file: the comment above it names the old
+  // endpoint to explain why it went, and a whole-file match caught that.
+  mapSrc.includes('url="https://{s}.basemaps.cartocdn.com') &&
+    !mapSrc.includes('url="https://{s}.tile.openstreetmap.org'),
+  "raw OSM tiles are rate-limited and made zooming feel broken"
+);
+
 /* ================================================================ report === */
 
 console.log(`\n  passed: ${pass}`);
