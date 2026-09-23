@@ -46,7 +46,12 @@ These were all learned the hard way during the week this file covers.
    pushed 17 of 19 venues out of the Venues page's 400-row window — and
    because the filtering happened after the fetch, the page could not tell it
    was showing 2 of 19. Constrain the query.
-9. **Quote real output.** Never describe a result that was not seen.
+9. **A 200 is not proof the response is right.** CARTO served every map tile
+   at HTTP 200 with "API KEY REQUIRED" painted across the image. A status
+   check passed, the build passed, every test passed, and the map was
+   unusable. When what matters is the *content* — a tile, a preview image, a
+   PDF — open it and look. `Read` renders images.
+10. **Quote real output.** Never describe a result that was not seen.
 
 ---
 
@@ -242,6 +247,25 @@ the probe in §7 for logos serving and claim coverage.
 | GalleryShowcase | none | unbounded `select *` |
 
 ---
+
+### 4d. Map tiles — look at one, do not trust the status code
+
+The map is Esri World Light Gray Canvas in two layers: the pale base, then a
+transparent overlay with street and place names. No API key, and it matches
+the reference apps.
+
+- [x] Automated: `verify:adminpanel` refuses the tile hosts that require a
+      key (CARTO, Mapbox, Stadia, MapTiler), refuses the rate-limited OSM
+      endpoint, and requires both a base and a labels layer plus attribution.
+- [ ] After any tile change, **fetch one tile and open it**:
+
+      ```
+      curl -s "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/14/5448/8187" -o tile.png
+      ```
+
+      Then look at it. On 2026-09-23 CARTO returned HTTP 200, `image/png`,
+      13 KB — and the image said API KEY REQUIRED. Nothing but the image
+      itself could have caught that.
 
 ## 5. SEO and link previews
 

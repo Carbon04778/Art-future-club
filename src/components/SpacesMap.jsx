@@ -37,10 +37,17 @@ import { useDataRevision } from "@/lib/dataRevision";
  *
  * TILES
  *
- * CARTO Positron, not raw OpenStreetMap. Pale grey suits the site, matches the
- * reference apps, and is far quicker than tile.openstreetmap.org, which is
- * rate-limited for exactly this kind of use and made zooming feel broken.
- */
+ * Esri's World Light Gray Canvas, in two layers: the pale base, then a
+ * transparent overlay carrying street and place names. Pale grey suits the
+ * site and matches the reference apps, and it is quick.
+ *
+ * NOT CARTO, which is what this shipped with for one afternoon. CARTO now
+ * requires an API key and serves tiles with API KEY REQUIRED painted across
+ * them — at HTTP 200, so nothing in the code or the tests could tell. The
+ * only way to catch that is to look at the image.
+ *
+ * NOT raw tile.openstreetmap.org either: rate-limited for exactly this use,
+ * which is what made zooming feel broken before.
 
 /* Fetched in pages, because a single capped request silently drops rows once
  * the table outgrows the cap — see rule 8 in docs/ARTFUTURE-FULL-TEST.md. */
@@ -464,9 +471,14 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
               style={{ height: "100%", width: "100%" }}
             >
               <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                maxZoom={20}
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+                attribution="Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"
+                maxZoom={19}
+              />
+              {/* Street and place names, so a visitor can actually navigate. */}
+              <TileLayer
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
+                maxZoom={19}
               />
               <FitToRows rows={matching} fitKey={fitKey} />
               <ReportViewport onChange={onViewport} />

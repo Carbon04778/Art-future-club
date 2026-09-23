@@ -350,13 +350,36 @@ check(
 );
 
 /* Tiles: the old ones were rate-limited, which is why zooming felt broken. */
+/*
+ * Tile providers that require an API key are named here so they cannot come
+ * back by accident. CARTO shipped for one afternoon and served every tile at
+ * HTTP 200 with "API KEY REQUIRED" painted across the image — a status check
+ * could not tell, and neither could any test. The only proof is to look at a
+ * tile; see §4 of docs/ARTFUTURE-FULL-TEST.md.
+ */
+const KEYED_TILE_HOSTS = ["basemaps.cartocdn.com", "api.mapbox.com", "tiles.stadiamaps.com", "api.maptiler.com"];
+for (const host of KEYED_TILE_HOSTS) {
+  check(
+    `tiles do not come from ${host}, which requires an API key`,
+    !mapSrc.includes(`url="https://${host}`) && !mapSrc.includes(`url="https://{s}.${host}`),
+    "that provider watermarks or refuses tiles without a key"
+  );
+}
 check(
-  "tiles come from CARTO, not the rate-limited OSM endpoint",
-  // The tile URL itself, not the file: the comment above it names the old
-  // endpoint to explain why it went, and a whole-file match caught that.
-  mapSrc.includes('url="https://{s}.basemaps.cartocdn.com') &&
-    !mapSrc.includes('url="https://{s}.tile.openstreetmap.org'),
+  "tiles do not come from the rate-limited OSM endpoint",
+  !mapSrc.includes('url="https://{s}.tile.openstreetmap.org') &&
+    !mapSrc.includes('url="https://tile.openstreetmap.org'),
   "raw OSM tiles are rate-limited and made zooming feel broken"
+);
+check(
+  "the map carries a base layer and a labels layer",
+  (mapSrc.match(/<TileLayer/g) || []).length >= 2,
+  "a base map with no street names cannot be used to walk between galleries"
+);
+check(
+  "the tile provider is attributed",
+  mapSrc.includes("attribution="),
+  "every free tile provider requires attribution"
 );
 
 /* ================================================================ report === */
