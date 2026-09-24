@@ -68,9 +68,25 @@ export default function ArtistMap() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
           <div className="border border-border overflow-hidden" style={{ height: "60vh" }}>
             <MapContainer center={[30, 10]} zoom={2} style={{ height: "100%", width: "100%" }} zoomControl={true}>
+              {/*
+                * Esri's gray canvas, not raw tile.openstreetmap.org, which is
+                * rate-limited for this use and made zooming feel broken.
+                *
+                * Deliberately NOT Google. Artists carry a chapter, not an
+                * address, so this can only ever be eight city dots — Google
+                * would add no precision, and every map instance is billed as
+                * its own load, so it would double the cost of this page for
+                * nothing. The galleries map above it is the one that needs
+                * street-level accuracy.
+                */}
               <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+                attribution="Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"
+                maxZoom={19}
+              />
+              <TileLayer
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
+                maxZoom={19}
               />
               {chapters.map((chapter) => {
                 const coords = CHAPTER_COORDS[chapter];

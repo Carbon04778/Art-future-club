@@ -47,6 +47,27 @@ const failures = [];
 const check = (n, c, d = "") => (c ? pass++ : failures.push(`${n}${d ? ` — ${d}` : ""}`));
 const settle = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/*
+ * Waits for something to appear rather than for a fixed time.
+ *
+ * A flat `settle(1400)` is a guess about how long a render takes, and it was
+ * wrong whenever the machine was busy: this file passed on its own and failed
+ * inside verify:all, where a build had just run. A flaky gate is worse than a
+ * slow one — it teaches you to re-run until green.
+ *
+ * Polls until the condition holds, then returns immediately. The timeout is
+ * the failure case, not the normal path, so it can be generous without
+ * slowing anything down.
+ */
+const until = async (condition, timeout = 8000, step = 50) => {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (condition()) return true;
+    await settle(step);
+  }
+  return condition();
+};
+
 /* ------------------------------------------------------------- fixtures */
 await auth.loginViaEmailPassword("admin@artfutureclub.com", "password123");
 const gallery = await entities.CollectorProfile.create({
@@ -80,7 +101,9 @@ async function open(as) {
       React.createElement(Routes, null,
         React.createElement(Route, { path: "/gallery/:id", element: React.createElement(GalleryProfile) })))
   );
-  await settle(1400);
+  // The gallery and its works have to load before anything can be asserted.
+  await until(() => (container.textContent || "").includes("Wrong Title"));
+  await settle(200);
   console.error = orig;
   return cap;
 }

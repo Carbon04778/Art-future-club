@@ -277,7 +277,7 @@ check("artist share links use the canonical slug url, not window.location.href",
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
 const LINKED = [
   "src/components/AdminApprovalsPanel.jsx", "src/components/CityChapters.jsx",
-  "src/components/CollectiveRegistry.jsx", "src/components/GalleriesVenuesMap.jsx",
+  "src/components/CollectiveRegistry.jsx",
   "src/components/gallery/ExhibitionsSection.jsx", "src/components/SiteHeader.jsx",
   "src/components/TrendingSection.jsx", "src/hooks/useNotifications.js",
   "src/pages/AdminDashboard.jsx", "src/pages/ArtistCommunity.jsx",
@@ -300,7 +300,6 @@ const PROJECTIONS = [
   ["src/pages/ArtistMap.jsx", "id,display_name,discipline"],
   ["src/components/CityChapters.jsx", "id,title,venue"],
   ["src/components/CollectiveRegistry.jsx", "id,display_name,based_in"],
-  ["src/components/GalleriesVenuesMap.jsx", "id,display_name,type"],
 ];
 for (const [rel, prefix] of PROJECTIONS) {
   const src = read(`../${rel}`);

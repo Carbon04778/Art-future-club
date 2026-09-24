@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+import PlaceMap from "@/components/map/PlaceMap";
 import { MapPin, ExternalLink, Clock, Phone, Mail, Globe, Instagram, Facebook, Linkedin } from "lucide-react";
 
 /**
@@ -14,8 +13,24 @@ export default function GalleryAddressMap({ profile }) {
   const [coords, setCoords] = useState(null);
   const [status, setStatus] = useState("idle"); // idle | loading | ok | fail
 
+  /*
+   * The listing's OWN coordinates first. This used to geocode the address
+   * through Nominatim on every single page view, for an answer already
+   * stored on the profile by the Locate button — a network round trip per
+   * visitor, against a service whose policy is about one request a second,
+   * and capable of disagreeing with a pin an admin had placed deliberately.
+   *
+   * Geocoding stays only for a listing that has an address but was never
+   * located. Nineteen of those were backfilled on 2026-09-23, but nothing
+   * stops a new one being created.
+   */
   useEffect(() => {
-    if (!profile?.address) return;
+    if (profile?.geo_lat != null && profile?.geo_lng != null) {
+      setCoords([Number(profile.geo_lat), Number(profile.geo_lng)]);
+      setStatus("ok");
+      return undefined;
+    }
+    if (!profile?.address) return undefined;
     let alive = true;
     setStatus("loading");
     fetch(
@@ -35,7 +50,7 @@ export default function GalleryAddressMap({ profile }) {
       })
       .catch(() => alive && setStatus("fail"));
     return () => { alive = false; };
-  }, [profile?.address]);
+  }, [profile?.address, profile?.geo_lat, profile?.geo_lng]);
 
   const normalizeUrl = (u) => (u && !/^https?:\/\//i.test(u) ? `https://${u}` : u);
   const socialHandle = (u) => (u || "").replace(/^@/, "");
@@ -55,18 +70,13 @@ export default function GalleryAddressMap({ profile }) {
   if (profile?.facebook) rows.push({ icon: Facebook, label: "Facebook", value: socialHandle(profile.facebook), href: socialUrl(profile.facebook, "https://facebook.com/") });
   if (profile?.linkedin) rows.push({ icon: Linkedin, label: "LinkedIn", value: socialHandle(profile.linkedin), href: socialUrl(profile.linkedin, "https://linkedin.com/in/") });
 
-  const hasMap = !!profile?.address;
+  const hasMap = !!profile?.address || (profile?.geo_lat != null && profile?.geo_lng != null);
   if (!rows.length && !hasMap) return null;
 
   const MapBlock = (
     <div className="border border-border overflow-hidden bg-muted" style={{ height: "340px" }}>
       {status === "ok" && coords ? (
-        <MapContainer center={coords} zoom={15} scrollWheelZoom={false} style={{ height: "100%", width: "100%" }}>
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
-          <CircleMarker center={coords} radius={10} pathOptions={{ fillColor: "hsl(195 95% 50%)", color: "hsl(195 95% 38%)", fillOpacity: 0.85, weight: 2 }}>
-            <Popup>{name || "Gallery"}</Popup>
-          </CircleMarker>
-        </MapContainer>
+        <PlaceMap lat={coords[0]} lng={coords[1]} type={profile?.type} />
       ) : (
         <div className="flex h-full items-center justify-center px-6 text-center font-mono-caps text-[11px] text-muted-foreground">
           {status === "loading" ? "Locating on map…" : "Map unavailable for this address."}

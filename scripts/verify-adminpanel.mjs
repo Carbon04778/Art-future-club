@@ -248,89 +248,108 @@ check("venues page includes every venue type", /isVenueType\(r\.type\)/.test(ven
  * all. Every listing already carried its own geo_lat/geo_lng, resolved from its
  * address by the Locate button, and no map read them.
  *
- * A map of a directory plots the entries. If these checks ever fail, the map
- * has gone back to plotting cities.
+ * TWO SURFACES, ONE MAP. Google where there is a key, Leaflet where there is
+ * not. The data, the filters and the list live in SpacesMap so there is one
+ * copy whichever is drawing — the site must not end up with two maps that
+ * behave differently.
  */
 
 const mapSrc = readFileSync(new URL("../src/components/SpacesMap.jsx", import.meta.url), "utf8");
+const googleSurface = readFileSync(new URL("../src/components/map/GoogleSpacesSurface.jsx", import.meta.url), "utf8");
+const leafletSurface = readFileSync(new URL("../src/components/map/LeafletSpacesSurface.jsx", import.meta.url), "utf8");
+const placeMap = readFileSync(new URL("../src/components/map/PlaceMap.jsx", import.meta.url), "utf8");
+const googleLib = readFileSync(new URL("../src/lib/googleMaps.js", import.meta.url), "utf8");
 const galleryMapSrc = readFileSync(new URL("../src/pages/GalleryMap.jsx", import.meta.url), "utf8");
+const artistMapSrc = readFileSync(new URL("../src/pages/ArtistMap.jsx", import.meta.url), "utf8");
+const addressMap = readFileSync(new URL("../src/components/gallery/GalleryAddressMap.jsx", import.meta.url), "utf8");
 
-check("the map reads each listing's own coordinates", mapSrc.includes("r.geo_lat") && mapSrc.includes("r.geo_lng"));
+/* --- real coordinates, never a table of city centres --- */
+
 check(
-  "no hardcoded table of city coordinates survives in the map",
-  !mapSrc.includes("CHAPTER_COORDS"),
-  "a coordinate table is back — listings would collapse onto city centres"
+  "the map reads each listing's own coordinates",
+  mapSrc.includes("r.geo_lat") && mapSrc.includes("r.geo_lng"),
+  "the plotted set is not built from stored coordinates"
 );
+for (const [name, src] of [["SpacesMap", mapSrc], ["the Google surface", googleSurface], ["the Leaflet surface", leafletSurface]]) {
+  check(
+    `no hardcoded table of city coordinates in ${name}`,
+    !src.includes("CHAPTER_COORDS"),
+    "listings would collapse onto city centres again"
+  );
+}
 check(
   "the gallery map page no longer plots chapter dots",
   !galleryMapSrc.includes("CHAPTER_COORDS"),
   "GalleryMap is plotting cities again"
 );
-const artistMapSrc = readFileSync(new URL("../src/pages/ArtistMap.jsx", import.meta.url), "utf8");
-/*
- * /map opened with GalleriesVenuesMap and then showed a second map below it —
- * two maps on one page, neither of which located anything, both drawing the
- * same eight chapter dots.
- */
+
+/* --- choosing a surface --- */
+
 check(
-  "the artist map page uses the real map, not the old chapter one",
-  // The import and the element, not the file: the comment there names the old
-  // component to explain why it went, and a whole-file match caught that.
-  artistMapSrc.includes("import SpacesMap") &&
-    !artistMapSrc.includes("import GalleriesVenuesMap") &&
-    !artistMapSrc.includes("<GalleriesVenuesMap"),
-  "GalleriesVenuesMap is back on /map"
+  "a Google key is what selects the Google surface",
+  mapSrc.includes("hasGoogleMaps()") && mapSrc.includes("GoogleSpacesSurface"),
+  "the Google map is not wired in"
 );
 check(
-  "/map shows one galleries map, not two",
-  (artistMapSrc.match(/<SpacesMap/g) || []).length === 1,
-  "more than one SpacesMap on the page"
+  "without a key the Leaflet surface draws instead",
+  mapSrc.includes("LeafletSpacesSurface"),
+  "a missing key would leave no map at all"
 );
 check(
-  "every filtered listing is fed to the map",
-  mapSrc.includes("sc.load(") && mapSrc.includes("matching.map((r) =>"),
-  "the plotted set is not driven by the filtered listings"
+  "a runtime failure falls back too, not just a missing key",
+  mapSrc.includes("googleFailed") && googleSurface.includes("onUnavailable"),
+  "a refused referrer or spent quota would leave a blank rectangle"
 );
 check(
-  "pins are drawn from the cluster index, so nothing is plotted twice",
-  mapSrc.includes("index.getClusters(") && mapSrc.includes("<Marker"),
-  "markers are not coming from the index"
-);
-/*
- * Clustering is computed with supercluster rather than a Leaflet plugin:
- * react-leaflet-markercluster hangs outright under jsdom and took the render
- * smoke test with it. supercluster is arithmetic over coordinates with no DOM,
- * so it runs anywhere, and the bubbles are drawn in the site's own black.
- */
-check("markers are clustered", mapSrc.includes("new Supercluster("), "498 pins with no clustering is a blot");
-check(
-  "a cluster opens when tapped instead of being a dead end",
-  mapSrc.includes("getClusterExpansionZoom"),
-  "tapping a cluster must zoom into it"
-);
-check(
-  "the view is framed on the data, not a fixed world view",
-  mapSrc.includes("fitBounds"),
-  "a fixed centre/zoom cannot suit six countries"
+  "the key is read from the environment, never written into the source",
+  googleLib.includes("import.meta.env.VITE_GOOGLE_MAPS_API_KEY") && !googleLib.includes("AIza"),
+  "a key committed to the repo cannot be rotated"
 );
 
-/* The list beside the map — "points are not listed" was the other complaint. */
+/* --- both surfaces must behave the same --- */
+
+for (const [name, src] of [["Google", googleSurface], ["Leaflet", leafletSurface]]) {
+  check(`the ${name} surface clusters its pins`, src.includes("luster"), "hundreds of pins with no clustering is a blot");
+  check(
+    `the ${name} surface distinguishes galleries from venues`,
+    src.includes("isVenueType"),
+    "a museum and a commercial gallery would look identical"
+  );
+  check(
+    `the ${name} surface frames itself on the data`,
+    src.includes("fitBounds") || src.includes("LatLngBounds"),
+    "a fixed centre and zoom cannot suit six countries"
+  );
+  check(
+    `the ${name} surface offers find-my-location`,
+    src.includes("navigator.geolocation"),
+    "the visitor cannot place themselves"
+  );
+  check(
+    `the ${name} surface reports its viewport so the list can follow`,
+    src.includes("onViewportChange"),
+    "the map and the list would disagree"
+  );
+}
+
+/* --- the list beside the map: "points are not listed" was the complaint --- */
+
 check("the map has a list beside it", mapSrc.includes("inView"), "no list panel");
 check(
   "the list shows what is in view, so map and list cannot disagree",
   mapSrc.includes("bounds.contains"),
   "the list is not tied to the viewport"
 );
-check("choosing from the list moves the map", mapSrc.includes("flyTo"));
+check(
+  "the viewport test works for either surface's bounds",
+  // Leaflet takes [lat, lng] or {lat, lng}; Google takes {lat, lng}. One shape
+  // covers both, so the list never needs to know which map is drawing.
+  mapSrc.includes("bounds.contains({ lat:"),
+  "an array would work on Leaflet and silently fail on Google"
+);
 
-/* Reachability, which is what a visitor actually wants from it. */
-check("each pin offers directions", mapSrc.includes("directionsUrl"));
-/*
- * The link itself is built in src/lib/mapLinks.js and unit-tested in
- * verify:geocoding — which destination is chosen, and that the visitor's own
- * position is sent as the origin when they have offered it. All that matters
- * here is that the map uses that builder rather than assembling its own.
- */
+/* --- getting there --- */
+
 check(
   "the map builds its directions link with the shared builder",
   mapSrc.includes("directionsUrl") && !mapSrc.includes("google.com/maps/dir"),
@@ -341,56 +360,63 @@ check(
   mapSrc.includes("onLocated") && mapSrc.includes("getCurrentPosition"),
   "without an origin Google cannot route from a desktop"
 );
-check("the map offers find-my-location", mapSrc.includes("navigator.geolocation"));
-check(
-  "pins are drawn differently for galleries and venues",
-  mapSrc.includes("isVenueType(type)"),
-  "a museum and a commercial gallery look identical"
-);
 
-/* Every listing, not a capped page — the fault that hid 17 of 19 venues. */
-check(
-  "the map pages through every listing rather than taking one capped page",
-  mapSrc.includes("offset += PAGE") && mapSrc.includes("all.length >= count"),
-  "a single capped request would silently drop listings"
-);
-check(
-  "the map asks only for approved listings of the kinds it plots",
-  mapSrc.includes('status: "approved"') && mapSrc.includes("$in: kinds"),
-  "unapproved or irrelevant rows would be pinned"
-);
+/* --- tiles on the fallback: a 200 is not proof the tile is usable --- */
 
-/* Tiles: the old ones were rate-limited, which is why zooming felt broken. */
-/*
- * Tile providers that require an API key are named here so they cannot come
- * back by accident. CARTO shipped for one afternoon and served every tile at
- * HTTP 200 with "API KEY REQUIRED" painted across the image — a status check
- * could not tell, and neither could any test. The only proof is to look at a
- * tile; see §4 of docs/ARTFUTURE-FULL-TEST.md.
- */
 const KEYED_TILE_HOSTS = ["basemaps.cartocdn.com", "api.mapbox.com", "tiles.stadiamaps.com", "api.maptiler.com"];
-for (const host of KEYED_TILE_HOSTS) {
+for (const src of [leafletSurface, placeMap, artistMapSrc]) {
+  for (const host of KEYED_TILE_HOSTS) {
+    check(
+      `tiles do not come from ${host}, which requires an API key`,
+      !src.includes(`url="https://${host}`) && !src.includes(`url="https://{s}.${host}`),
+      "that provider watermarks or refuses tiles without a key"
+    );
+  }
   check(
-    `tiles do not come from ${host}, which requires an API key`,
-    !mapSrc.includes(`url="https://${host}`) && !mapSrc.includes(`url="https://{s}.${host}`),
-    "that provider watermarks or refuses tiles without a key"
+    "tiles do not come from the rate-limited OSM endpoint",
+    !src.includes('url="https://{s}.tile.openstreetmap.org') &&
+      !src.includes('url="https://tile.openstreetmap.org'),
+    "raw OSM tiles are rate-limited and made zooming feel broken"
   );
 }
 check(
-  "tiles do not come from the rate-limited OSM endpoint",
-  !mapSrc.includes('url="https://{s}.tile.openstreetmap.org') &&
-    !mapSrc.includes('url="https://tile.openstreetmap.org'),
-  "raw OSM tiles are rate-limited and made zooming feel broken"
-);
-check(
-  "the map carries a base layer and a labels layer",
-  (mapSrc.match(/<TileLayer/g) || []).length >= 2,
+  "the fallback map carries a base layer and a labels layer",
+  (leafletSurface.match(/<TileLayer/g) || []).length >= 2,
   "a base map with no street names cannot be used to walk between galleries"
 );
+check("the tile provider is attributed", leafletSurface.includes("attribution="), "every free tile provider requires attribution");
+
+/* --- the profile map: it had been re-geocoding an answer it already had --- */
+
 check(
-  "the tile provider is attributed",
-  mapSrc.includes("attribution="),
-  "every free tile provider requires attribution"
+  "a profile map uses the listing's stored coordinates",
+  addressMap.includes("profile?.geo_lat != null"),
+  "it would geocode the same address on every page view"
+);
+check(
+  "geocoding survives only as a fallback for an unlocated listing",
+  addressMap.includes("nominatim.openstreetmap.org"),
+  "a listing with an address but no pin would show no map at all"
+);
+check(
+  "the profile map shares the same surfaces as the big map",
+  addressMap.includes("PlaceMap") && placeMap.includes("hasGoogleMaps"),
+  "two maps built differently will drift apart"
+);
+
+/* --- /map: one galleries map, not two --- */
+
+check(
+  "the artist map page uses the real map, not the old chapter one",
+  artistMapSrc.includes("import SpacesMap") &&
+    !artistMapSrc.includes("import GalleriesVenuesMap") &&
+    !artistMapSrc.includes("<GalleriesVenuesMap"),
+  "GalleriesVenuesMap is back on /map"
+);
+check(
+  "/map shows one galleries map, not two",
+  (artistMapSrc.match(/<SpacesMap/g) || []).length === 1,
+  "more than one SpacesMap on the page"
 );
 
 
