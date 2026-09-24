@@ -1,7 +1,10 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import ConsentBanner from "@/components/ConsentBanner";
+import { trackPageView } from "@/lib/analytics";
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -86,6 +89,7 @@ const AuthenticatedApp = () => {
         including PageNotFound and any route added later.
       */}
       <LFrameCursor />
+      <RouteAnalytics />
     <Routes>
       {/* Pages wrapped in the site header + footer layout */}
       <Route element={<Layout />}>
@@ -138,6 +142,28 @@ const AuthenticatedApp = () => {
 };
 
 
+/**
+ * One Google Analytics page view per route change.
+ *
+ * A single-page app loads index.html once, so the Google tag counts exactly
+ * one view and never learns that somebody moved from the home page to a
+ * gallery to an artist. All 36 routes would report as a handful of landing
+ * pages. The tag is configured with send_page_view: false in index.html for
+ * this reason, so every view — the first included — comes from here.
+ *
+ * The search string is included because it carries the filters people
+ * actually used; the hash is not, because it is only an anchor.
+ */
+function RouteAnalytics() {
+  const { pathname, search } = useLocation();
+  useEffect(() => {
+    // After paint, so document.title is the new page's, not the old one's.
+    const id = window.setTimeout(() => trackPageView(pathname + search), 0);
+    return () => window.clearTimeout(id);
+  }, [pathname, search]);
+  return null;
+}
+
 function App() {
 
   return (
@@ -146,6 +172,7 @@ function App() {
         <Router>
           <ScrollToTop />
           <AuthenticatedApp />
+          <ConsentBanner />
         </Router>
         <Toaster />
       </QueryClientProvider>

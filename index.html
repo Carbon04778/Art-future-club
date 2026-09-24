@@ -6,6 +6,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0a12" />
 
+    <!--
+      GOOGLE ANALYTICS 4, BEHIND CONSENT MODE v2.
+      G-B2W9TZH3JX. Analytics only — no Tag Manager, and no second Google tag
+      anywhere: two tags count every visitor twice.
+
+      THE ORDER OF THESE THREE STEPS IS THE WHOLE MECHANISM.
+
+        1. Every signal is denied BEFORE the tag loads, so nothing is stored
+           and no identified hit is sent until somebody chooses. A banner shown
+           after the tag has already fired is decoration.
+        2. A stored choice is re-applied synchronously, so a returning visitor
+           who accepted is not treated as denied for the first moments of
+           every visit.
+        3. Only then does the tag load.
+
+      send_page_view is off on purpose. This is a single-page app: the tag
+      would count the landing page and never learn that somebody moved on.
+      Views are sent from the router instead — see src/lib/analytics.js. Leave
+      it on and the first view is counted twice.
+    -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+
+      gtag('consent', 'default', {
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        analytics_storage: 'denied',
+        functionality_storage: 'granted',
+        security_storage: 'granted',
+        wait_for_update: 500
+      });
+
+      try {
+        var afcConsent = JSON.parse(localStorage.getItem('afc_consent_v1') || 'null');
+        if (afcConsent && afcConsent.version === 1) {
+          gtag('consent', 'update', {
+            ad_storage: afcConsent.ads ? 'granted' : 'denied',
+            ad_user_data: afcConsent.ads ? 'granted' : 'denied',
+            ad_personalization: afcConsent.ads ? 'granted' : 'denied',
+            analytics_storage: afcConsent.analytics ? 'granted' : 'denied',
+            functionality_storage: 'granted',
+            security_storage: 'granted'
+          });
+        }
+      } catch (e) {
+        /* private browsing, or storage blocked: stays denied, which is correct */
+      }
+
+      gtag('js', new Date());
+      gtag('config', 'G-B2W9TZH3JX', { send_page_view: false });
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-B2W9TZH3JX"></script>
+
     <title>Art Future Club — Global Artist Community</title>
     <meta name="description" content="Art Future Club is a global community of artists, galleries, collectors and curators, with city chapters in Hong Kong, London, New York, Los Angeles, Bangkok, Milano, Toronto and Zurich." />
 

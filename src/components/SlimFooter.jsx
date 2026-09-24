@@ -1,4 +1,5 @@
 import React from 'react';
+import { openConsentPreferences } from "@/components/ConsentBanner";
 import { Link } from 'react-router-dom';
 import SocialLinks from '@/components/SocialLinks';
 
@@ -48,6 +49,15 @@ export default function SlimFooter() {
               {label}
             </Link>
           ))}
+          {/* Not optional: a cookie choice you cannot change is not a choice,
+              and every consent regime expects it to be withdrawable. */}
+          <button
+            type="button"
+            onClick={openConsentPreferences}
+            className="font-mono-caps text-[10px] text-muted-foreground/60 hover:text-primary transition-colors"
+          >
+            Cookie settings
+          </button>
         </div>
         <span className="font-mono-caps text-[10px] text-muted-foreground/60">
           © MMXXVI Art Future Club — Radical Connectivity
