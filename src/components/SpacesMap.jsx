@@ -8,6 +8,7 @@ import { Crosshair, CornerUpRight, Search, X, Loader2 } from "lucide-react";
 import { spacePath } from "@/lib/slugs";
 import { isVenueType, VENUE_TYPES } from "@/lib/venueTypes";
 import { Image } from "@/components/ui/image";
+import { directionsUrl } from "@/lib/mapLinks";
 import { base44 } from "@/api/base44Client";
 import { useDataRevision } from "@/lib/dataRevision";
 
@@ -48,7 +49,7 @@ import { useDataRevision } from "@/lib/dataRevision";
  *
  * NOT raw tile.openstreetmap.org either: rate-limited for exactly this use,
  * which is what made zooming feel broken before.
-
+ */
 /* Fetched in pages, because a single capped request silently drops rows once
  * the table outgrows the cap — see rule 8 in docs/ARTFUTURE-FULL-TEST.md. */
 const PAGE = 500;
@@ -121,11 +122,6 @@ const clusterIcon = (count) => {
   });
 };
 
-/** Opens the visitor's own map app — Apple Maps on iOS, Google elsewhere. */
-const directionsUrl = (row) =>
-  row.address
-    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(row.address)}`
-    : `https://www.google.com/maps/dir/?api=1&destination=${row.geo_lat},${row.geo_lng}`;
 
 /** Frames the map on the rows it has, instead of a fixed world view. */
 function FitToRows({ rows, fitKey }) {
@@ -154,7 +150,7 @@ function ReportViewport({ onChange }) {
 }
 
 /** What a pin shows when tapped: who it is, where, and how to get there. */
-function SpacePopup({ row: r }) {
+function SpacePopup({ row: r, here, onLocated }) {
   return (
   <div className="min-w-[190px]">
     <div className="flex items-start gap-3">
@@ -180,15 +176,70 @@ function SpacePopup({ row: r }) {
     {r.address && (
       <p className="mt-2 text-xs leading-snug text-muted-foreground">{r.address}</p>
     )}
+    <DirectionsLink row={r} here={here} onLocated={onLocated} />
+  </div>
+  );
+}
+
+/**
+ * Directions, with the visitor's own position as the starting point.
+ *
+ * Asked for on the CLICK, never on page load: a site that demands your
+ * location the moment it opens is the thing everyone resents, and pressing
+ * Directions is a clear enough request. Once given, it is remembered for the
+ * session, so this asks at most once.
+ *
+ * Declining costs nothing — the link is then built without an origin, exactly
+ * as it was before, which still works on a phone.
+ */
+function DirectionsLink({ row, here, onLocated }) {
+  const [asking, setAsking] = useState(false);
+  const href = directionsUrl(row, here);
+
+  const handle = (e) => {
+    // Already known, or the browser cannot tell us: behave as a plain link.
+    if (here || !navigator.geolocation) return;
+    e.preventDefault();
+    setAsking(true);
+
+    /*
+     * The tab is opened NOW, synchronously, and its address filled in when the
+     * browser answers. Opening it inside the callback instead would be a popup
+     * the browser did not connect to a click, and it would be blocked.
+     * `noopener` is left off so the reference survives; opener is cleared by
+     * hand immediately after, which is what noopener would have done.
+     */
+    const tab = window.open("", "_blank");
+    if (tab) tab.opener = null;
+    const go = (url) => {
+      setAsking(false);
+      if (tab) tab.location = url;
+      else window.open(url, "_blank", "noopener,noreferrer");
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const at = [pos.coords.latitude, pos.coords.longitude];
+        onLocated?.(at);
+        go(directionsUrl(row, at));
+      },
+      // Refused, or it timed out. Send them anyway, without an origin.
+      () => go(href),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  };
+
+  return (
     <a
-      href={directionsUrl(r)}
+      href={href}
+      onClick={handle}
       target="_blank"
       rel="noopener noreferrer"
       className="mt-3 inline-flex items-center gap-1.5 border border-border px-3 py-1.5 font-mono-caps text-[10px] hover:border-primary hover:text-primary"
     >
-      <CornerUpRight className="h-3 w-3" /> Directions
+      {asking ? <Loader2 className="h-3 w-3 animate-spin" /> : <CornerUpRight className="h-3 w-3" />}
+      {asking ? "Locating" : "Directions"}
     </a>
-  </div>
   );
 }
 
@@ -199,7 +250,7 @@ function useZoomTo() {
 }
 
 /** The cluster and pin layer. Kept inside MapContainer so it can use the map. */
-function Pins({ index, bounds, zoom, matching, selected, setSelected, markers }) {
+function Pins({ index, bounds, zoom, matching, selected, setSelected, markers, here, onLocated }) {
   const zoomTo = useZoomTo();
 
   const cells = useMemo(() => {
@@ -242,7 +293,7 @@ function Pins({ index, bounds, zoom, matching, selected, setSelected, markers })
             eventHandlers={{ click: () => setSelected(r) }}
           >
             <Popup>
-              <SpacePopup row={r} />
+              <SpacePopup row={r} here={here} onLocated={onLocated} />
             </Popup>
           </Marker>
         );
@@ -299,6 +350,10 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
   const [bounds, setBounds] = useState(null);
   const [zoom, setZoom] = useState(2);
   const [selected, setSelected] = useState(null);
+  /* The visitor's own position, once they have offered it — from the find-me
+   * control or from pressing Directions. Held for the session so neither asks
+   * twice. */
+  const [here, setHere] = useState(null);
   const markers = useRef({});
   /* The contents, not the array identity: a caller passing an inline array
    * would otherwise hand the effect a new dependency on every render. */
@@ -483,7 +538,7 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
               <FitToRows rows={matching} fitKey={fitKey} />
               <ReportViewport onChange={onViewport} />
               <FlyTo target={selected} />
-              <LocateMe />
+              <LocateMe onFound={setHere} />
               <Pins
                 index={index}
                 bounds={bounds}
@@ -492,6 +547,8 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
                 selected={selected}
                 setSelected={setSelected}
                 markers={markers}
+                here={here}
+                onLocated={setHere}
               />
             </MapContainer>
           )}

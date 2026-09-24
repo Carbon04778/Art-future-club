@@ -45,17 +45,32 @@ export default function TrendingSection() {
         return acc;
       }, {});
 
+      /*
+       * A work's artist, for linking. `artist_id` is a profile id on newer
+       * rows and a user_id on older ones, so key the lookup by both.
+       */
+      const byArtist = {};
+      artists.forEach((a) => {
+        if (a.id) byArtist[a.id] = a;
+        if (a.user_id) byArtist[a.user_id] = a;
+      });
+
       const portfolioWorks = artists.flatMap((a) =>
         (a.portfolio_works || []).map((w, i) => ({
           ...w,
           id: `${a.id}-work-${i}`,
           artist_id: a.id,
           artist_name: a.display_name,
+          artist: a,
           likeCount: portfolioCounts[`${a.id}-work-${i}`] || 0,
         }))
       );
 
-      const galleryWorks = works.map((w) => ({ ...w, likeCount: workLikeCounts[w.id] || 0 }));
+      const galleryWorks = works.map((w) => ({
+        ...w,
+        likeCount: workLikeCounts[w.id] || 0,
+        artist: byArtist[w.artist_id] || byArtist[w.gallery_id],
+      }));
 
       /*
        * Most-liked first, then the newest to make up the numbers.
@@ -99,7 +114,19 @@ export default function TrendingSection() {
               {topWorks.map((work, i) => (
                 <motion.div key={work.id} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }} transition={{ delay: i * 0.08 }}>
-                  <Link to="/gallery" className="group block">
+                  {/*
+                    * To the artist whose work it is, not to the galleries
+                    * index. Every card here used to point at /gallery — the
+                    * same generic page for all four, so clicking a specific
+                    * piece told you nothing about it.
+                    *
+                    * A work whose artist cannot be resolved falls back to the
+                    * artists index rather than a dead link.
+                    */}
+                  <Link
+                    to={work.artist ? artistPath(work.artist) : "/artists"}
+                    className="group block"
+                  >
                     <div className="overflow-hidden bg-muted aspect-square">
                       <Image src={work.image_url} alt={work.title} fittingType="fill" className="h-full w-full object-cover group-hover:scale-[1.03] transition-transform duration-500" />
                     </div>

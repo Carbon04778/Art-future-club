@@ -27,6 +27,7 @@
  * Run: npm run verify:geocoding
  */
 import { addressCandidates, isUnitPart, matchPrecision } from "../src/lib/addressQuery.js";
+import { directionsUrl, destinationOf } from "../src/lib/mapLinks.js";
 
 let pass = 0;
 const failures = [];
@@ -115,6 +116,64 @@ for (const part of ["231 Hennessy Road", "Bankside", "Hong Kong", "Sihlquai 133"
 
 check("a hit on the written address is exact", matchPrecision(0) === "exact");
 check("a hit on any simplified query is approximate", matchPrecision(1) === "approximate");
+
+
+/* ------------------------------------------- directions: sending the origin */
+
+/*
+ * The directions link used to name only the destination, leaving Google to
+ * work out where the visitor was. On a desktop it frequently cannot, and
+ * answers "Sorry, we could not calculate directions from Your location" —
+ * with the destination resolved perfectly. So the visitor's own coordinates go
+ * in the URL when they have offered them.
+ */
+
+const de_boer = {
+  display_name: "de boer",
+  address: "3311 E. Pico Blvd., Los Angeles, CA 90023",
+  geo_lat: 34.017914,
+  geo_lng: -118.2072171,
+};
+
+const withOrigin = directionsUrl(de_boer, [22.2819, 114.1588]);
+const withoutOrigin = directionsUrl(de_boer, null);
+
+/* Read the parameters back properly. URLSearchParams writes a space as "+",
+ * which Google accepts and decodeURIComponent does not undo — comparing the
+ * raw string failed here first, and the test was wrong, not the link. */
+const paramOf = (url, key) => new URL(url).searchParams.get(key);
+
+check("a directions link points at Google Maps", withoutOrigin.startsWith("https://www.google.com/maps/dir/?"), withoutOrigin);
+check("the destination is the written address", paramOf(withoutOrigin, "destination") === de_boer.address, paramOf(withoutOrigin, "destination"));
+check(
+  "no origin is sent when the visitor has not offered one",
+  !withoutOrigin.includes("origin="),
+  "an empty origin would be worse than none"
+);
+check(
+  "the visitor's coordinates are sent as the origin once known",
+  paramOf(withOrigin, "origin") === "22.2819,114.1588",
+  withOrigin
+);
+check("the destination is unchanged by having an origin", paramOf(withOrigin, "destination") === de_boer.address);
+
+/* A listing with no address falls back to its pin. */
+const pinOnly = { display_name: "Nowhere", address: "", geo_lat: 1.5, geo_lng: 2.5 };
+check("a listing with no address falls back to its coordinates", paramOf(directionsUrl(pinOnly, null), "destination") === "1.5,2.5");
+
+/* The written address is preferred over our own pin: Google's data is better,
+ * and our Hong Kong pins are street-level where Google knows the building. */
+check("the written address is preferred over our pin", destinationOf(de_boer) === de_boer.address);
+check("coordinates are used only when there is no address", destinationOf(pinOnly) === "1.5,2.5");
+
+/* Garbage in the position must not produce a malformed origin. */
+for (const bad of [undefined, null, [], ["a", "b"], [NaN, 1], [1], "22,114"]) {
+  check(
+    `an unusable position (${JSON.stringify(bad)}) sends no origin at all`,
+    !directionsUrl(de_boer, bad).includes("origin="),
+    directionsUrl(de_boer, bad)
+  );
+}
 
 /* ----------------------------------------------------------------- report */
 

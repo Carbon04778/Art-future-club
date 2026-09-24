@@ -325,10 +325,21 @@ check("choosing from the list moves the map", mapSrc.includes("flyTo"));
 
 /* Reachability, which is what a visitor actually wants from it. */
 check("each pin offers directions", mapSrc.includes("directionsUrl"));
+/*
+ * The link itself is built in src/lib/mapLinks.js and unit-tested in
+ * verify:geocoding — which destination is chosen, and that the visitor's own
+ * position is sent as the origin when they have offered it. All that matters
+ * here is that the map uses that builder rather than assembling its own.
+ */
 check(
-  "directions prefer the written address over bare coordinates",
-  mapSrc.includes("row.address"),
-  "an approximate pin would send someone to the wrong door"
+  "the map builds its directions link with the shared builder",
+  mapSrc.includes("directionsUrl") && !mapSrc.includes("google.com/maps/dir"),
+  "a second hand-rolled link would drift from the tested one"
+);
+check(
+  "the map offers the visitor's position as the directions origin",
+  mapSrc.includes("onLocated") && mapSrc.includes("getCurrentPosition"),
+  "without an origin Google cannot route from a desktop"
 );
 check("the map offers find-my-location", mapSrc.includes("navigator.geolocation"));
 check(
@@ -380,6 +391,45 @@ check(
   "the tile provider is attributed",
   mapSrc.includes("attribution="),
   "every free tile provider requires attribution"
+);
+
+
+/* ------------------------------------------------ Trending Now, on the home page */
+
+/*
+ * Every card under "Trending Now" linked to /gallery — the galleries index,
+ * the same destination for all four, whichever piece was clicked. A trending
+ * work should lead to the artist whose work it is.
+ *
+ * `artist_id` is a profile id on newer rows and a user_id on older ones, so the
+ * lookup has to accept both; keying on one alone silently drops half.
+ */
+const trending = readFileSync(new URL("../src/components/TrendingSection.jsx", import.meta.url), "utf8");
+
+check(
+  "a trending work links to its artist",
+  trending.includes("artistPath(work.artist)"),
+  "trending works are not linking to an artist"
+);
+check(
+  "no card points at the galleries index any more",
+  !trending.includes('to="/gallery"'),
+  "a hardcoded /gallery link is back — every card would share one destination"
+);
+check(
+  "a work whose artist cannot be resolved still goes somewhere sensible",
+  trending.includes('"/artists"'),
+  "an unresolved artist would produce a dead link"
+);
+check(
+  "the artist lookup accepts both a profile id and a user_id",
+  trending.includes("byArtist[a.id]") && trending.includes("byArtist[a.user_id]"),
+  "older rows carry a user_id and would not resolve"
+);
+check(
+  "gallery works resolve an artist too, not just portfolio works",
+  trending.includes("byArtist[w.artist_id]"),
+  "only portfolio works would link correctly"
 );
 
 /* ================================================================ report === */
