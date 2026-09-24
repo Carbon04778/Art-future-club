@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Mail, Loader2 } from "lucide-react";
 import AfcAuthLayout from "@/components/AfcAuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
+import { GOOGLE_SIGN_IN_ENABLED } from "@/lib/featureLimits";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -47,23 +48,35 @@ export default function Login() {
         </>
       }
     >
-      <Button
-        variant="outline"
-        className="w-full h-12 text-sm font-medium mb-6"
-        onClick={handleGoogle}
-      >
-        <GoogleIcon className="w-5 h-5 mr-2" />
-        Continue with Google
-      </Button>
+      {/*
+        * Hidden: Google is not among the providers enabled on the Supabase
+        * project, so this returned an error to anyone who pressed it — and it
+        * sat above the email form, first thing they would try. The divider
+        * goes with it, or the page would show a stray "or" above nothing.
+        * See GOOGLE_SIGN_IN_ENABLED in src/lib/featureLimits.js.
+        */}
+      {GOOGLE_SIGN_IN_ENABLED && (
+        <>
+        <Button
+          variant="outline"
+          className="w-full h-12 text-sm font-medium mb-6"
+          onClick={handleGoogle}
+        >
+          <GoogleIcon className="w-5 h-5 mr-2" />
+          Continue with Google
+        </Button>
 
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
+        <div className="relative mb-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-3 text-muted-foreground">or</span>
+          </div>
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">or</span>
-        </div>
-      </div>
+        </>
+      )}
+
 
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">

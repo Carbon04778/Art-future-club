@@ -34,3 +34,25 @@ export const atLimit = (count, limit) => LIMITS_ENABLED && count >= limit;
  * open to everyone.
  */
 export const isLocked = (isPaidMember) => LIMITS_ENABLED && !isPaidMember;
+
+/**
+ * Is "Continue with Google" offered on the sign-in and join pages?
+ *
+ * OFF, because it does not work. The button calls
+ * signInWithOAuth({ provider: "google" }), and Google is not among the
+ * providers enabled on the Supabase project — only email is. Checked
+ * 2026-09-24 against /auth/v1/settings, which reported:
+ *
+ *   ON : email
+ *   off: google, apple, facebook, github, and the rest
+ *
+ * So the button sat above the email form, first thing anyone tried, and
+ * returned an error. Hidden rather than deleted: the markup and the provider
+ * call are correct, and nothing about them needs rewriting.
+ *
+ * TO TURN IT BACK ON: enable Google in Supabase (Authentication ->
+ * Providers), which needs OAuth credentials and a consent screen in Google
+ * Cloud — a different setup from the Maps API key, which needs no consent
+ * screen at all. Then set this to true. Nothing else changes.
+ */
+export const GOOGLE_SIGN_IN_ENABLED = false;

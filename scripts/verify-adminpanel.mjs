@@ -432,6 +432,50 @@ check(
   "only portfolio works would link correctly"
 );
 
+
+/* ------------------------------------------------- the Google sign-in button */
+
+/*
+ * "Continue with Google" sat at the top of both the sign-in and join pages,
+ * above the email form, and returned an error to anyone who pressed it: the
+ * button calls signInWithOAuth({ provider: "google" }) and Google is not among
+ * the providers enabled on the Supabase project. Checked 2026-09-24 against
+ * /auth/v1/settings — email was the only one on.
+ *
+ * It is hidden behind a flag rather than deleted, so turning it on later is one
+ * line once Google is enabled in Supabase. What must not happen is the button
+ * reappearing while the provider is still off.
+ */
+const limits = readFileSync(new URL("../src/lib/featureLimits.js", import.meta.url), "utf8");
+const login = readFileSync(new URL("../src/pages/Login.jsx", import.meta.url), "utf8");
+const register = readFileSync(new URL("../src/pages/Register.jsx", import.meta.url), "utf8");
+
+check(
+  "there is a single flag for the Google sign-in button",
+  limits.includes("export const GOOGLE_SIGN_IN_ENABLED"),
+  "the pages would each need editing to bring it back"
+);
+
+for (const [name, src] of [["sign-in", login], ["join", register]]) {
+  check(
+    `the ${name} page gates the Google button on that flag`,
+    src.includes("{GOOGLE_SIGN_IN_ENABLED && ("),
+    "the button is rendered unconditionally"
+  );
+  check(
+    `the ${name} page hides the "or" divider with it`,
+    // Both inside one conditional: hiding the button alone leaves "or" above
+    // nothing, which looks like a rendering fault.
+    src.indexOf("{GOOGLE_SIGN_IN_ENABLED && (") < src.indexOf('className="relative mb-6"'),
+    "the divider is outside the flag and would be orphaned"
+  );
+  check(
+    `the ${name} page still offers email sign-in`,
+    src.includes("type=\"email\"") || src.includes("email"),
+    "email is the only working provider — it must not be gated too"
+  );
+}
+
 /* ================================================================ report === */
 
 console.log(`\n  passed: ${pass}`);
