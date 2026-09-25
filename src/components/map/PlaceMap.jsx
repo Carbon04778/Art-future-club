@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { loadGoogleMaps, MONOCHROME_STYLE, hasGoogleMaps } from "@/lib/googleMaps";
+import { loadGoogleMaps, MONOCHROME_STYLE, hasGoogleMaps, googleAuthFailed, onGoogleAuthFailure } from "@/lib/googleMaps";
 import { isVenueType } from "@/lib/venueTypes";
 
 /**
@@ -40,6 +40,9 @@ const pinSvg = (type) => {
 function GooglePlace({ lat, lng, type, onUnavailable }) {
   const hostRef = useRef(null);
   const [ready, setReady] = useState(false);
+
+  // Google refuses the key after loading, not before — see googleMaps.js.
+  useEffect(() => onGoogleAuthFailure(() => onUnavailable?.(new Error("Google refused the key"))), [onUnavailable]);
 
   useEffect(() => {
     let alive = true;
@@ -106,7 +109,9 @@ function LeafletPlace({ lat, lng, type }) {
 export default function PlaceMap({ lat, lng, type }) {
   const [googleFailed, setGoogleFailed] = useState(false);
   if (lat == null || lng == null) return null;
-  if (hasGoogleMaps() && !googleFailed) {
+  // googleAuthFailed(): once Google has refused once, every later map skips
+  // it rather than each drawing an error box and falling back in turn.
+  if (hasGoogleMaps() && !googleFailed && !googleAuthFailed()) {
     return <GooglePlace lat={lat} lng={lng} type={type} onUnavailable={() => setGoogleFailed(true)} />;
   }
   return <LeafletPlace lat={lat} lng={lng} type={type} />;

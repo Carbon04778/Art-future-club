@@ -39,6 +39,52 @@ export const hasGoogleMaps = () => Boolean(GOOGLE_MAPS_KEY);
 
 let loaderPromise = null;
 
+/*
+ * AUTHENTICATION FAILS AFTER THE LIBRARY HAS LOADED, NOT BEFORE.
+ *
+ * A wrong key, a referrer that is not on its list, an unactivated API or no
+ * billing account all load the script perfectly well and only then refuse. The
+ * loader's promise RESOLVES; Google draws its own grey box over the map —
+ * "This page can't load Google Maps correctly" — and reports the real reason
+ * only to the console. So a .catch() on loading never sees any of it, and the
+ * fallback that exists for a missing key was never reached for the far more
+ * likely case of a misconfigured one.
+ *
+ * `window.gm_authFailure` is the hook Google provides for exactly this. Every
+ * map registers here and is told to fall back to Leaflet, which is a map the
+ * visitor can still use.
+ */
+const authFailureListeners = new Set();
+let authHasFailed = false;
+
+/** True once Google has refused this key — checked before mounting a map. */
+export const googleAuthFailed = () => authHasFailed;
+
+/** Call back when Google refuses; returns an unsubscribe. */
+export function onGoogleAuthFailure(fn) {
+  if (authHasFailed) fn();
+  authFailureListeners.add(fn);
+  return () => authFailureListeners.delete(fn);
+}
+
+if (typeof window !== "undefined") {
+  window.gm_authFailure = () => {
+    authHasFailed = true;
+    // Nothing will authenticate now, so let a later map skip Google entirely.
+    loaderPromise = null;
+    authFailureListeners.forEach((fn) => fn());
+    if (typeof console !== "undefined") {
+      console.warn(
+        "[afc] Google Maps refused this key — falling back to the free map. " +
+          "The exact reason is logged above by Google: RefererNotAllowedMapError " +
+          "means the site is not on the key's referrer list, " +
+          "BillingNotEnabledMapError means billing is off, " +
+          "ApiNotActivatedMapError means the Maps JavaScript API is not enabled."
+      );
+    }
+  };
+}
+
 /**
  * Resolves with the `google.maps` namespace, or rejects.
  *

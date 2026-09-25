@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import { Crosshair, Loader2 } from "lucide-react";
-import { loadGoogleMaps, MONOCHROME_STYLE } from "@/lib/googleMaps";
+import { loadGoogleMaps, MONOCHROME_STYLE, onGoogleAuthFailure } from "@/lib/googleMaps";
 import { isVenueType } from "@/lib/venueTypes";
 
 /**
@@ -80,6 +80,13 @@ export default function GoogleSpacesSurface({
    * a full page load on every click. */
   const [popupHost, setPopupHost] = useState(null);
   const [popupRow, setPopupRow] = useState(null);
+
+  /*
+   * Google refuses the key AFTER the library has loaded — a wrong referrer,
+   * no billing, an unactivated API. The loader resolves, then Google covers
+   * the map with its own error box. This is the only hook that hears it.
+   */
+  useEffect(() => onGoogleAuthFailure(() => onUnavailable?.(new Error("Google refused the key"))), [onUnavailable]);
 
   /* Create the map once. */
   useEffect(() => {

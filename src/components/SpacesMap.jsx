@@ -6,7 +6,7 @@ import { isVenueType, VENUE_TYPES } from "@/lib/venueTypes";
 import { Image } from "@/components/ui/image";
 import { base44 } from "@/api/base44Client";
 import { directionsUrl } from "@/lib/mapLinks";
-import { hasGoogleMaps } from "@/lib/googleMaps";
+import { hasGoogleMaps, googleAuthFailed } from "@/lib/googleMaps";
 import { useDataRevision } from "@/lib/dataRevision";
 import GoogleSpacesSurface from "@/components/map/GoogleSpacesSurface";
 import LeafletSpacesSurface from "@/components/map/LeafletSpacesSurface";
@@ -268,7 +268,12 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
     [here]
   );
 
-  const Surface = hasGoogleMaps() && !googleFailed ? GoogleSpacesSurface : LeafletSpacesSurface;
+  /* googleAuthFailed(): if Google has already refused the key on this page,
+   * skip it rather than mount a map that will draw an error box and fall back. */
+  const Surface =
+    hasGoogleMaps() && !googleFailed && !googleAuthFailed()
+      ? GoogleSpacesSurface
+      : LeafletSpacesSurface;
 
   return (
     <div className="px-6 py-12 md:px-10">
