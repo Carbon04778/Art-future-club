@@ -2,14 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Image } from '@/components/ui/image';
 import { ArrowDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CHAPTERS } from '@/lib/chaptersData';
 
-const CITIES = [
-  { name: 'London', coords: '51.5074°N / 0.1278°W' },
-  { name: 'Tokyo', coords: '35.6762°N / 139.6503°E' },
-  { name: 'Berlin', coords: '52.5200°N / 13.4050°E' },
-  { name: 'Seoul', coords: '37.5665°N / 126.9780°E' },
-  { name: 'Mexico City', coords: '19.4326°N / 99.1332°W' },
-];
+/*
+ * The real chapters, from the one place they are defined.
+ *
+ * This was a hardcoded list of London, Tokyo, Berlin, Seoul and Mexico
+ * City. Four of those five are not chapters of anything, and the seven that
+ * are — Hong Kong, New York, Los Angeles, Bangkok, Milano, Toronto, Zurich
+ * — were absent. The strip sits directly under the hero, so the first thing
+ * the site said about itself was wrong.
+ */
+const CITIES = CHAPTERS.map((c) => ({ name: c.city, coords: c.coords, slug: c.slug }));
 
 export default function GlobalNexus({ heroImage }) {
   const [tickerIndex, setTickerIndex] = useState(0);
@@ -100,9 +105,11 @@ export default function GlobalNexus({ heroImage }) {
             Chapters →
           </span>
           {CITIES.map((c, i) => (
-            <a
+            // To the chapter's own page. These used to point at #chapters,
+            // an anchor that could not show the city that was clicked.
+            <Link
               key={c.name}
-              href="#chapters"
+              to={`/chapter/${c.slug}`}
               className={`font-mono-caps whitespace-nowrap text-[11px] transition-colors ${
                 i === tickerIndex ? 'text-foreground' : 'text-foreground/45'
               }`}
@@ -111,7 +118,7 @@ export default function GlobalNexus({ heroImage }) {
               <span className="ml-2 hidden text-foreground/40 lg:inline">
                 / {c.coords}
               </span>
-            </a>
+            </Link>
           ))}
           <ArrowDown className="ml-auto h-4 w-4 shrink-0 text-foreground/70" />
         </div>

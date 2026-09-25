@@ -47,7 +47,7 @@ export default function TermsAndConditions() {
 
           <section>
             <h2 className="font-heading text-xl font-medium text-foreground mb-3">8. Contact</h2>
-            <p>For any questions regarding these terms, contact us at <a href="mailto:hello@artfuture.club" className="text-primary hover:underline">hello@artfuture.club</a>.</p>
+            <p>For any questions regarding these terms, contact us at <a href="mailto:hello@artfutureclub.com" className="text-primary hover:underline">hello@artfutureclub.com</a>.</p>
           </section>
         </div>
       </div>

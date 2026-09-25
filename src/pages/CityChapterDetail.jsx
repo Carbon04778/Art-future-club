@@ -428,7 +428,7 @@ export default function CityChapterDetail() {
             programme, convene gatherings and steward the chapter's cultural direction.
           </p>
           <a
-            href="mailto:hello@artfuture.club"
+            href="mailto:hello@artfutureclub.com"
             className="mt-8 inline-flex items-center gap-2 bg-primary px-7 py-4 font-mono-caps text-[11px] text-primary-foreground transition-opacity hover:opacity-80"
           >
             Apply to host {chapter.city} <ArrowUpRight className="h-4 w-4" />

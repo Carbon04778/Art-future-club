@@ -79,8 +79,8 @@ export default function AboutUs() {
             <h2 className="font-heading text-2xl font-medium text-foreground mb-4">Contact</h2>
             <p>
               To get in touch, collaborate, or learn more about joining a chapter near you, reach us at{" "}
-              <a href="mailto:hello@artfuture.club" className="text-primary hover:underline">
-                hello@artfuture.club
+              <a href="mailto:hello@artfutureclub.com" className="text-primary hover:underline">
+                hello@artfutureclub.com
               </a>
               .
             </p>

@@ -32,7 +32,7 @@ export default function PrivacyPolicy() {
 
           <section>
             <h2 className="font-heading text-xl font-medium text-foreground mb-3">5. Your Rights</h2>
-            <p>Depending on your jurisdiction, you may have rights to access, correct, delete, or restrict the processing of your personal data. To exercise these rights, contact us at <a href="mailto:hello@artfuture.club" className="text-primary hover:underline">hello@artfuture.club</a>.</p>
+            <p>Depending on your jurisdiction, you may have rights to access, correct, delete, or restrict the processing of your personal data. To exercise these rights, contact us at <a href="mailto:hello@artfutureclub.com" className="text-primary hover:underline">hello@artfutureclub.com</a>.</p>
           </section>
 
           <section>

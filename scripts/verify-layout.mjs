@@ -262,6 +262,58 @@ check("the venues page uses the helper, not a single type",
   /isVenueType\(r\.type\)/.test(venuesPage) && !/filter\(\{ type: "Institution" \}/.test(venuesPage));
 check("the venues page shows each venue's real type", /\{v\.type \|\| "Venue"\}/.test(venuesPage));
 
+
+/* --------------------------------------------------------------------------
+   4. The hero strip must name the chapters the club actually has.
+
+      It shipped with a hardcoded London / Tokyo / Berlin / Seoul / Mexico
+      City list. Four of those five are not chapters of anything, and the
+      seven real ones were absent. The strip is the first thing under the
+      hero, so the first claim the site made about itself was false. It now
+      maps CHAPTERS, which is the one place a chapter is defined.
+-------------------------------------------------------------------------- */
+
+// GlobalNexus.jsx is already in `nexus`, read at the scroll-row check above.
+check("the hero strip reads the real chapters",
+  /import \{ CHAPTERS \} from ["']@\/lib\/chaptersData["']/.test(nexus) &&
+  /CHAPTERS\.map\(/.test(nexus));
+check("the hero strip has no hardcoded city list",
+  !/Mexico City/.test(nexus) && !/'Berlin'/.test(nexus) && !/'Seoul'/.test(nexus));
+// Only the ticker: the "Enter the Network" CTA above it is a real
+// in-page anchor to the #chapters section and must keep its href.
+const ticker = nexus.slice(nexus.indexOf("CITIES.map("));
+check("each strip city links to its own chapter page",
+  ticker.includes("to={`/chapter/${c.slug}`}") && !ticker.includes("href="));
+
+const chapters = readFileSync(join(SRC, "lib/chaptersData.js"), "utf8");
+for (const city of ["Hong Kong", "New York", "Los Angeles", "Bangkok", "Toronto", "Zurich"]) {
+  check(`${city} is a chapter the strip can show`, chapters.includes(`city: "${city}"`));
+}
+// The strip prints c.coords beside each name, so every chapter needs one.
+const coordCount = (chapters.match(/coords: "/g) || []).length;
+const cityCount = (chapters.match(/\n    city: "/g) || []).length;
+check("every chapter carries the coordinates the strip prints",
+  coordCount === cityCount && cityCount >= 8, `${coordCount} coords / ${cityCount} cities`);
+
+/* --------------------------------------------------------------------------
+   5. The contact address is the real one.
+
+      Six user-facing places offered hello@artfuture.club — a domain the club
+      does not own, so anyone who wrote to it reached nobody.
+-------------------------------------------------------------------------- */
+
+const wrongEmail = [];
+for (const f of files) {
+  if (f.includes(join("pages", "components"))) continue;
+  if (readFileSync(f, "utf8").includes("artfuture.club")) wrongEmail.push(f.replace(SRC, ""));
+}
+check("no page offers the old artfuture.club address", wrongEmail.length === 0,
+  wrongEmail.join(", "));
+
+const footer = readFileSync(join(SRC, "components/ManifestoFooter.jsx"), "utf8");
+check("the footer gives hello@artfutureclub.com",
+  footer.includes("mailto:hello@artfutureclub.com"));
+
 console.log(`\n  passed: ${pass}`);
 if (failures.length) {
   console.log(`  FAILED: ${failures.length}\n`);

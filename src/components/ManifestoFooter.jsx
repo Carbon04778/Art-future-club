@@ -51,10 +51,10 @@ export default function ManifestoFooter() {
         <div>
           <p className="font-mono-caps text-[10px] text-highlight">Contact</p>
           <a
-            href="mailto:hello@artfuture.club"
-            className="mt-2 block text-lg hover:text-primary"
+            href="mailto:hello@artfutureclub.com"
+            className="mt-2 block break-words text-base hover:text-primary sm:text-lg"
           >
-            hello@artfuture.club
+            hello@artfutureclub.com
           </a>
         </div>
         <div>
