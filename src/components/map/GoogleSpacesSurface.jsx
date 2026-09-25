@@ -20,6 +20,27 @@ import { isVenueType } from "@/lib/venueTypes";
  * street; Google knows which tower it is in. The map people already recognise
  * is also the one they trust to walk them there.
  *
+ * WHY google.maps.Marker AND NOT AdvancedMarkerElement
+ *
+ * AdvancedMarkerElement requires a Map ID on the map, and this shipped without
+ * one. Google then threw "The map is initialized without a valid Map ID" once
+ * per marker — 498 times — and covered the whole map with its generic "This
+ * page can't load Google Maps correctly" dialog. The tiles were loading fine
+ * the whole time and the key and billing were never the problem, which is
+ * exactly how misleading that dialog is.
+ *
+ * A Map ID would fix it, but it costs more than it gives here: someone has to
+ * create one in Cloud Console, and a map WITH a Map ID ignores the `styles`
+ * below — the monochrome look would have to be rebuilt as a cloud style and
+ * maintained in a console rather than in this file, next to the site it has to
+ * match.
+ *
+ * So: the classic marker, which needs no Map ID and leaves the styling here.
+ * It is deprecated rather than removed, and Google's policy is twelve months'
+ * notice before anything is switched off. If that notice ever comes, the
+ * upgrade is a Map ID plus a cloud style, and the pins already draw from one
+ * SVG so only its wrapper changes.
+ *
  * WHAT IS DELIBERATELY NOT HERE
  *
  * Routes drawn on the page. That needs the Routes API, a second paid service,
@@ -28,33 +49,42 @@ import { isVenueType } from "@/lib/venueTypes";
  * carries the visitor's own position as the origin.
  */
 
-/** A pin, drawn to match the Leaflet one so the two maps look like one product. */
-function pinElement(row, active) {
-  const venue = isVenueType(row.type);
+/** The pin artwork, identical to the Leaflet one so the two look like one map. */
+function pinSvg(type, active) {
+  const venue = isVenueType(type);
   const fill = active ? "#000" : "#fff";
   const stroke = active ? "#fff" : "#111";
   const glyph = venue
     ? `<path d="M4 9h12M5 9v5M9 9v5M13 9v5M3.5 15h13M10 3.5 16 8H4z" fill="none" stroke="${stroke}" stroke-width="1.4" stroke-linecap="round"/>`
     : `<path d="m10 4.2 1.8 3.7 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4L4.2 8.5l4-.6z" fill="${stroke}"/>`;
-  const el = document.createElement("div");
-  el.innerHTML =
-    `<svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg" style="display:block">` +
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="38" viewBox="0 0 30 38">` +
     `<path d="M15 37C15 37 28 22.5 28 14A13 13 0 1 0 2 14c0 8.5 13 23 13 23z" fill="${fill}" stroke="#111" stroke-width="1.6"/>` +
-    `<g transform="translate(5 4)">${glyph}</g></svg>`;
-  return el;
+    `<g transform="translate(5 4)">${glyph}</g></svg>`
+  );
 }
 
+/** An SVG as an icon the classic marker accepts. */
+const svgIcon = (g, svg, w, h, anchorY) => ({
+  url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+  scaledSize: new g.Size(w, h),
+  anchor: new g.Point(w / 2, anchorY),
+});
+
 /** A cluster bubble, in the site's black rather than Google's defaults. */
-function clusterElement(count) {
+function clusterSvg(count) {
   const size = count < 10 ? 34 : count < 100 ? 42 : 52;
-  const el = document.createElement("div");
-  el.style.cssText =
-    `width:${size}px;height:${size}px;border-radius:50%;background:#111;color:#fff;` +
-    `display:flex;align-items:center;justify-content:center;` +
-    `font:600 ${count < 100 ? 13 : 12}px/1 ui-sans-serif,system-ui;` +
-    `box-shadow:0 0 0 4px rgba(17,17,17,0.15)`;
-  el.textContent = String(count);
-  return el;
+  const font = count < 100 ? 13 : 12;
+  return {
+    size,
+    svg:
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
+      `<circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 3}" fill="#111" ` +
+      `stroke="rgba(17,17,17,0.15)" stroke-width="6"/>` +
+      `<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" ` +
+      `font-family="ui-sans-serif,system-ui,sans-serif" font-size="${font}" font-weight="600" ` +
+      `fill="#fff">${count}</text></svg>`,
+  };
 }
 
 export default function GoogleSpacesSurface({
@@ -70,7 +100,6 @@ export default function GoogleSpacesSurface({
   const hostRef = useRef(null);
   const mapRef = useRef(null);
   const gRef = useRef(null);
-  const markersRef = useRef(new Map());
   const clustererRef = useRef(null);
   const infoRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -82,11 +111,14 @@ export default function GoogleSpacesSurface({
   const [popupRow, setPopupRow] = useState(null);
 
   /*
-   * Google refuses the key AFTER the library has loaded — a wrong referrer,
-   * no billing, an unactivated API. The loader resolves, then Google covers
-   * the map with its own error box. This is the only hook that hears it.
+   * Google refuses the key AFTER the library has loaded — a wrong referrer, no
+   * billing, an unactivated API. The loader resolves, then Google covers the
+   * map with its own error box. This is the only hook that hears it.
    */
-  useEffect(() => onGoogleAuthFailure(() => onUnavailable?.(new Error("Google refused the key"))), [onUnavailable]);
+  useEffect(
+    () => onGoogleAuthFailure(() => onUnavailable?.(new Error("Google refused the key"))),
+    [onUnavailable]
+  );
 
   /* Create the map once. */
   useEffect(() => {
@@ -123,18 +155,17 @@ export default function GoogleSpacesSurface({
 
   /* Markers and clustering, rebuilt when the plotted set changes. */
   useEffect(() => {
-    if (!ready || !mapRef.current) return;
+    if (!ready || !mapRef.current) return undefined;
     const g = gRef.current;
     clustererRef.current?.clearMarkers();
-    markersRef.current.clear();
 
     const markers = rows.map((row) => {
-      const marker = new g.marker.AdvancedMarkerElement({
+      const marker = new g.Marker({
         position: { lat: row.geo_lat, lng: row.geo_lng },
-        content: pinElement(row, selected?.id === row.id),
+        icon: svgIcon(g, pinSvg(row.type, selected?.id === row.id), 30, 38, 37),
+        title: row.display_name,
       });
-      marker.addListener("gmp-click", () => onSelect?.(row));
-      markersRef.current.set(row.id, marker);
+      marker.addListener("click", () => onSelect?.(row));
       return marker;
     });
 
@@ -142,8 +173,15 @@ export default function GoogleSpacesSurface({
       map: mapRef.current,
       markers,
       renderer: {
-        render: ({ count, position }) =>
-          new g.marker.AdvancedMarkerElement({ position, content: clusterElement(count) }),
+        render: ({ count, position }) => {
+          const { size, svg } = clusterSvg(count);
+          return new g.Marker({
+            position,
+            icon: svgIcon(g, svg, size, size, size / 2),
+            // Above the pins, so a count is never hidden behind one.
+            zIndex: Number(g.Marker.MAX_ZINDEX) + count,
+          });
+        },
       },
     });
 

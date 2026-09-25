@@ -58,12 +58,21 @@ function GooglePlace({ lat, lng, type, onUnavailable }) {
           fullscreenControl: false,
           clickableIcons: false,
         });
-        const el = document.createElement("div");
-        el.innerHTML = pinSvg(type);
-        new window.google.maps.marker.AdvancedMarkerElement({
+        /*
+         * The classic marker, not AdvancedMarkerElement: the latter requires a
+         * Map ID, and without one Google throws "The map is initialized
+         * without a valid Map ID" and covers the map with an error dialog.
+         * See the note in GoogleSpacesSurface.
+         */
+        const g = window.google.maps;
+        new g.Marker({
           map,
           position: { lat, lng },
-          content: el,
+          icon: {
+            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(pinSvg(type))}`,
+            scaledSize: new g.Size(30, 38),
+            anchor: new g.Point(15, 37),
+          },
         });
         setReady(true);
       })

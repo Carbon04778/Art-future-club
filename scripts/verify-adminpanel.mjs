@@ -361,6 +361,47 @@ check(
   "without an origin Google cannot route from a desktop"
 );
 
+/* --- markers: AdvancedMarkerElement needs a Map ID, and we have none --- */
+
+/*
+ * This shipped with AdvancedMarkerElement and no mapId. Google threw
+ * "The map is initialized without a valid Map ID" once per marker — 498
+ * times — and covered the whole map with "This page can't load Google Maps
+ * correctly". The tiles were returning 200 the whole time and the key and
+ * billing were never at fault, which is how misleading that dialog is.
+ *
+ * The classic marker needs no Map ID and leaves the monochrome styling in
+ * the source rather than in a Cloud Console. If AdvancedMarkerElement ever
+ * comes back it must arrive WITH a mapId, or the map breaks the same way.
+ */
+for (const [name, src] of [["the Google surface", googleSurface], ["the profile map", placeMap]]) {
+  const usesAdvanced = src.includes("new g.marker.AdvancedMarkerElement") ||
+    src.includes("new window.google.maps.marker.AdvancedMarkerElement") ||
+    src.includes("maps.marker.AdvancedMarkerElement(");
+  check(
+    `${name} does not use AdvancedMarkerElement without a Map ID`,
+    !usesAdvanced || src.includes("mapId"),
+    "advanced markers need a mapId or Google refuses every one of them"
+  );
+}
+check(
+  "the loader does not request the marker library it no longer uses",
+  !googleLib.includes('libraries: ["marker"]'),
+  "an unused library is a bigger download and implies advanced markers"
+);
+check(
+  "a refused key is heard through gm_authFailure, not only through loading",
+  googleLib.includes("gm_authFailure"),
+  "Google refuses AFTER loading; without this hook the fallback never runs"
+);
+for (const [name, src] of [["the Google surface", googleSurface], ["the profile map", placeMap], ["SpacesMap", mapSrc]]) {
+  check(
+    `${name} reacts to Google refusing the key`,
+    src.includes("onGoogleAuthFailure") || src.includes("googleAuthFailed"),
+    "it would sit behind Google's error dialog instead of falling back"
+  );
+}
+
 /* --- tiles on the fallback: a 200 is not proof the tile is usable --- */
 
 const KEYED_TILE_HOSTS = ["basemaps.cartocdn.com", "api.mapbox.com", "tiles.stadiamaps.com", "api.maptiler.com"];

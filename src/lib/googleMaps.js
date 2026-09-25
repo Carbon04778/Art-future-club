@@ -107,14 +107,17 @@ export function loadGoogleMaps() {
       const loader = new Loader({
         apiKey: GOOGLE_MAPS_KEY,
         version: "weekly",
-        // marker: AdvancedMarkerElement, which is the supported marker now.
-        libraries: ["marker"],
       });
+      /*
+       * The core maps library only. The marker library was imported here for
+       * AdvancedMarkerElement, which turned out to require a Map ID on the
+       * map — without one Google throws "The map is initialized without a
+       * valid Map ID" once per marker and covers the map with its generic
+       * error dialog. The classic marker needs no Map ID and lets the
+       * monochrome styling stay in this file; see GoogleSpacesSurface.
+       */
       const maps = await loader.importLibrary("maps");
-      // window.google, not a bare global: the bare name is undefined until the
-      // script has run, and reads as a ReferenceError rather than undefined.
-      const marker = await window.google.maps.importLibrary("marker");
-      return { maps, marker };
+      return { maps };
     })().catch((err) => {
       // Cleared so a later map can try again — a transient network failure
       // should not disable Google for the rest of the session.
