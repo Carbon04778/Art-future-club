@@ -18,6 +18,7 @@ import { createClient } from "@supabase/supabase-js";
 // node, which does not resolve vite aliases. mock.js imports ../../lib/slugs.js
 // for the same reason.
 import { addressCandidates, matchPrecision } from "../../lib/addressQuery.js";
+import { isImageFile, isWebpBytes, toWebp } from "../../lib/toWebp.js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -508,107 +509,26 @@ export const auth = {
 /* ------------------------------------------------------------- integrations */
 
 const BUCKET = "uploads";
-const MAX_EDGE = 2000; // px on the long side
-const QUALITY = 0.82;
 
-/**
- * Downscale and re-encode before upload.
- *
- * This is not a nicety. Supabase's free tier allows 1 GB of storage and 5 GB
- * of egress per month; unmodified phone photos and artwork scans run 3-5 MB
- * each, which exhausts both within weeks. Capping the long edge at 2000px and
- * re-encoding to WebP typically cuts size 8-15x with no visible loss at web
- * display sizes. It also markedly improves page load.
+/*
+ * Every image is converted to verified WebP before upload — see
+ * src/lib/toWebp.js for why the old "compress if worthwhile" path was
+ * replaced. Non-images (PDFs) are uploaded unchanged.
  */
-async function compressImage(file) {
-  if (!file.type?.startsWith("image/") || file.type === "image/gif") return file;
-
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
-    if (scale === 1 && file.size < 400_000) return file;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-
-    const blob = await new Promise((resolve) =>
-      canvas.toBlob(resolve, "image/webp", QUALITY)
-    );
-    if (!blob || blob.size >= file.size) return file;
-
-    return new File([blob], file.name.replace(/\.\w+$/, "") + ".webp", {
-      type: "image/webp",
-    });
-  } catch (err) {
-    /*
-     * HEIC — the default iPhone and iPad photo format — cannot be decoded by
-     * createImageBitmap. Returning the original file then sent a .heic to
-     * storage, which rejects it, and the upload failed with an error that
-     * named neither the format nor the device.
-     *
-     * That is why adding images worked on a PC and failed on an iPad.
-     *
-     * Try once more through an <img> element, which Safari CAN decode, and
-     * draw that to a canvas as WebP. If even that fails, say plainly what is
-     * wrong rather than letting storage reject it.
-     */
-    const viaImg = await canvasFromImgElement(file).catch(() => null);
-    if (viaImg) return viaImg;
-
-    if (/heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name)) {
-      throw new Error(
-        "This looks like an iPhone HEIC photo, which cannot be uploaded. " +
-        "In Settings → Camera → Formats choose \"Most Compatible\", or " +
-        "export the picture as JPEG and try again."
-      );
-    }
-
-    console.warn("Image compression failed, uploading as-is:", err);
-    return file;
+async function prepareUpload(file) {
+  if (!isImageFile(file)) return file;
+  const webp = await toWebp(file);
+  // Belt and braces: never let a non-WebP image reach storage.
+  if (!isWebpBytes(new Uint8Array(await webp.slice(0, 12).arrayBuffer()))) {
+    throw new Error("Image conversion failed — nothing was uploaded. Please try again.");
   }
-}
-
-/**
- * Decode via an <img> tag rather than createImageBitmap.
- *
- * Safari can render HEIC through an image element even though it cannot
- * decode it as a bitmap, so this recovers most iPhone photos.
- */
-async function canvasFromImgElement(file) {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise((resolve, reject) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error("Could not decode image"));
-      el.src = url;
-    });
-
-    const scale = Math.min(1, MAX_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(img.naturalWidth * scale);
-    canvas.height = Math.round(img.naturalHeight * scale);
-    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-
-    const blob = await new Promise((resolve) =>
-      canvas.toBlob(resolve, "image/webp", QUALITY)
-    );
-    if (!blob) return null;
-
-    return new File([blob], file.name.replace(/\.\w+$/, "") + ".webp", {
-      type: "image/webp",
-    });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  return webp;
 }
 
 async function UploadFile({ file }) {
   if (!file) throw new Error("No file provided");
 
-  const optimised = await compressImage(file);
+  const optimised = await prepareUpload(file);
   const {
     data: { user },
   } = await client().auth.getUser();

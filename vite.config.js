@@ -8,6 +8,10 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, './src') },
   },
   server: { port: 5173 },
+  // The WebP encoder (Safari's upload fallback) loads its .wasm relative to
+  // its own module. Pre-bundling moves the module but not the .wasm, so the
+  // dev server answered with index.html and every Safari upload failed.
+  optimizeDeps: { exclude: ['@jsquash/webp'] },
   build: {
     outDir: 'dist',
     sourcemap: false,
