@@ -358,7 +358,10 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
     const reading_time_mins = Math.max(1, Math.round(wordCount / 200));
     const payload = {
       ...form,
-      slug: form.slug || slugify(form.title),
+      // A typed slug is cleaned like a generated one. It used to be saved as
+      // typed: "osaze/akil/stigler" became a link that could only ever 404,
+      // because /editorial/:slug matches a single path segment.
+      slug: slugify(form.slug) || slugify(form.title),
       cover_image_url,
       images,
       closing_image_url,
@@ -477,7 +480,7 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
 
             <Section title="SEO Settings">
               <div><label className="font-mono-caps text-[11px] text-muted-foreground">URL Slug</label><input className={`${input} mt-2`} value={form.slug} onChange={(e) => set("slug", e.target.value)} placeholder="auto-generated from title if blank" /></div>
-              <p className="mt-1 text-xs text-muted-foreground">Article page: /editorial/{form.slug || slugify(form.title) || "your-slug"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Article page: /editorial/{slugify(form.slug) || slugify(form.title) || "your-slug"}</p>
               <div className="mt-3"><label className="font-mono-caps text-[11px] text-muted-foreground">SEO Title</label><input className={`${input} mt-2`} value={form.seo_title} onChange={(e) => set("seo_title", e.target.value)} placeholder="defaults to article title" /></div>
               <div className="mt-3"><label className="font-mono-caps text-[11px] text-muted-foreground">Meta Description</label><textarea className={`${input} mt-2 resize-none`} rows={2} value={form.seo_description} onChange={(e) => set("seo_description", e.target.value)} placeholder="defaults to subtitle" /></div>
               <div className="mt-3"><label className="font-mono-caps text-[11px] text-muted-foreground">SEO Keywords (comma-separated)</label><input className={`${input} mt-2`} value={form.seo_keywords} onChange={(e) => set("seo_keywords", e.target.value)} /></div>
