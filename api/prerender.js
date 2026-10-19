@@ -322,7 +322,8 @@ function describe(route, row, path) {
     noindex: row.published === false,
     heading: row.title || "Article",
     sub: row.subtitle || "",
-    body: row.body || row.content || "",
+    // "## " marks a heading in article text (B4); crawlers get the words, not the marker.
+    body: String(row.body || row.content || "").replace(/^##(?=[ \t]|$)[ \t]*/gm, ""),
     jsonLd: {
       "@context": "https://schema.org",
       "@type": "Article",

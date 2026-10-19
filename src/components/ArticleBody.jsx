@@ -1,5 +1,6 @@
 import React from "react";
 import ArticleImage from "@/components/ArticleImage";
+import { parseArticleText } from "@/lib/articleText";
 
 /**
  * Renders an article body split into paragraphs, inserting the gallery and
@@ -11,23 +12,37 @@ const toImg = (e) =>
     ? { url: e, alt: "", caption: "" }
     : { url: e?.url || e?.image_url || "", alt: e?.alt || "", caption: e?.caption || "" };
 
+/** A heading (B4) or a paragraph. */
+function TextBlock({ block }) {
+  if (block.kind === "heading") {
+    return (
+      <h2 className="mb-4 mt-10 font-heading text-2xl font-semibold leading-snug tracking-[-0.01em] text-foreground md:text-3xl">
+        {block.text}
+      </h2>
+    );
+  }
+  return <p className="mb-6 text-lg leading-relaxed text-foreground">{block.text}</p>;
+}
+
 export default function ArticleBody({ article }) {
-  const paragraphs = (article.body || "").split("\n\n").filter((p) => p.trim() !== "");
+  // Paragraphs and headings ("## " at the start of a paragraph), in order.
+  const textBlocks = parseArticleText(article.body);
   const rawImages = article.images || [];
   const layout = article.layout || "cover_top";
 
   // Legacy layout: closing lived as the last item of the images array.
   if (layout === "image_before_close" && !article.closing_image_url) {
-    const head = paragraphs.slice(0, -1);
-    const tail = paragraphs.slice(-1);
+    // The last paragraph goes after the images — with its heading, if it has one.
+    let cut = textBlocks.length - 1;
+    if (cut > 0 && textBlocks[cut - 1].kind === "heading") cut -= 1;
+    const head = textBlocks.slice(0, Math.max(cut, 0));
+    const tail = textBlocks.slice(Math.max(cut, 0));
     const closing = rawImages.length ? toImg(rawImages[rawImages.length - 1]) : null;
     const galleryImages = rawImages.length > 1 ? rawImages.slice(0, -1).map(toImg) : [];
     return (
       <>
         <div className="mt-12 prose prose-lg max-w-none text-foreground leading-relaxed">
-          {head.map((para, i) => (
-            <p key={i} className="mb-6 text-lg leading-relaxed">{para}</p>
-          ))}
+          {head.map((block, i) => <TextBlock key={i} block={block} />)}
         </div>
         {galleryImages.length > 0 && (
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -38,9 +53,7 @@ export default function ArticleBody({ article }) {
         )}
         {closing && <ArticleImage src={closing.url} alt={closing.alt || article.title} caption={closing.caption} className="w-full aspect-[16/9] mt-8" />}
         <div className="mt-10 prose prose-lg max-w-none text-foreground leading-relaxed">
-          {tail.map((para, i) => (
-            <p key={i} className="mb-6 text-lg leading-relaxed">{para}</p>
-          ))}
+          {tail.map((block, i) => <TextBlock key={i} block={block} />)}
         </div>
       </>
     );
@@ -53,11 +66,17 @@ export default function ArticleBody({ article }) {
   const closing = article.closing_image_url
     ? { url: article.closing_image_url, alt: article.closing_image_alt || "", caption: article.closing_image_caption || "" }
     : null;
-  const midIndex = Math.max(0, Math.floor(paragraphs.length / 2) - 1);
+  // Images are placed by PARAGRAPH count — headings do not count — and only
+  // ever after a paragraph, so no image lands between a heading and its text.
+  const proseCount = textBlocks.filter((b) => b.kind === "para").length;
+  const midIndex = Math.max(0, Math.floor(proseCount / 2) - 1);
 
   const blocks = [];
-  paragraphs.forEach((para, i) => {
-    blocks.push({ kind: "para", text: para });
+  let i = -1; // index among paragraphs
+  textBlocks.forEach((tb) => {
+    blocks.push(tb);
+    if (tb.kind !== "para") return;
+    i += 1;
     if (hasIntro && i === 0 && intro) blocks.push({ kind: "full", image: intro });
     if (middleGallery && i === midIndex && gallery.length) {
       // Same rule for a mid-article gallery.
@@ -121,15 +140,15 @@ export default function ArticleBody({ article }) {
       if (looksLikeSignOff(blocks[paraIdx[n]].text)) target = paraIdx[n - 1] + 1;
       else break;
     }
+    // Never between a heading and the paragraph it introduces: go above the heading.
+    while (target > 0 && blocks[target - 1]?.kind === "heading") target -= 1;
     if (target >= 0) blocks.splice(target, 0, { kind: "full", image: closing });
   }
 
   return (
     <div className="mt-12">
       {blocks.map((b, i) => {
-        if (b.kind === "para") {
-          return <p key={i} className="mb-6 text-lg leading-relaxed text-foreground">{b.text}</p>;
-        }
+        if (b.kind === "para" || b.kind === "heading") return <TextBlock key={i} block={b} />;
         if (b.kind === "full") {
           return <ArticleImage key={i} src={b.image.url} alt={b.image.alt || article.title} caption={b.image.caption} className="w-full aspect-[16/9] my-8" />;
         }

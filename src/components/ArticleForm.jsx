@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { X, Loader2, Trash2 } from "lucide-react";
 import ArticlePreview from "@/components/ArticlePreview";
 import ImageCropBox from "@/components/ImageCropBox";
+import { HEADING_MARK, plainArticleText } from "@/lib/articleText";
 
 // Which gallery-placement layouts also use a full-width intro image (images[0]).
 const INTRO_LAYOUTS = ["image_after_intro", "intro_middle"];
@@ -116,6 +117,26 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
   const [saving, setSaving] = useState(false);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  /*
+   * B4: start a heading where the cursor is. It becomes its own paragraph
+   * ("## " after a blank line) so it can never merge into the text around it,
+   * and the cursor is left after "## " ready to type the heading.
+   */
+  const bodyRef = useRef(null);
+  const addHeading = () => {
+    const el = bodyRef.current;
+    const body = form.body || "";
+    const pos = el ? el.selectionStart : body.length;
+    const before = body.slice(0, pos);
+    const after = body.slice(pos);
+    const lead = before === "" || before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
+    const insert = `${lead}${HEADING_MARK}`;
+    const gap = after === "" || after.startsWith("\n") ? "" : "\n\n";
+    set("body", before + insert + gap + after);
+    const caret = before.length + insert.length;
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(caret, caret); });
+  };
 
   // A publish date in the future hides the article from everyone. Declared
   // here, AFTER `form` exists — reading it above the useState that creates it
@@ -354,7 +375,8 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
       closing_image_alt = e.alt || "";
       closing_image_caption = e.caption || "";
     }
-    const wordCount = (form.body || "").trim().split(/\s+/).filter(Boolean).length;
+    // "## " heading markers are not words (B4).
+    const wordCount = plainArticleText(form.body).trim().split(/\s+/).filter(Boolean).length;
     const reading_time_mins = Math.max(1, Math.round(wordCount / 200));
     const payload = {
       ...form,
@@ -406,7 +428,20 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
               </div>
               <div><label className="font-mono-caps text-[11px] text-muted-foreground">Author</label><input className={`${input} mt-2`} value={form.author_name} onChange={(e) => set("author_name", e.target.value)} /></div>
             </div>
-            <div><label className="font-mono-caps text-[11px] text-muted-foreground">Body *</label><textarea className={`${input} mt-2 resize-none`} rows={10} value={form.body} onChange={(e) => set("body", e.target.value)} required placeholder="Use blank lines to separate paragraphs." /></div>
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="font-mono-caps text-[11px] text-muted-foreground">Body *</label>
+                {/* B4: headings — larger, bold text between sections. */}
+                <button type="button" onClick={addHeading}
+                  className="border border-border px-2.5 py-1 font-mono-caps text-[10px] text-muted-foreground hover:border-primary hover:text-primary">
+                  + Add heading
+                </button>
+              </div>
+              <textarea ref={bodyRef} className={`${input} mt-2 resize-none`} rows={10} value={form.body} onChange={(e) => set("body", e.target.value)} required placeholder="Use blank lines to separate paragraphs." />
+              <p className="mt-1 text-xs text-muted-foreground">
+                A paragraph that starts with <code className="font-mono">## </code> shows as a heading — larger, bold text. Press "Add heading" to start one.
+              </p>
+            </div>
 
             <Section title="Cover Image">
               {/* Cropped at 16:9 — the ratio the cover actually renders at.
