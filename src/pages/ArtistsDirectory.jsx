@@ -10,6 +10,7 @@ import UnpublishedBadge from "@/components/UnpublishedBadge";
 import { chapterFilterOptions } from "@/lib/chaptersData";
 import { useDataRevision } from "@/lib/dataRevision";
 import { useProgressiveList, staggerDelay } from "@/hooks/useProgressiveList";
+import { isForSale } from "@/lib/workSale";
 
 const DISCIPLINES = ["All", "Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Sound Art", "Digital Art", "Mixed Media", "Other"];
 const CHAPTERS = chapterFilterOptions("All Chapters");
@@ -55,7 +56,8 @@ export default function ArtistsDirectory() {
     }
     if (seekingFilter && !(a.seeking || []).includes(seekingFilter)) return false;
     if (premiumOnly && !a.is_premium) return false;
-    if (forSaleOnly && !a.portfolio_works?.some((w) => w.available_for_sale)) return false;
+    // B2: a sold work is no longer for sale.
+    if (forSaleOnly && !a.portfolio_works?.some(isForSale)) return false;
     if (search) {
       const q = search.toLowerCase();
       if (!a.display_name?.toLowerCase().includes(q) && !a.discipline?.toLowerCase().includes(q) && !a.based_in?.toLowerCase().includes(q)) return false;

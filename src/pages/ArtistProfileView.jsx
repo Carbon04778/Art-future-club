@@ -29,6 +29,7 @@ import PortfolioLightbox from "@/components/portfolio/PortfolioLightbox";
 import { STATUS, effectiveStatus } from "@/lib/profileReadiness";
 import { findBySlugOrId, shouldRedirectToSlug, artistPath } from "@/lib/slugs";
 import { absoluteUrl } from "@/lib/seo";
+import { isSold, isForSale, SOLD_LABEL } from "@/lib/workSale";
 import { useArtistSeo } from "@/hooks/useEntitySeo";
 
 export default function ArtistProfileView() {
@@ -385,7 +386,13 @@ export default function ArtistProfileView() {
                         {[work.medium, work.dimensions, work.year].filter(Boolean).join(" · ")}
                       </p>
                     </div>
-                    {work.available_for_sale && (
+                    {/* B2: sold stays visible, with no price and no Enquire. */}
+                    {isSold(work) && (
+                      <span className="shrink-0 border border-muted-foreground px-2 py-1 font-mono-caps text-[10px] text-muted-foreground">
+                        {SOLD_LABEL}
+                      </span>
+                    )}
+                    {isForSale(work) && (
                       <div className="shrink-0 text-right">
                         <p className="font-mono-caps text-[11px] text-primary">
                           {work.currency || "USD"} {work.price}

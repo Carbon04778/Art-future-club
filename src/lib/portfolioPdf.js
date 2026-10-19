@@ -38,6 +38,8 @@
  * a measurement cannot disagree with what lands on the page.
  */
 
+import { isSold, priceLabel, SOLD_LABEL } from "./workSale.js";
+
 /**
  * WinAnsi is the only encoding the built-in fonts can use.
  *
@@ -388,8 +390,8 @@ export async function buildPortfolioPdf({
       const textW = COL - indent;
 
       const meta = [work.medium, work.dimensions, work.year].filter(Boolean).join("  ·  ");
-      const price =
-        work.available_for_sale && work.price ? `${work.currency || "USD"} ${work.price}` : "";
+      // B2: a sold work says Sold in the PDF too, never its old price.
+      const price = isSold(work) ? SOLD_LABEL : priceLabel(work);
 
       /** Every piece of text in the block, drawn and measured from one list. */
       const parts = [

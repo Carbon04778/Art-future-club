@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { isSold, priceLabel, SOLD_LABEL } from "@/lib/workSale";
 
 /**
  * Full-screen artwork viewer. Scrolls through multiple views of a single work.
@@ -91,10 +92,11 @@ export default function PortfolioLightbox({ images, startIndex = 0, work, action
             <p className="mt-2 font-mono-caps text-[11px] text-muted-foreground">
               {[work.medium, work.dimensions, work.year].filter(Boolean).join(" · ")}
             </p>
-            {work.available_for_sale && work.price && (
-              <p className="mt-3 font-mono-caps text-[13px] text-primary">
-                {work.currency || "USD"} {work.price}
-              </p>
+            {/* B2: a sold work shows Sold, never a price. */}
+            {isSold(work) ? (
+              <p className="mt-3 font-mono-caps text-[13px] text-muted-foreground">{SOLD_LABEL}</p>
+            ) : priceLabel(work) && (
+              <p className="mt-3 font-mono-caps text-[13px] text-primary">{priceLabel(work)}</p>
             )}
             {work.description && (
               <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">

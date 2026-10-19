@@ -12,6 +12,7 @@ import PortfolioPDFExport from "@/components/PortfolioPDFExport";
 import ImageCropBox from "@/components/ImageCropBox";
 import SubmitForReview from "@/components/SubmitForReview";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
+import { isSold } from "@/lib/workSale";
 
 const DISCIPLINES = ["Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Printmaking", "Ceramics", "Sound Art", "Digital Art", "Mixed Media", "Other"];
 const CHAPTERS = CHAPTER_OPTIONS;
@@ -462,7 +463,17 @@ export default function ArtistProfileEdit() {
                   />
                   <span className="font-mono-caps text-[11px] text-muted-foreground">Available for sale</span>
                 </label>
-                {work.available_for_sale && (
+                {/* B2: a sold work stays in the portfolio, labelled Sold. */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isSold(work)}
+                    onChange={(e) => updateWork(i, "sold", e.target.checked)}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span className="font-mono-caps text-[11px] text-muted-foreground">Sold</span>
+                </label>
+                {work.available_for_sale && !isSold(work) && (
                   <div className="flex items-center gap-2 flex-1">
                     <select
                       className="border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"

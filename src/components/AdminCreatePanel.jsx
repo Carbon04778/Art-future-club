@@ -50,6 +50,7 @@ const emptyWork = () => ({
   dimensions: "",
   description: "",
   available_for_sale: false,
+  sold: false,
   price: "",
   currency: "USD",
   file: null,          // local only — replaced by image_url before saving
@@ -173,6 +174,7 @@ export default function AdminCreatePanel({ onCreated }) {
           image_url,
           additional_images: [],
           available_for_sale: w.available_for_sale,
+          sold: !!w.sold,
           price: w.available_for_sale ? w.price.trim() : "",
           currency: w.currency,
         });
@@ -535,8 +537,17 @@ export default function AdminCreatePanel({ onCreated }) {
                   />
                   Available for sale
                 </label>
+                {/* B2: a sold work stays in the portfolio, labelled Sold. */}
+                <label className="mt-2 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!w.sold}
+                    onChange={(e) => updateWork(i, "sold", e.target.checked)}
+                  />
+                  Sold
+                </label>
 
-                {w.available_for_sale && (
+                {w.available_for_sale && !w.sold && (
                   <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                     <input
                       className={field}

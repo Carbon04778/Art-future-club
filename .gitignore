@@ -32,3 +32,6 @@ dist-ssr
 
 # Local backups (image originals, migration manifests). Never put these in .tmp/.
 backups/
+
+# Test reports for the owner to open (HTML + screenshots).
+reports/

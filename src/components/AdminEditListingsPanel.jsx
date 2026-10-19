@@ -474,12 +474,20 @@ function EditForm({ row, onCancel, onSave, busy }) {
   const worksRef = useRef(null);
   const [works, setWorks] = useState(() =>
     (row.portfolio_works || []).map((w) => ({
+      /*
+       * The work as stored, kept whole. Saving rebuilds each work from the
+       * fields below, which used to drop everything else — added_date (the
+       * "new work" notification date) and, with B2, `sold`. Spread first on
+       * save so any field this form does not edit survives untouched.
+       */
+      stored: w,
       title: w.title || "",
       year: w.year || "",
       medium: w.medium || "",
       dimensions: w.dimensions || "",
       description: w.description || "",
       available_for_sale: !!w.available_for_sale,
+      sold: w.sold === true,
       price: w.price || "",
       currency: w.currency || "USD",
       image_url: w.image_url || "",
@@ -559,6 +567,7 @@ function EditForm({ row, onCancel, onSave, busy }) {
             image_url = r.file_url;
           }
           portfolio_works.push({
+            ...(w.stored || {}),
             title: w.title.trim(),
             year: w.year.trim(),
             medium: w.medium.trim(),
@@ -567,6 +576,7 @@ function EditForm({ row, onCancel, onSave, busy }) {
             image_url,
             additional_images: w.additional_images || [],
             available_for_sale: w.available_for_sale,
+            sold: !!w.sold,
             price: w.available_for_sale ? String(w.price).trim() : "",
             currency: w.currency,
           });
@@ -858,8 +868,14 @@ function EditForm({ row, onCancel, onSave, busy }) {
                   onChange={(e) => updateWork(i, "available_for_sale", e.target.checked)} />
                 Available for sale
               </label>
+              {/* B2: a sold work stays in the portfolio, labelled Sold. */}
+              <label className="mt-2 flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={!!w.sold}
+                  onChange={(e) => updateWork(i, "sold", e.target.checked)} />
+                Sold
+              </label>
 
-              {w.available_for_sale && (
+              {w.available_for_sale && !w.sold && (
                 <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                   <input className={field} placeholder="Price" value={w.price}
                     onChange={(e) => updateWork(i, "price", e.target.value)} />
@@ -886,7 +902,7 @@ function EditForm({ row, onCancel, onSave, busy }) {
                 ...prev,
                 {
                   title: "", year: "", medium: "", dimensions: "", description: "",
-                  available_for_sale: false, price: "", currency: "USD",
+                  available_for_sale: false, sold: false, price: "", currency: "USD",
                   image_url: "", additional_images: [], file: null,
                 },
               ]);
