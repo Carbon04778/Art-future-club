@@ -7,6 +7,12 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 
 const TMP = new URL("../.tmp/", import.meta.url);
 mkdirSync(TMP, { recursive: true });
+/*
+ * Only the files this script writes are removed afterwards — never .tmp/ as a
+ * whole. Removing the folder deleted other tools' data that lived there,
+ * including the only backup of 284 original images (2026-10-18).
+ */
+const WRITTEN = [];
 
 const facade = readFileSync(
   new URL("../src/api/base44Client.js", import.meta.url),
@@ -62,6 +68,7 @@ async function backendFor(env, tag) {
   globalThis.__ENV__ = env;
   const file = new URL(`./facade-${tag}.mjs`, TMP);
   writeFileSync(file, src);
+  WRITTEN.push(file);
   // `file` is already a file: URL, so import it directly. Converting via
   // .pathname breaks on Windows: it yields "/C:/Users/..." which then gets a
   // drive letter prepended, producing "C:\C:\Users\...".
@@ -114,7 +121,7 @@ check(
   )) === "supabase"
 );
 
-rmSync(TMP, { recursive: true, force: true });
+for (const f of WRITTEN) rmSync(f, { force: true });
 
 console.log(`\n  passed: ${pass}`);
 if (failures.length) {

@@ -337,7 +337,12 @@ setNextResultFactory(null);
 
 /* ------------------------------------------------------------------ report */
 
-rmSync(new URL("../.tmp/", import.meta.url), { recursive: true, force: true });
+/*
+ * Only the file this script wrote — never .tmp/ as a whole. Removing the
+ * folder deleted other tools' data that lived there, including the only
+ * backup of 284 original images (2026-10-18).
+ */
+rmSync(tmp, { force: true });
 
 console.log(`\n  passed: ${pass}`);
 if (failures.length) {
