@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CornerUpRight, Search, X, Loader2 } from "lucide-react";
-import { spacePath } from "@/lib/slugs";
+import { spacePath, artistPath } from "@/lib/slugs";
 import { isVenueType, VENUE_TYPES } from "@/lib/venueTypes";
+import { groupArtistsByCity, isArtistGroup, artistCountLabel } from "@/lib/artistGroups";
 import { Image } from "@/components/ui/image";
 import { base44 } from "@/api/base44Client";
 import { directionsUrl } from "@/lib/mapLinks";
@@ -137,6 +138,37 @@ function DirectionsLink({ row, here, onLocated }) {
   );
 }
 
+/*
+ * Artists, for the one map (B1 in docs/CLIENT-REQUESTS.md). Paged like the
+ * listings above: the old artist map read only the newest 200 and would have
+ * dropped everyone after that without a word.
+ */
+const ARTIST_COLUMNS = "id,display_name,discipline,chapter,slug,avatar_url";
+
+/** An artist-group pin: the city, how many, and every artist as a link. */
+function ArtistGroupPopup({ row }) {
+  return (
+    <div className="min-w-[200px]">
+      <p className="font-body text-sm font-medium leading-tight">{row.display_name}</p>
+      <p className="mt-0.5 font-mono-caps text-[10px] text-muted-foreground">
+        {artistCountLabel(row.members.length)}
+      </p>
+      <ul className="mt-2 max-h-56 divide-y divide-border overflow-y-auto">
+        {row.members.map((a) => (
+          <li key={a.id}>
+            <Link to={artistPath(a)} className="block py-1.5 hover:underline">
+              <span className="block text-sm leading-tight">{a.display_name}</span>
+              {a.discipline && (
+                <span className="block font-mono-caps text-[9px] text-muted-foreground">{a.discipline}</span>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** What a pin shows when tapped: who it is, where, and how to get there. */
 function SpacePopup({ row: r, here, onLocated }) {
   return (
@@ -165,12 +197,20 @@ function SpacePopup({ row: r, here, onLocated }) {
   );
 }
 
-export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
+/**
+ * includeArtists: also plot artists, one pin per chapter city, with an
+ * "Artists" filter. initialKind: which filter is selected on arrival
+ * (/gallery-map opens on "Galleries").
+ */
+export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includeArtists = false, initialKind = "All" }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [artists, setArtists] = useState([]);
+  const [artistsLoading, setArtistsLoading] = useState(includeArtists);
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("All");
-  const [kind, setKind] = useState("All");
+  const [kind, setKind] = useState(initialKind);
+  const KIND_FILTERS = includeArtists ? ["All", "Artists", "Galleries", "Venues"] : ["All", "Galleries", "Venues"];
   const [bounds, setBounds] = useState(null);
   const [selected, setSelected] = useState(null);
   /* The visitor's own position, once they have offered it — from the find-me
@@ -210,6 +250,42 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kindsKey, rev]);
 
+  /* Every published artist, every page. */
+  useEffect(() => {
+    if (!includeArtists) return undefined;
+    let alive = true;
+    (async () => {
+      const all = [];
+      for (let offset = 0; ; offset += PAGE) {
+        const { rows: page, count } = await base44.entities.ArtistProfile.page({
+          where: { status: "approved" },
+          sort: "display_name",
+          limit: PAGE,
+          offset,
+          columns: ARTIST_COLUMNS,
+        });
+        all.push(...page);
+        if (page.length < PAGE || all.length >= count) break;
+      }
+      if (!alive) return;
+      setArtists(all);
+      setArtistsLoading(false);
+    })().catch(() => alive && setArtistsLoading(false));
+    return () => { alive = false; };
+  }, [includeArtists, rev]);
+
+  /*
+   * Artists matching the search, grouped into one row per city. A search for an
+   * artist's name keeps their city's pin and narrows its list to the match.
+   */
+  const artistGroups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const hits = q
+      ? artists.filter((a) => `${a.display_name} ${a.discipline || ""} ${a.chapter || ""}`.toLowerCase().includes(q))
+      : artists;
+    return groupArtistsByCity(hits);
+  }, [artists, query]);
+
   /* Cities worth a row, biggest first — that is where the galleries are. */
   const cities = useMemo(() => {
     const counts = {};
@@ -217,28 +293,59 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
       const c = cityOf(r);
       if (c) counts[c] = (counts[c] || 0) + 1;
     }
+    // An artist city is always worth a row: it is a chapter.
+    for (const g of groupArtistsByCity(artists).groups) {
+      counts[g.display_name] = Math.max(counts[g.display_name] || 0, MIN_CITY_LISTINGS);
+    }
     const big = Object.entries(counts)
       .filter(([, n]) => n >= MIN_CITY_LISTINGS)
       .sort((a, b) => b[1] - a[1])
       .map(([c]) => c);
     const hasOther = Object.values(counts).some((n) => n < MIN_CITY_LISTINGS);
     return ["All", ...big, ...(hasOther ? [OTHER_CITIES] : [])];
-  }, [rows]);
+  }, [rows, artists]);
+
+  const inCity = useCallback((r) => {
+    if (city === OTHER_CITIES) return !cities.includes(cityOf(r));
+    return city === "All" || cityOf(r) === city;
+  }, [city, cities]);
 
   /* What the map should show. The list then narrows this to the viewport. */
   const matching = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (city === OTHER_CITIES) {
-        if (cities.includes(cityOf(r))) return false;
-      } else if (city !== "All" && cityOf(r) !== city) return false;
+    const spaces = kind === "Artists" ? [] : rows.filter((r) => {
+      if (!inCity(r)) return false;
       if (kind === "Galleries" && isVenueType(r.type)) return false;
       if (kind === "Venues" && !isVenueType(r.type)) return false;
       if (q && !`${r.display_name} ${r.based_in || ""} ${r.address || ""}`.toLowerCase().includes(q))
         return false;
       return true;
     });
-  }, [rows, query, city, kind, cities]);
+    const groups = includeArtists && (kind === "All" || kind === "Artists")
+      ? artistGroups.groups.filter(inCity)
+      : [];
+    // Artist cities first in the list: one row each, so they never bury the listings.
+    return [...groups, ...spaces];
+  }, [rows, query, kind, inCity, includeArtists, artistGroups]);
+
+  /*
+   * A filter that hides the selected pin also drops the selection. Otherwise
+   * the map kept flying back to it: pick Hong Kong's artists, switch to
+   * Galleries, and the view stayed parked on Hong Kong instead of fitting the
+   * galleries — the list read "0 in view".
+   */
+  useEffect(() => {
+    if (selected && !matching.some((r) => r.id === selected.id)) setSelected(null);
+  }, [matching, selected]);
+
+  /* Totals for the line under the title — what is plotted, by kind. */
+  const shown = useMemo(() => {
+    const groups = matching.filter(isArtistGroup);
+    return {
+      artists: groups.reduce((n, g) => n + g.members.length, 0),
+      spaces: matching.length - groups.length,
+    };
+  }, [matching]);
 
   /*
    * The list shows what is on screen — the map and the list never disagree.
@@ -264,9 +371,12 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
   };
 
   const renderPopup = useCallback(
-    (row) => <SpacePopup row={row} here={here} onLocated={setHere} />,
+    (row) => isArtistGroup(row)
+      ? <ArtistGroupPopup row={row} />
+      : <SpacePopup row={row} here={here} onLocated={setHere} />,
     [here]
   );
+  const busy = loading || artistsLoading;
 
   /* googleAuthFailed(): if Google has already refused the key on this page,
    * skip it rather than mount a map that will draw an error box and fall back. */
@@ -282,8 +392,12 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
         {title}
       </h1>
       <p className="mt-3 font-mono-caps text-[11px] text-muted-foreground">
-        {loading ? "Loading…" : `${matching.length} of ${rows.length} pinned`}
-        {!loading && bounds && inView.length !== matching.length && ` · ${inView.length} in view`}
+        {busy
+          ? "Loading…"
+          : includeArtists
+            ? `${artistCountLabel(shown.artists)} · ${shown.spaces} galleries & venues`
+            : `${matching.length} of ${rows.length} pinned`}
+        {!busy && bounds && inView.length !== matching.length && ` · ${inView.length} in view`}
       </p>
 
       {/* filters */}
@@ -305,7 +419,7 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
           {cities.map((c) => <option key={c} value={c}>{c === "All" ? "All cities" : c}</option>)}
         </select>
         <div className="flex gap-2">
-          {["All", "Galleries", "Venues"].map((k) => (
+          {KIND_FILTERS.map((k) => (
             <button
               key={k}
               type="button"
@@ -334,7 +448,7 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
         {/* the map */}
         <div className="relative h-[520px] border border-border lg:h-[680px]">
-          {loading ? (
+          {busy ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
@@ -356,10 +470,10 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
         {/* the list — the same rows, in view */}
         <div className="flex h-[520px] flex-col border border-border lg:h-[680px]">
           <p className="border-b border-border px-4 py-3 font-mono-caps text-[10px] text-muted-foreground">
-            {loading ? "…" : `${inView.length} in view`}
+            {busy ? "…" : `${inView.length} in view`}
           </p>
           <ul className="flex-1 divide-y divide-border overflow-y-auto">
-            {!loading && inView.length === 0 && (
+            {!busy && inView.length === 0 && (
               <li className="px-4 py-6 text-sm text-muted-foreground">
                 Nothing in view. Zoom out, or clear the filters.
               </li>
@@ -379,7 +493,9 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-body text-sm">{r.display_name}</span>
                     <span className="block truncate font-mono-caps text-[10px] text-muted-foreground">
-                      {r.type}{r.based_in ? ` · ${r.based_in}` : ""}
+                      {isArtistGroup(r)
+                        ? `Artists · ${artistCountLabel(r.members.length)}`
+                        : `${r.type}${r.based_in ? ` · ${r.based_in}` : ""}`}
                     </span>
                     {r.address && (
                       <span className="mt-0.5 block truncate text-xs text-muted-foreground/80">
@@ -391,6 +507,12 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map" }) {
               </li>
             ))}
           </ul>
+          {/* Counted, never silently dropped: artists the map cannot place. */}
+          {includeArtists && !busy && (kind === "All" || kind === "Artists") && artistGroups.unplaced.length > 0 && (
+            <p className="border-t border-border px-4 py-3 font-mono-caps text-[10px] text-muted-foreground">
+              + {artistCountLabel(artistGroups.unplaced.length)} without a chapter city
+            </p>
+          )}
         </div>
       </div>
     </div>

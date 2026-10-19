@@ -297,7 +297,8 @@ const PROJECTIONS = [
   ["src/pages/ArtistsDirectory.jsx", "id,display_name,discipline"],
   ["src/pages/Venues.jsx", "id,display_name,type"],
   ["src/pages/GalleryShowcase.jsx", "id,display_name,based_in"],
-  ["src/pages/ArtistMap.jsx", "id,display_name,discipline"],
+  // The map's artist layer (B1): ArtistMap.jsx is a wrapper, SpacesMap loads them.
+  ["src/components/SpacesMap.jsx", "id,display_name,discipline"],
   ["src/components/CityChapters.jsx", "id,title,venue"],
   ["src/components/CollectiveRegistry.jsx", "id,display_name,based_in"],
 ];
