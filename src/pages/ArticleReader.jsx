@@ -8,6 +8,7 @@ import ArticleBody from "@/components/ArticleBody";
 import NewsletterSubscribe from "@/components/NewsletterSubscribe";
 import { useSeoMeta } from "@/hooks/useSeoMeta";
 import SlimFooter from "@/components/SlimFooter";
+import { artistForWriter, bylineHref, writerPath } from "@/lib/writers";
 
 /**
  * Dedicated, crawl-friendly article page (serves proper <head> meta for SEO
@@ -16,6 +17,8 @@ import SlimFooter from "@/components/SlimFooter";
 export default function ArticleReader() {
   const { slug } = useParams();
   const [article, setArticle] = useState(null);
+  // The writer's artist profile, if their name matches one (B3).
+  const [writerArtist, setWriterArtist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -38,6 +41,21 @@ export default function ArticleReader() {
     })();
     return () => { alive = false; };
   }, [slug]);
+
+  /*
+   * Does the writer have an artist page? Matched by name (see lib/writers.js:
+   * author_id is whoever POSTED the article, not who wrote it).
+   */
+  const authorName = article?.author_name;
+  useEffect(() => {
+    setWriterArtist(null);
+    if (!authorName?.trim()) return undefined;
+    let alive = true;
+    base44.entities.ArtistProfile.filter({ status: "approved" }, "display_name", 1000, "id,display_name,slug")
+      .then((list) => { if (alive) setWriterArtist(artistForWriter(list || [], authorName)); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [authorName]);
 
   useSeoMeta(article);
 
@@ -72,7 +90,24 @@ export default function ArticleReader() {
         <h1 className="mt-4 font-heading text-5xl font-medium tracking-[-0.02em]">{article.title}</h1>
         {article.subtitle && <p className="mt-3 text-xl text-muted-foreground">{article.subtitle}</p>}
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1">
-          <p className="font-mono-caps text-[11px] text-muted-foreground">By {article.author_name || "—"}</p>
+          {/* B3: the byline links to the writer — their artist page if they
+              have one, otherwise their writer page of every article. */}
+          {article.author_name?.trim() ? (
+            <p className="font-mono-caps text-[11px] text-muted-foreground">
+              By{" "}
+              <Link to={bylineHref(article.author_name, writerArtist)} className="text-foreground underline-offset-4 hover:text-primary hover:underline">
+                {article.author_name.trim()}
+              </Link>
+              {writerArtist && (
+                <>
+                  {" · "}
+                  <Link to={writerPath(article.author_name)} className="underline-offset-4 hover:text-primary hover:underline">All articles</Link>
+                </>
+              )}
+            </p>
+          ) : (
+            <p className="font-mono-caps text-[11px] text-muted-foreground">By —</p>
+          )}
           {article.reading_time_mins && <p className="font-mono-caps text-[11px] text-muted-foreground">· {article.reading_time_mins} min read</p>}
           {(article.publish_date || article.created_date) && <p className="font-mono-caps text-[11px] text-muted-foreground">· {format(new Date(article.publish_date || article.created_date), "d MMM yyyy")}</p>}
         </div>

@@ -34,6 +34,7 @@ import GalleryMap from '@/pages/GalleryMap';
 import Venues from '@/pages/Venues';
 import Editorial from '@/pages/Editorial';
 import ArticleReader from '@/pages/ArticleReader';
+import EditorialWriter from '@/pages/EditorialWriter';
 import AboutUs from '@/pages/AboutUs';
 import TermsAndConditions from '@/pages/TermsAndConditions';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
@@ -105,6 +106,7 @@ const AuthenticatedApp = () => {
         <Route path="/open-calls" element={<OpenCalls />} />
         <Route path="/editorial" element={<Editorial />} />
         <Route path="/editorial/:slug" element={<ArticleReader />} />
+        <Route path="/editorial/writer/:writer" element={<EditorialWriter />} />
         <Route path="/map" element={<ArtistMap />} />
         <Route path="/gallery-map" element={<GalleryMap />} />
         <Route path="/venues" element={<Venues />} />

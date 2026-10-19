@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ExpandableText from "@/components/ExpandableText";
 import MyCollection from "@/components/MyCollection";
+import ArtistWriting from "@/components/ArtistWriting";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -467,6 +468,10 @@ export default function ArtistProfileView() {
           />
         </div>
       </div>
+
+      {/* B3: articles this artist wrote for AFC Editorial. Nothing renders
+          for an artist who has written nothing. */}
+      <ArtistWriting name={profile.display_name} />
 
       {/* Works this member collected from others. Visitors can see it;
           only the owner can remove anything. */}
