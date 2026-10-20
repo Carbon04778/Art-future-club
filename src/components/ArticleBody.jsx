@@ -1,16 +1,22 @@
 import React from "react";
 import ArticleImage from "@/components/ArticleImage";
 import { parseArticleText } from "@/lib/articleText";
+import ArticleGallery from "@/components/ArticleGallery";
 
 /**
  * Renders an article body split into paragraphs, inserting the gallery and
  * (optionally) a closing image at positions defined by the layout.
  * Images may be stored as objects ({url,alt,caption}) or legacy string URLs.
  */
+/*
+ * `full` is carried through. It was dropped here, so the "full width" tick in
+ * the editor never took effect: 4 published articles had 7 images ticked full
+ * width and shown as ordinary gallery tiles (found 2026-10-20, with B5).
+ */
 const toImg = (e) =>
   typeof e === "string"
-    ? { url: e, alt: "", caption: "" }
-    : { url: e?.url || e?.image_url || "", alt: e?.alt || "", caption: e?.caption || "" };
+    ? { url: e, alt: "", caption: "", full: false }
+    : { url: e?.url || e?.image_url || "", alt: e?.alt || "", caption: e?.caption || "", full: e?.full === true };
 
 /** A heading (B4) or a paragraph. */
 function TextBlock({ block }) {
@@ -44,7 +50,8 @@ export default function ArticleBody({ article }) {
         <div className="mt-12 prose prose-lg max-w-none text-foreground leading-relaxed">
           {head.map((block, i) => <TextBlock key={i} block={block} />)}
         </div>
-        {galleryImages.length > 0 && (
+        {galleryImages.length >= 2 && <ArticleGallery images={galleryImages} title={article.title} />}
+        {galleryImages.length === 1 && (
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
             {galleryImages.map((im, i) => (
               <ArticleImage key={i} src={im.url} alt={im.alt || `${article.title} — image ${i + 1}`} caption={im.caption} className="w-full aspect-[4/3]" />
@@ -152,6 +159,9 @@ export default function ArticleBody({ article }) {
         if (b.kind === "full") {
           return <ArticleImage key={i} src={b.image.url} alt={b.image.alt || article.title} caption={b.image.caption} className="w-full aspect-[16/9] my-8" />;
         }
+        // B5: two or more images are a one-at-a-time slider; a single image
+        // keeps its old place in the grid, unchanged.
+        if (b.images.length >= 2) return <ArticleGallery key={i} images={b.images} title={article.title} />;
         return (
           <div key={i} className="my-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
             {b.images.map((im, j) => (

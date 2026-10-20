@@ -14,6 +14,10 @@ Object.defineProperty(globalThis, "navigator", { value: window.navigator, config
 for (const k of ["HTMLElement", "Element", "Node", "Event", "MouseEvent", "SVGElement", "Image"]) globalThis[k] = window[k];
 globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
 globalThis.ResizeObserver = window.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+// Real browsers have these; jsdom does not. The article gallery's carousel (B5) asks for them.
+globalThis.matchMedia = window.matchMedia = () => ({ matches: false, media: "", addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} });
+globalThis.IntersectionObserver = window.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} takeRecords() { return []; } };
+globalThis.MutationObserver = window.MutationObserver;
 
 const React = (await import("react")).default;
 const { createRoot } = await import("react-dom/client");
