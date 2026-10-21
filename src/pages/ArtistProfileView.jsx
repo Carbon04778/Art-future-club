@@ -32,6 +32,7 @@ import { findBySlugOrId, shouldRedirectToSlug, artistPath } from "@/lib/slugs";
 import { absoluteUrl } from "@/lib/seo";
 import { isSold, isForSale, SOLD_LABEL } from "@/lib/workSale";
 import { useArtistSeo } from "@/hooks/useEntitySeo";
+import { websiteUrl, socialUrl, socialLabel } from "@/lib/links";
 
 export default function ArtistProfileView() {
   const { id } = useParams();
@@ -227,28 +228,30 @@ export default function ArtistProfileView() {
 
             {/* social links */}
             <div className="mt-4 flex flex-wrap items-center gap-5">
-              {profile.website && (
-                <a href={profile.website} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground hover:text-primary">
+              {/* Read through lib/links (B13): handles, "@handle", full URLs
+                  and "www." all work; a value that cannot be a link shows none. */}
+              {websiteUrl(profile.website) && (
+                <a href={websiteUrl(profile.website)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground hover:text-primary">
                   <ExternalLink className="h-3 w-3" /> Website
                 </a>
               )}
-              {profile.instagram && (
-                <a href={`https://instagram.com/${profile.instagram.replace("@", "")}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground hover:text-primary">
-                  <Instagram className="h-3 w-3" /> {profile.instagram}
+              {socialUrl("instagram", profile.instagram) && (
+                <a href={socialUrl("instagram", profile.instagram)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground hover:text-primary">
+                  <Instagram className="h-3 w-3" /> {socialLabel("instagram", profile.instagram)}
                 </a>
               )}
-              {profile.twitter && (
-                <a href={`https://twitter.com/${profile.twitter.replace("@", "")}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground hover:text-primary">
-                  <TwitterXIcon /> {profile.twitter}
+              {socialUrl("twitter", profile.twitter) && (
+                <a href={socialUrl("twitter", profile.twitter)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground hover:text-primary">
+                  <TwitterXIcon /> {socialLabel("twitter", profile.twitter)}
                 </a>
               )}
-              {profile.tiktok && (
-                <a href={`https://tiktok.com/${profile.tiktok.replace("@", "")}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground hover:text-primary">
-                  <TikTokIcon /> {profile.tiktok}
+              {socialUrl("tiktok", profile.tiktok) && (
+                <a href={socialUrl("tiktok", profile.tiktok)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground hover:text-primary">
+                  <TikTokIcon /> {socialLabel("tiktok", profile.tiktok)}
                 </a>
               )}
-              {profile.linkedin && (
-                <a href={profile.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground hover:text-primary">
+              {socialUrl("linkedin", profile.linkedin) && (
+                <a href={socialUrl("linkedin", profile.linkedin)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground hover:text-primary">
                   <Linkedin className="h-3 w-3" /> LinkedIn
                 </a>
               )}

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { applySeo, absoluteUrl, breadcrumbs, SITE_NAME } from "@/lib/seo";
 import { spacePath } from "@/lib/slugs";
 import { STATUS, effectiveStatus } from "@/lib/profileReadiness";
+import { websiteUrl } from "@/lib/links";
 
 /**
  * SEO for a gallery / museum / venue profile.
@@ -97,7 +98,7 @@ export function useGallerySeoMeta(profile, { isVenue = false } = {}) {
         // Real opening hours are a ranking signal for a physical place and show
         // up directly in a local search panel.
         openingHours: profile.opening_hours || undefined,
-        ...(profile.website ? { sameAs: [profile.website] } : {}),
+        ...(websiteUrl(profile.website) ? { sameAs: [websiteUrl(profile.website)] } : {}),
         address: profile.address
           ? {
               "@type": "PostalAddress",

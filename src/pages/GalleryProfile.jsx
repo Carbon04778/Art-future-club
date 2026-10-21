@@ -4,6 +4,7 @@ import { atLimit, FREE_GALLERY_WORK_LIMIT } from "@/lib/featureLimits";
 import ExpandableText from "@/components/ExpandableText";
 import MyCollection from "@/components/MyCollection";
 import FocalPointPicker from "@/components/FocalPointPicker";
+import ProfilePhotoPicker from "@/components/ProfilePhotoPicker";
 import { isVenueType } from "@/lib/venueTypes";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -27,6 +28,7 @@ import SubmitForReview from "@/components/SubmitForReview";
 import { isModeratedCollectorType } from "@/lib/profileReadiness";
 import { findBySlugOrId, shouldRedirectToSlug, spacePath } from "@/lib/slugs";
 import { absoluteUrl } from "@/lib/seo";
+import { websiteUrl, socialUrl, socialLabel, cleanLinks } from "@/lib/links";
 
 const INTERESTS = ["Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media"];
 const SEEKING = ["Emerging Artists", "Established Artists", "Commissions", "Editions", "Gallery Partnerships"];
@@ -496,8 +498,8 @@ function ProfileHeader({ profile, isOwner, onEdit }) {
               ))}
             </div>
             <div className="mt-6 flex flex-wrap gap-4">
-              {profile.website && <a href={profile.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono-caps text-[11px] text-muted-foreground hover:text-primary"><ExternalLink className="h-3 w-3" /> Website</a>}
-              {profile.instagram && <a href={`https://instagram.com/${profile.instagram.replace(/^@/, "")}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono-caps text-[11px] text-muted-foreground hover:text-primary"><Instagram className="h-3 w-3" /> {profile.instagram}</a>}
+              {websiteUrl(profile.website) && <a href={websiteUrl(profile.website)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono-caps text-[11px] text-muted-foreground hover:text-primary"><ExternalLink className="h-3 w-3" /> Website</a>}
+              {socialUrl("instagram", profile.instagram) && <a href={socialUrl("instagram", profile.instagram)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono-caps text-[11px] text-muted-foreground hover:text-primary"><Instagram className="h-3 w-3" /> {socialLabel("instagram", profile.instagram)}</a>}
             </div>
           </div>
         </div>
@@ -543,7 +545,6 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
   // Preview the chosen file so the focal point can be set before uploading.
   // Created in an effect, not during render — see useFilePreview.
   const coverPreview = useFilePreview(coverFile);
-  const avatarPreview = useFilePreview(avatarFile);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -558,7 +559,8 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
     let cover_image_url = form.cover_image_url;
     if (coverFile) { const r = await base44.integrations.Core.UploadFile({ file: coverFile }); cover_image_url = r.file_url; }
     // Every field in `form` is now a real column, so nothing is stripped here.
-    const payload = form;
+    // Links tidied as typed: "www." gets https://, "@" goes (B13).
+    const payload = cleanLinks(form);
 
     try {
       const updated = await base44.entities.CollectorProfile.update(profile.id, {
@@ -591,17 +593,14 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
 
   return (
     <form onSubmit={submit} className="px-6 md:px-10 pt-10 mx-auto max-w-3xl space-y-10">
-      <div className="flex items-start gap-8">
-        <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full bg-muted flex items-center justify-center">
-          {(form.avatar_url || avatarFile)
-            ? <Image src={avatarPreview || form.avatar_url} alt="Avatar" fittingType="fill" className="h-full w-full object-cover" />
-            : <span className="font-mono-caps text-2xl text-muted-foreground">{form.display_name?.[0]}</span>}
-        </div>
-        <div className="flex-1">
-          <label className="font-mono-caps text-[11px] text-muted-foreground">Profile Photo</label>
-          <input type="file" accept="image/*" className={`${input} mt-2 file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`} onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} />
-        </div>
-      </div>
+      {/* Choose, then drag/zoom to frame it (B14). */}
+      <ProfilePhotoPicker
+        key={form.avatar_url || "none"}
+        currentUrl={form.avatar_url}
+        name={form.display_name}
+        inputClassName={input}
+        onChange={setAvatarFile}
+      />
       <div><label className="font-mono-caps text-[11px] text-muted-foreground">Gallery Name *</label><input className={`${input} mt-2`} value={form.display_name} onChange={(e) => set("display_name", e.target.value)} required /></div>
       <div><label className="font-mono-caps text-[11px] text-muted-foreground">Based In</label><input className={`${input} mt-2`} value={form.based_in} onChange={(e) => set("based_in", e.target.value)} placeholder="City, Country" /></div>
       <div><label className="font-mono-caps text-[11px] text-muted-foreground">Bio / About</label><textarea className={`${input} mt-2 resize-none`} rows={4} value={form.bio} onChange={(e) => set("bio", e.target.value)} /></div>
@@ -645,7 +644,7 @@ function GalleryEditForm({ profile, onSave, onCancel }) {
           ))}
         </div>
       </div>
-      <div><label className="font-mono-caps text-[11px] text-muted-foreground">Website</label><input className={`${input} mt-2`} value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://yourgallery.com" type="url" /></div>
+      <div><label className="font-mono-caps text-[11px] text-muted-foreground">Website</label><input className={`${input} mt-2`} value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="yourgallery.com" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} /></div>
       <div><label className="font-mono-caps text-[11px] text-muted-foreground">Instagram</label><input className={`${input} mt-2`} value={form.instagram} onChange={(e) => set("instagram", e.target.value)} placeholder="@handle" /></div>
       <div><label className="font-mono-caps text-[11px] text-muted-foreground">Facebook</label><input className={`${input} mt-2`} value={form.facebook} onChange={(e) => set("facebook", e.target.value)} placeholder="@page or URL" /></div>
       <div><label className="font-mono-caps text-[11px] text-muted-foreground">LinkedIn</label><input className={`${input} mt-2`} value={form.linkedin} onChange={(e) => set("linkedin", e.target.value)} placeholder="@profile or URL" /></div>

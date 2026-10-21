@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import PlaceMap from "@/components/map/PlaceMap";
 import { MapPin, ExternalLink, Clock, Phone, Mail, Globe, Instagram, Facebook, Linkedin } from "lucide-react";
+import { websiteUrl, websiteLabel, socialUrl, socialLabel } from "@/lib/links";
 
 /**
  * Shows a gallery/museum's address + contact details (location, hours, phone,
@@ -52,23 +53,17 @@ export default function GalleryAddressMap({ profile }) {
     return () => { alive = false; };
   }, [profile?.address, profile?.geo_lat, profile?.geo_lng]);
 
-  const normalizeUrl = (u) => (u && !/^https?:\/\//i.test(u) ? `https://${u}` : u);
-  const socialHandle = (u) => (u || "").replace(/^@/, "");
-  const socialUrl = (u, base) => {
-    const h = socialHandle(u);
-    return /^https?:\/\//i.test(h) ? h : `${base}${h}`;
-  };
-
   const rows = [];
   if (profile?.address) rows.push({ icon: MapPin, label: "Address", value: profile.address, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(profile.address)}`, hrefLabel: "Open in Google Maps" });
   if (profile?.based_in && !profile?.address) rows.push({ icon: MapPin, label: "Location", value: profile.based_in, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(profile.based_in)}`, hrefLabel: "Open in Google Maps" });
   if (profile?.opening_hours) rows.push({ icon: Clock, label: "Hours", value: profile.opening_hours });
   if (profile?.phone) rows.push({ icon: Phone, label: "Phone", value: profile.phone, href: `tel:${profile.phone}` });
   if (profile?.email) rows.push({ icon: Mail, label: "Email", value: profile.email, href: `mailto:${profile.email}` });
-  if (profile?.website) rows.push({ icon: Globe, label: "Website", value: profile.website.replace(/^https?:\/\//, ""), href: normalizeUrl(profile.website), hrefLabel: "Visit site" });
-  if (profile?.instagram) rows.push({ icon: Instagram, label: "Instagram", value: socialHandle(profile.instagram), href: socialUrl(profile.instagram, "https://instagram.com/") });
-  if (profile?.facebook) rows.push({ icon: Facebook, label: "Facebook", value: socialHandle(profile.facebook), href: socialUrl(profile.facebook, "https://facebook.com/") });
-  if (profile?.linkedin) rows.push({ icon: Linkedin, label: "LinkedIn", value: socialHandle(profile.linkedin), href: socialUrl(profile.linkedin, "https://linkedin.com/in/") });
+  // Links read through lib/links (B13) — the same rules as every other page.
+  if (websiteUrl(profile?.website)) rows.push({ icon: Globe, label: "Website", value: websiteLabel(profile.website), href: websiteUrl(profile.website), hrefLabel: "Visit site" });
+  if (socialUrl("instagram", profile?.instagram)) rows.push({ icon: Instagram, label: "Instagram", value: socialLabel("instagram", profile.instagram), href: socialUrl("instagram", profile.instagram) });
+  if (socialUrl("facebook", profile?.facebook)) rows.push({ icon: Facebook, label: "Facebook", value: socialLabel("facebook", profile.facebook), href: socialUrl("facebook", profile.facebook) });
+  if (socialUrl("linkedin", profile?.linkedin)) rows.push({ icon: Linkedin, label: "LinkedIn", value: socialLabel("linkedin", profile.linkedin), href: socialUrl("linkedin", profile.linkedin) });
 
   const hasMap = !!profile?.address || (profile?.geo_lat != null && profile?.geo_lng != null);
   if (!rows.length && !hasMap) return null;

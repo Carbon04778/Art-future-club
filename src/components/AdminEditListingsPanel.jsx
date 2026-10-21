@@ -6,6 +6,7 @@ import { Loader2, Search, Trash2, Pencil, Check, X, Mail, UserCheck, Plus } from
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import { COLLECTOR_TYPES } from "@/lib/venueTypes";
 import { useDataRevision } from "@/lib/dataRevision";
+import { cleanLinks } from "@/lib/links";
 
 const DISCIPLINES = [
   "Painting", "Sculpture", "Photography", "Installation", "Video Art",
@@ -589,7 +590,8 @@ function EditForm({ row, onCancel, onSave, busy }) {
           : {};
 
       onSave(row, {
-        ...common,
+        // Links tidied as typed: "www." gets https://, "@" goes (B13).
+        ...cleanLinks(common),
         ...coverFields,
         ...(portfolio_works ? { portfolio_works } : {}),
         avatar_url,

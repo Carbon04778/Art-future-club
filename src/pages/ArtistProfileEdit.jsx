@@ -3,16 +3,17 @@ import { atLimit, FREE_ARTWORK_LIMIT } from "@/lib/featureLimits";
 import WordLimitedTextarea from "@/components/WordLimitedTextarea";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Image } from "@/components/ui/image";
 import { Plus, Trash2, Loader2, LogOut, X } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
 import CVSection from "@/components/CVSection";
 import ProfileCompletenessScore from "@/components/ProfileCompletenessScore";
 import PortfolioPDFExport from "@/components/PortfolioPDFExport";
 import ImageCropBox from "@/components/ImageCropBox";
+import ProfilePhotoPicker from "@/components/ProfilePhotoPicker";
 import SubmitForReview from "@/components/SubmitForReview";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import { isSold } from "@/lib/workSale";
+import { cleanLinks } from "@/lib/links";
 
 const DISCIPLINES = ["Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Printmaking", "Ceramics", "Sound Art", "Digital Art", "Mixed Media", "Other"];
 const CHAPTERS = CHAPTER_OPTIONS;
@@ -67,7 +68,6 @@ export default function ArtistProfileEdit() {
   const [uploadingIdx, setUploadingIdx] = useState(null);
   const [upgradePrompt, setUpgradePrompt] = useState(false);
 
-  const avatarPreview = avatarFile ? URL.createObjectURL(avatarFile) : null;
 
   /*
    * The checklist reads form.avatar_url and work.image_url, but a picture that
@@ -215,7 +215,8 @@ export default function ArtistProfileEdit() {
         }
       }
 
-      const data = { ...form, avatar_url, portfolio_works, user_id: user?.id };
+      // Links tidied as typed: "www." gets https://, "@" goes (B13).
+      const data = { ...cleanLinks(form), avatar_url, portfolio_works, user_id: user?.id };
 
       if (profileId) {
         const updated = await base44.entities.ArtistProfile.update(profileId, data);
@@ -312,27 +313,15 @@ export default function ArtistProfileEdit() {
           </h1>
         </div>
 
-        {/* avatar */}
-        <div className="flex items-start gap-8">
-          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full bg-muted flex items-center justify-center">
-            {avatarPreview
-              ? <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
-              : form.avatar_url
-                ? <Image src={form.avatar_url} alt="Avatar" fittingType="fill" className="h-full w-full object-cover" />
-                : <span className="font-mono-caps text-2xl text-muted-foreground">{form.display_name?.[0]}</span>
-            }
-          </div>
-          <div className="flex-1">
-            <Field label="Profile Photo">
-              <input
-                type="file"
-                accept="image/*"
-                className={`${input} file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`}
-                onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
-              />
-            </Field>
-          </div>
-        </div>
+        {/* avatar — choose, then drag/zoom to frame it (B14). Keyed on the
+            saved photo so it closes and starts fresh after each save. */}
+        <ProfilePhotoPicker
+          key={form.avatar_url || "none"}
+          currentUrl={form.avatar_url}
+          name={form.display_name}
+          inputClassName={input}
+          onChange={setAvatarFile}
+        />
 
         {/* basics */}
         <div className="space-y-6">
@@ -394,7 +383,7 @@ export default function ArtistProfileEdit() {
         <div className="space-y-6">
           <p className="font-mono-caps text-[11px] text-muted-foreground border-b border-border pb-3">02 — Links</p>
           <Field label="Website">
-            <input className={input} value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://yourstudio.com" type="url" />
+            <input className={input} value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="yourstudio.com" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} />
           </Field>
           <Field label="Instagram Handle">
             <input className={input} value={form.instagram} onChange={(e) => set("instagram", e.target.value)} placeholder="@handle" />
@@ -406,7 +395,7 @@ export default function ArtistProfileEdit() {
             <input className={input} value={form.tiktok} onChange={(e) => set("tiktok", e.target.value)} placeholder="@handle" />
           </Field>
           <Field label="LinkedIn URL">
-            <input className={input} value={form.linkedin} onChange={(e) => set("linkedin", e.target.value)} placeholder="https://linkedin.com/in/…" type="url" />
+            <input className={input} value={form.linkedin} onChange={(e) => set("linkedin", e.target.value)} placeholder="linkedin.com/in/…" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} />
           </Field>
         </div>
 

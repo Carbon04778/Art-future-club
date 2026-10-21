@@ -7,6 +7,7 @@ import { Plus, Loader2, Check, X } from "lucide-react";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import ImageCropBox from "@/components/ImageCropBox";
 import { STATUS } from "@/lib/profileReadiness";
+import { cleanWebsite, cleanSocial } from "@/lib/links";
 
 const DISCIPLINES = [
   "Painting", "Sculpture", "Photography", "Installation", "Video Art",
@@ -191,15 +192,15 @@ export default function AdminCreatePanel({ onCreated }) {
           // Recorded so the real artist can claim this listing when they
           // register with the same address. Creates no account by itself.
           claim_email: form.claim_email.trim().toLowerCase() || null,
-          instagram: form.instagram.trim(),
-          twitter: form.twitter.trim(),
-          linkedin: form.linkedin.trim(),
-          tiktok: form.tiktok.trim(),
+          instagram: cleanSocial("instagram", form.instagram),
+          twitter: cleanSocial("twitter", form.twitter),
+          linkedin: cleanSocial("linkedin", form.linkedin),
+          tiktok: cleanSocial("tiktok", form.tiktok),
           open_to_commissions: openToCommissions,
           discipline: form.discipline,
           chapter: form.chapter,
           based_in: form.based_in.trim(),
-          website: form.website.trim(),
+          website: cleanWebsite(form.website),
           bio: form.bio.trim(),
           portfolio_works,
           cv: {},
@@ -213,13 +214,13 @@ export default function AdminCreatePanel({ onCreated }) {
           avatar_url,
           cover_image_url,
           claim_email: form.claim_email.trim().toLowerCase() || null,
-          instagram: form.instagram.trim(),
-          twitter: form.twitter.trim(),
-          linkedin: form.linkedin.trim(),
+          instagram: cleanSocial("instagram", form.instagram),
+          twitter: cleanSocial("twitter", form.twitter),
+          linkedin: cleanSocial("linkedin", form.linkedin),
           type: form.type,
           based_in: form.based_in.trim(),
           address: form.address.trim(),
-          website: form.website.trim(),
+          website: cleanWebsite(form.website),
           bio: form.bio.trim(),
           space_images: [],
           interests,

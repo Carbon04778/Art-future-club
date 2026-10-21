@@ -9,10 +9,10 @@ import { isModeratedCollectorType } from "@/lib/profileReadiness";
 import SubmitForReview from "@/components/SubmitForReview";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import ImageCropBox from "@/components/ImageCropBox";
+import ProfilePhotoPicker from "@/components/ProfilePhotoPicker";
 import { Loader2 } from "lucide-react";
-import { Image } from "@/components/ui/image";
 import SlimFooter from "@/components/SlimFooter";
+import { cleanLinks } from "@/lib/links";
 
 
 const INTERESTS = ["Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media"];
@@ -34,9 +34,6 @@ export default function CollectorProfilePage() {
   const [profileId, setProfileId] = useState(null);
   const [form, setForm] = useState({ display_name: "", type: "Collector", based_in: "", bio: "", website: "", instagram: "", avatar_url: "", interests: [], seeking: [], budget_range: "" });
   const [avatarFile, setAvatarFile] = useState(null);
-  // The raw file the user picked, before cropping. ImageCropBox turns it into
-  // the square file we actually upload.
-  const [avatarRaw, setAvatarRaw] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [moderation, setModeration] = useState({ status: undefined, review_note: "" });
@@ -73,7 +70,8 @@ export default function CollectorProfilePage() {
     setSaving(true);
     let avatar_url = form.avatar_url;
     if (avatarFile) { const r = await base44.integrations.Core.UploadFile({ file: avatarFile }); avatar_url = r.file_url; }
-    const data = { ...form, avatar_url, user_id: user.id };
+    // Links tidied as typed: "www." gets https://, "@" goes (B13).
+    const data = { ...cleanLinks(form), avatar_url, user_id: user.id };
     if (profileId) {
       const updated = await base44.entities.CollectorProfile.update(profileId, data);
       setModeration({ status: updated?.status, review_note: updated?.review_note || "" });
@@ -87,7 +85,6 @@ export default function CollectorProfilePage() {
     // and the file was kept and re-uploaded on every later save.
     setForm((f) => ({ ...f, avatar_url }));
     setAvatarFile(null);
-    setAvatarRaw(null);
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500);
   };
 
@@ -128,29 +125,16 @@ export default function CollectorProfilePage() {
           />
         )}
 
-        <div className="flex items-start gap-8">
-          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full bg-muted flex items-center justify-center">
-            {form.avatar_url ? <Image src={form.avatar_url} alt="Avatar" fittingType="fill" className="h-full w-full object-cover" /> : <span className="font-mono-caps text-2xl text-muted-foreground">{form.display_name?.[0]}</span>}
-          </div>
-          <div className="flex-1">
-            <Field label="Profile Photo">
-              {avatarRaw ? (
-                <ImageCropBox
-                  file={avatarRaw}
-                  alt={form.display_name || "Profile photo"}
-                  onChange={(cropped) => setAvatarFile(cropped)}
-                />
-              ) : (
-                form.avatar_url && (
-                  <div className="mb-3 aspect-square w-40 overflow-hidden bg-white">
-                    <img src={form.avatar_url} alt="" className="h-full w-full object-cover" />
-                  </div>
-                )
-              )}
-              <input type="file" accept="image/*" className={`${input} file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`} onChange={(e) => { const f = e.target.files?.[0] || null; setAvatarRaw(f); setAvatarFile(f); }} />
-            </Field>
-          </div>
-        </div>
+        {/* The same picker as the artist and gallery forms (B14): the round
+            preview now shows the adjusted photo, and a saved one can be
+            re-adjusted. */}
+        <ProfilePhotoPicker
+          key={form.avatar_url || "none"}
+          currentUrl={form.avatar_url}
+          name={form.display_name}
+          inputClassName={input}
+          onChange={setAvatarFile}
+        />
 
         <div className="space-y-6">
           <p className="font-mono-caps text-[11px] text-muted-foreground border-b border-border pb-3">01 — Identity</p>
@@ -194,7 +178,7 @@ export default function CollectorProfilePage() {
 
         <div className="space-y-6">
           <p className="font-mono-caps text-[11px] text-muted-foreground border-b border-border pb-3">03 — Links</p>
-          <Field label="Website"><input className={input} value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://yourgallery.com" type="url" /></Field>
+          <Field label="Website"><input className={input} value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="yourgallery.com" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} /></Field>
           <Field label="Instagram"><input className={input} value={form.instagram} onChange={(e) => set("instagram", e.target.value)} placeholder="@handle" /></Field>
         </div>
 

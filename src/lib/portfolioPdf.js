@@ -39,6 +39,7 @@
  */
 
 import { isSold, priceLabel, SOLD_LABEL } from "./workSale.js";
+import { websiteUrl, websiteLabel, socialHandle, socialUrl } from "./links.js";
 
 /**
  * WinAnsi is the only encoding the built-in fonts can use.
@@ -279,10 +280,12 @@ export async function buildPortfolioPdf({
   doc.setLineWidth(0.2);
   y += 10;
 
+  // Printed, so written the way people read them: "anna.com", "instagram.com/anna" (B13).
+  const ig = socialHandle("instagram", profile.instagram);
   const links = [
-    profile.website,
-    profile.instagram && `instagram.com/${String(profile.instagram).replace(/^@/, "")}`,
-    profile.linkedin,
+    websiteUrl(profile.website) && websiteLabel(profile.website),
+    ig && `instagram.com/${ig}`,
+    socialUrl("linkedin", profile.linkedin) && websiteLabel(socialUrl("linkedin", profile.linkedin)),
   ].filter(Boolean);
 
   if (links.length) {

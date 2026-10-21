@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
 import { Pencil, ExternalLink, Instagram, MapPin, LogOut } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
+import { websiteUrl, websiteLabel, socialUrl, socialLabel } from "@/lib/links";
 
 export default function CollectorProfileView() {
   const navigate = useNavigate();
@@ -129,18 +130,18 @@ export default function CollectorProfileView() {
         )}
 
         {/* Links */}
-        {(profile.website || profile.instagram) && (
+        {(websiteUrl(profile.website) || socialUrl("instagram", profile.instagram)) && (
           <div className="py-10 space-y-4 border-b border-border">
             <p className="font-mono-caps text-[11px] text-muted-foreground">Links</p>
             <div className="flex flex-col gap-3">
-              {profile.website && (
-                <a href={profile.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-mono-caps text-[11px] text-primary hover:opacity-80">
-                  <ExternalLink className="h-3 w-3" /> {profile.website.replace(/^https?:\/\//, "")}
+              {websiteUrl(profile.website) && (
+                <a href={websiteUrl(profile.website)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-mono-caps text-[11px] text-primary hover:opacity-80">
+                  <ExternalLink className="h-3 w-3" /> {websiteLabel(profile.website)}
                 </a>
               )}
-              {profile.instagram && (
-                <a href={`https://instagram.com/${profile.instagram.replace(/^@/, "")}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-mono-caps text-[11px] text-primary hover:opacity-80">
-                  <Instagram className="h-3 w-3" /> {profile.instagram}
+              {socialUrl("instagram", profile.instagram) && (
+                <a href={socialUrl("instagram", profile.instagram)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-mono-caps text-[11px] text-primary hover:opacity-80">
+                  <Instagram className="h-3 w-3" /> {socialLabel("instagram", profile.instagram)}
                 </a>
               )}
             </div>

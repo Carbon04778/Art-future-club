@@ -69,6 +69,29 @@ const absolute = (v) => {
 };
 
 /*
+ * An outside address as typed on a profile — "www.anna.com", "anna.com",
+ * "https:/anna.com" — made whole, or null for a handle, "n/a", a name. The
+ * browser reads these through src/lib/links.js (B13); this is the same rule
+ * for websites, kept here because this function imports nothing.
+ * verify:links checks the two agree.
+ */
+const outsideUrl = (v) => {
+  let s = String(v || "").trim();
+  if (!s || /\s/.test(s)) return null;
+  s = s.replace(/^(https?)[:/]+/i, (_, p) => `${p.toLowerCase()}://`);
+  if (!/^https?:\/\//i.test(s)) {
+    if (s.includes("@") || !/^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(?=$|[/:?#])/i.test(s)) return null;
+    s = `https://${s}`;
+  }
+  try {
+    const u = new URL(s);
+    return /\./.test(u.hostname) ? u.href : null;
+  } catch {
+    return null;
+  }
+};
+
+/*
  * The image a link preview shows.
  *
  * WhatsApp, Telegram, Signal and iMessage silently drop an og:image much over
@@ -187,7 +210,7 @@ function describe(route, row, path) {
         url: canonical,
         jobTitle: discipline ? `${discipline} Artist` : "Artist",
         homeLocation: where ? { "@type": "Place", name: where } : undefined,
-        sameAs: [row.website, row.instagram, row.twitter, row.linkedin].filter(Boolean),
+        sameAs: [row.website, row.instagram, row.twitter, row.linkedin].map(outsideUrl).filter(Boolean),
         workExample: works.filter((w) => w?.image_url).slice(0, 12).map((w) => ({
           "@type": "VisualArtwork",
           name: w.title || undefined,
@@ -229,7 +252,7 @@ function describe(route, row, path) {
         row.address && ["Address", row.address],
         row.opening_hours && ["Opening hours", row.opening_hours],
         row.phone && ["Telephone", row.phone],
-        row.website && ["Website", row.website],
+        outsideUrl(row.website) && ["Website", outsideUrl(row.website)],
       ].filter(Boolean),
       jsonLd: {
         "@context": "https://schema.org",
@@ -241,7 +264,7 @@ function describe(route, row, path) {
         telephone: row.phone || undefined,
         email: row.email || undefined,
         openingHours: row.opening_hours || undefined,
-        sameAs: row.website ? [row.website] : undefined,
+        sameAs: outsideUrl(row.website) ? [outsideUrl(row.website)] : undefined,
         address: row.address
           ? { "@type": "PostalAddress", streetAddress: row.address, addressLocality: where || undefined }
           : undefined,

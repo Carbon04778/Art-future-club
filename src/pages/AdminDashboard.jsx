@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { artistPath } from "@/lib/slugs";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Users, Star, ShoppingBag, FileText, Trash2, Check, X } from "lucide-react";
+import { Users, Star, ShoppingBag, FileText, Trash2, Check, X, Building2, Landmark, Gem } from "lucide-react";
+import { VENUE_TYPES } from "@/lib/venueTypes";
 import SlimFooter from "@/components/SlimFooter";
 import { Image } from "@/components/ui/image";
 import AdminCreatePanel from "@/components/AdminCreatePanel";
@@ -73,6 +74,32 @@ export default function AdminDashboard() {
         base44.entities.Profile.list("-created_date", 500).catch(() => []),
       ]).then(([a, i, p, oc, s, pr]) => { setArtists(a); setInquiries(i); setPosts(p); setOpenCalls(oc); setSubs(s); setProfiles(pr || []); setLoading(false); });
     }).catch(() => setLoading(false));
+  }, [rev]);
+
+  /*
+   * B12: how many artists, galleries, venues and collectors — exact counts from
+   * the database, each with how many are not yet published. Its own effect, so
+   * a failed count leaves a card at "…" and never touches the rest of the page.
+   */
+  const [counts, setCounts] = useState({});
+  useEffect(() => {
+    let alive = true;
+    const count = async (entity, where) => (await entity.page({ where, limit: 1, columns: "id" })).count;
+    const tally = async (entity, where) => {
+      const [total, published] = await Promise.all([count(entity, where), count(entity, { ...where, status: "approved" })]);
+      return { total, drafts: Math.max(0, total - published) };
+    };
+    base44.auth.me().then(async (u) => {
+      if (u.role !== "admin") return;
+      const [artists, galleries, venues, collectors] = await Promise.all([
+        tally(base44.entities.ArtistProfile, {}),
+        tally(base44.entities.CollectorProfile, { type: "Gallery" }),
+        tally(base44.entities.CollectorProfile, { type: { $in: VENUE_TYPES } }),
+        tally(base44.entities.CollectorProfile, { type: "Collector" }),
+      ]);
+      if (alive) setCounts({ artists, galleries, venues, collectors });
+    }).catch(() => {});
+    return () => { alive = false; };
   }, [rev]);
 
   /*
@@ -159,21 +186,29 @@ export default function AdminDashboard() {
 
       <div className="px-6 py-12 md:px-10 max-w-7xl mx-auto">
         <h1 className="font-heading text-5xl font-medium tracking-[-0.02em] mb-8">Admin</h1>
-        <p className="font-mono-caps text-[11px] text-muted-foreground mb-8">{artists.length} artists</p>
+        <p className="font-mono-caps text-[11px] text-muted-foreground mb-8">{counts.artists?.total ?? artists.length} artists</p>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-5 mb-10">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 mb-10">
+          {/* B12: exact counts from the database (the artist list is capped at
+              200, so its length would stop counting there). */}
           {[
-            { label: "Artists", value: artists.length, icon: Users },
+            { label: "Artists", value: counts.artists?.total ?? artists.length, drafts: counts.artists?.drafts, icon: Users },
+            { label: "Galleries", value: counts.galleries?.total ?? "…", drafts: counts.galleries?.drafts, icon: Building2 },
+            { label: "Venues", value: counts.venues?.total ?? "…", drafts: counts.venues?.drafts, icon: Landmark },
+            { label: "Collectors", value: counts.collectors?.total ?? "…", drafts: counts.collectors?.drafts, icon: Gem },
             { label: "Inquiries", value: inquiries.filter((i) => i.status === "new").length, icon: ShoppingBag, suffix: " new" },
             { label: "Forum Posts", value: posts.length, icon: FileText },
             { label: "Open Calls", value: openCalls.length, icon: FileText },
             { label: "Subscriptions", value: subs.filter((s) => s.status === "active").length, icon: Star, suffix: " active" },
-          ].map(({ label, value, icon: Icon, suffix }) => (
+          ].map(({ label, value, icon: Icon, suffix, drafts }) => (
             <div key={label} className="border border-border p-4">
               <Icon className="h-4 w-4 text-muted-foreground mb-2" />
               <p className="font-heading text-3xl">{value}{suffix}</p>
               <p className="font-mono-caps text-[10px] text-muted-foreground">{label}</p>
+              {drafts > 0 && (
+                <p className="mt-1 font-mono-caps text-[9px] text-muted-foreground/80">{drafts} not published</p>
+              )}
             </div>
           ))}
         </div>

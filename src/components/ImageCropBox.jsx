@@ -14,8 +14,11 @@ const OUTPUT_WIDTH = 1600; // rendered width of the cropped file, in pixels
  *  - aspect: output width / height. Defaults to 1 (square) so every existing
  *          caller is unaffected. Editorial passes 16/9 and 4/3, because a
  *          square crop would have its sides cut off again when displayed wide.
+ *  - round: draw the circle a profile photo is shown in, so people can see
+ *          what will be visible (B14). Display only — the file is still the
+ *          full square.
  */
-export default function ImageCropBox({ file, src, alt, onChange, aspect = 1 }) {
+export default function ImageCropBox({ file, src, alt, onChange, aspect = 1, round = false }) {
   // Output dimensions follow the requested ratio.
   const OUT_W = OUTPUT_WIDTH;
   const OUT_H = Math.round(OUTPUT_WIDTH / (aspect || 1));
@@ -144,6 +147,13 @@ export default function ImageCropBox({ file, src, alt, onChange, aspect = 1 }) {
           <img src={src} alt={alt || "Work"} className="absolute inset-0 h-full w-full object-contain" />
         ) : (
           <div className="flex items-center justify-center h-full text-sm text-muted-foreground font-mono-caps">No image</div>
+        )}
+        {round && img && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/80"
+            style={{ boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)" }}
+          />
         )}
         {img && (
           <span className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 text-white px-2 py-1 font-mono-caps text-[10px]">

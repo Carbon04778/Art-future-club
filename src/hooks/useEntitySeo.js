@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { applySeo, absoluteUrl, breadcrumbs, SITE_NAME } from "@/lib/seo";
 import { artistPath, eventPath } from "@/lib/slugs";
 import { STATUS, effectiveStatus } from "@/lib/profileReadiness";
+import { websiteUrl, socialUrl } from "@/lib/links";
 
 /** Append a JSON-LD block and hand back the function that removes it. */
 function addJsonLd(data) {
@@ -79,12 +80,13 @@ export function useArtistSeo(profile) {
         url: absoluteUrl(artistPath(profile)),
         jobTitle: discipline ? `${discipline} Artist` : "Artist",
         homeLocation: where ? { "@type": "Place", name: where } : undefined,
+        // Full addresses only — a bare handle is not a valid sameAs (B13).
         sameAs: [
-          profile.website,
-          profile.instagram,
-          profile.twitter,
-          profile.linkedin,
-          profile.tiktok,
+          websiteUrl(profile.website),
+          socialUrl("instagram", profile.instagram),
+          socialUrl("twitter", profile.twitter),
+          socialUrl("linkedin", profile.linkedin),
+          socialUrl("tiktok", profile.tiktok),
         ].filter(Boolean),
         /*
          * The portfolio as VisualArtwork entries, capped at twelve so the tag
