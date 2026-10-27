@@ -11,6 +11,7 @@ import { hasGoogleMaps, googleAuthFailed } from "@/lib/googleMaps";
 import { useDataRevision } from "@/lib/dataRevision";
 import GoogleSpacesSurface from "@/components/map/GoogleSpacesSurface";
 import LeafletSpacesSurface from "@/components/map/LeafletSpacesSurface";
+import { disciplineLabel } from "@/lib/disciplines";
 
 /**
  * Every gallery and venue, pinned where it actually is.
@@ -143,7 +144,7 @@ function DirectionsLink({ row, here, onLocated }) {
  * listings above: the old artist map read only the newest 200 and would have
  * dropped everyone after that without a word.
  */
-const ARTIST_COLUMNS = "id,display_name,discipline,chapter,slug,avatar_url";
+const ARTIST_COLUMNS = "id,display_name,discipline,disciplines,chapter,slug,avatar_url";
 
 /** An artist-group pin: the city, how many, and every artist as a link. */
 function ArtistGroupPopup({ row }) {
@@ -281,7 +282,7 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
   const artistGroups = useMemo(() => {
     const q = query.trim().toLowerCase();
     const hits = q
-      ? artists.filter((a) => `${a.display_name} ${a.discipline || ""} ${a.chapter || ""}`.toLowerCase().includes(q))
+      ? artists.filter((a) => `${a.display_name} ${disciplineLabel(a, " ")} ${a.chapter || ""}`.toLowerCase().includes(q))
       : artists;
     return groupArtistsByCity(hits);
   }, [artists, query]);

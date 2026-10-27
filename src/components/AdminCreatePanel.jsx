@@ -8,6 +8,8 @@ import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import ImageCropBox from "@/components/ImageCropBox";
 import { STATUS } from "@/lib/profileReadiness";
 import { cleanWebsite, cleanSocial } from "@/lib/links";
+import DisciplinePicker from "@/components/DisciplinePicker";
+import { disciplineFields } from "@/lib/disciplines";
 
 const DISCIPLINES = [
   "Painting", "Sculpture", "Photography", "Installation", "Video Art",
@@ -77,6 +79,7 @@ export default function AdminCreatePanel({ onCreated }) {
     display_name: "",
     type: "Gallery",
     discipline: "Painting",
+    disciplines: ["Painting"],
     chapter: CHAPTER_OPTIONS[0],
     based_in: CHAPTER_OPTIONS[0],
     claim_email: "",
@@ -197,7 +200,7 @@ export default function AdminCreatePanel({ onCreated }) {
           linkedin: cleanSocial("linkedin", form.linkedin),
           tiktok: cleanSocial("tiktok", form.tiktok),
           open_to_commissions: openToCommissions,
-          discipline: form.discipline,
+          ...disciplineFields(form.disciplines),
           chapter: form.chapter,
           based_in: form.based_in.trim(),
           website: cleanWebsite(form.website),
@@ -305,10 +308,10 @@ export default function AdminCreatePanel({ onCreated }) {
         {kind === "Artist" ? (
           <>
             <div>
-              <label className="font-mono-caps text-[11px] text-muted-foreground">Discipline</label>
-              <select className={`${field} mt-2`} value={form.discipline} onChange={(e) => set("discipline", e.target.value)}>
-                {DISCIPLINES.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
+              <label className="font-mono-caps text-[11px] text-muted-foreground">Disciplines — the starred one is the main one</label>
+              <div className="mt-2">
+                <DisciplinePicker size="sm" value={form.disciplines} onChange={(list) => setForm((f) => ({ ...f, ...disciplineFields(list) }))} />
+              </div>
             </div>
             <div>
               <label className="font-mono-caps text-[11px] text-muted-foreground">Chapter</label>

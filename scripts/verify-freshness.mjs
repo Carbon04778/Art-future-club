@@ -194,7 +194,8 @@ check("the home page chapter list asks only for the event columns it renders",
   /"id,title,venue,chapter,start_date,slug"/.test(read("../src/components/CityChapters.jsx")));
 check("the venues page names its columns", /id,display_name,type,based_in/.test(read("../src/pages/Venues.jsx")));
 check("the artists directory names its columns",
-  /id,display_name,discipline,based_in/.test(read("../src/pages/ArtistsDirectory.jsx")));
+  // A3 added `disciplines` (the full list) after the main discipline.
+  /id,display_name,discipline,(disciplines,)?based_in/.test(read("../src/pages/ArtistsDirectory.jsx")));
 
 /*
  * Anything rendering UnpublishedBadge must request `status`, or the badge

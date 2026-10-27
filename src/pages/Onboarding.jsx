@@ -5,9 +5,10 @@ import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Loader2, ChevronRight } from "lucide-react";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
+import DisciplinePicker from "@/components/DisciplinePicker";
+import { disciplineFields } from "@/lib/disciplines";
 
 const STEPS = ["Welcome", "Your Role", "Your Profile", "Done"];
-const DISCIPLINES = ["Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Printmaking", "Ceramics", "Sound Art", "Digital Art", "Mixed Media", "Other"];
 const CHAPTERS = CHAPTER_OPTIONS;
 
 export default function Onboarding() {
@@ -15,7 +16,7 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null); // "artist" | "collector" | "gallery"
-  const [form, setForm] = useState({ display_name: "", discipline: "", chapter: "", based_in: "", bio: "" });
+  const [form, setForm] = useState({ display_name: "", discipline: "", disciplines: [], chapter: "", based_in: "", bio: "" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -168,11 +169,11 @@ export default function Onboarding() {
               {role === "artist" && (
                 <>
                   <div>
-                    <label className="font-mono-caps text-[11px] text-muted-foreground">Primary Discipline</label>
-                    <select className="w-full border border-border bg-background px-4 py-3 text-base outline-none mt-2" value={form.discipline} onChange={(e) => set("discipline", e.target.value)}>
-                      <option value="">Select…</option>
-                      {DISCIPLINES.map((d) => <option key={d}>{d}</option>)}
-                    </select>
+                    {/* As many as apply; the first ticked is the main one (A3). */}
+                    <label className="font-mono-caps text-[11px] text-muted-foreground">Disciplines — tick all that apply</label>
+                    <div className="mt-2">
+                      <DisciplinePicker value={form.disciplines} onChange={(list) => setForm((f) => ({ ...f, ...disciplineFields(list) }))} />
+                    </div>
                   </div>
                   <div>
                     <label className="font-mono-caps text-[11px] text-muted-foreground">AFC Chapter</label>

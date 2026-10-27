@@ -33,6 +33,7 @@ import { absoluteUrl } from "@/lib/seo";
 import { isSold, isForSale, SOLD_LABEL } from "@/lib/workSale";
 import { useArtistSeo } from "@/hooks/useEntitySeo";
 import { websiteUrl, socialUrl, socialLabel } from "@/lib/links";
+import { disciplineLabel } from "@/lib/disciplines";
 
 export default function ArtistProfileView() {
   const { id } = useParams();
@@ -214,7 +215,8 @@ export default function ArtistProfileView() {
               {profile.display_name}
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-4">
-              <span className="font-mono-caps text-[13px] text-primary">{profile.discipline}</span>
+              {/* Main discipline first, then the rest (A3). */}
+              <span className="font-mono-caps text-[13px] text-primary" data-testid="artist-disciplines">{disciplineLabel(profile)}</span>
               {profile.based_in && <span className="font-mono-caps text-[11px] text-muted-foreground">{profile.based_in}</span>}
               {profile.chapter && <span className="font-mono-caps text-[11px] text-muted-foreground">AFC {profile.chapter}</span>}
               {(ownerRole === "editor" || ownerRole === "admin") && (

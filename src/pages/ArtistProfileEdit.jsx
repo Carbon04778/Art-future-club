@@ -14,8 +14,9 @@ import SubmitForReview from "@/components/SubmitForReview";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import { isSold } from "@/lib/workSale";
 import { cleanLinks } from "@/lib/links";
+import { disciplinesOf, disciplineFields } from "@/lib/disciplines";
+import DisciplinePicker from "@/components/DisciplinePicker";
 
-const DISCIPLINES = ["Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Printmaking", "Ceramics", "Sound Art", "Digital Art", "Mixed Media", "Other"];
 const CHAPTERS = CHAPTER_OPTIONS;
 const SEEKING_OPTIONS = ["Exhibition Opportunities", "Collectors", "Collaborators", "Residencies", "Representation", "Press"];
 
@@ -53,7 +54,7 @@ export default function ArtistProfileEdit() {
   const [user, setUser] = useState(null);
   const [profileId, setProfileId] = useState(null);
   const [form, setForm] = useState({
-    display_name: "", discipline: "", based_in: "", chapter: "", bio: "",
+    display_name: "", discipline: "", disciplines: [], based_in: "", chapter: "", bio: "",
     website: "", instagram: "", twitter: "", tiktok: "", linkedin: "",
     avatar_url: "", portfolio_works: [], seeking: [], open_to_commissions: false, cv: { statement: "", exhibitions: [], education: [], awards: [] },
   });
@@ -108,6 +109,7 @@ export default function ArtistProfileEdit() {
           setForm({
             display_name: p.display_name || "",
             discipline: p.discipline || "",
+            disciplines: disciplinesOf(p),
             based_in: p.based_in || "",
             chapter: p.chapter || "",
             bio: p.bio || "",
@@ -329,13 +331,11 @@ export default function ArtistProfileEdit() {
           <Field label="Display Name *">
             <input className={input} value={form.display_name} onChange={(e) => set("display_name", e.target.value)} required placeholder="Your name or studio name" />
           </Field>
+          {/* As many as apply; the starred one is the main discipline (A3). */}
+          <Field label="Disciplines * — tick all that apply">
+            <DisciplinePicker required value={form.disciplines} onChange={(list) => setForm((f) => ({ ...f, ...disciplineFields(list) }))} />
+          </Field>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <Field label="Discipline *">
-              <select className={select} value={form.discipline} onChange={(e) => set("discipline", e.target.value)} required>
-                <option value="">Select…</option>
-                {DISCIPLINES.map((d) => <option key={d}>{d}</option>)}
-              </select>
-            </Field>
             <Field label="Based In">
               <input className={input} value={form.based_in} onChange={(e) => set("based_in", e.target.value)} placeholder="City, Country" />
             </Field>

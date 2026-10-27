@@ -7,6 +7,8 @@ import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import { COLLECTOR_TYPES } from "@/lib/venueTypes";
 import { useDataRevision } from "@/lib/dataRevision";
 import { cleanLinks } from "@/lib/links";
+import DisciplinePicker from "@/components/DisciplinePicker";
+import { disciplinesOf, disciplineFields } from "@/lib/disciplines";
 
 const DISCIPLINES = [
   "Painting", "Sculpture", "Photography", "Installation", "Video Art",
@@ -517,7 +519,7 @@ function EditForm({ row, onCancel, onSave, busy }) {
     bio: row.bio || "",
     instagram: row.instagram || "",
     ...(row._kind === "artist"
-      ? { discipline: row.discipline || DISCIPLINES[0], chapter: row.chapter || CHAPTER_OPTIONS[0] }
+      ? { ...disciplineFields(disciplinesOf(row).length ? disciplinesOf(row) : [DISCIPLINES[0]]), chapter: row.chapter || CHAPTER_OPTIONS[0] }
       : {
           type: row.type || "Gallery",
           address: row.address || "",
@@ -709,10 +711,10 @@ function EditForm({ row, onCancel, onSave, busy }) {
         {row._kind === "artist" ? (
           <>
             <div>
-              <label className="font-mono-caps text-[10px] text-muted-foreground">Discipline</label>
-              <select className={`${field} mt-1`} value={form.discipline} onChange={(e) => set("discipline", e.target.value)}>
-                {DISCIPLINES.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
+              <label className="font-mono-caps text-[10px] text-muted-foreground">Disciplines — the starred one is the main one</label>
+              <div className="mt-1">
+                <DisciplinePicker size="sm" value={form.disciplines} onChange={(list) => setForm((f) => ({ ...f, ...disciplineFields(list) }))} />
+              </div>
             </div>
             <div>
               <label className="font-mono-caps text-[10px] text-muted-foreground">Chapter</label>

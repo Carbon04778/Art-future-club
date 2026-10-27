@@ -11,8 +11,11 @@ import { chapterFilterOptions } from "@/lib/chaptersData";
 import { useDataRevision } from "@/lib/dataRevision";
 import { useProgressiveList, staggerDelay } from "@/hooks/useProgressiveList";
 import { isForSale } from "@/lib/workSale";
+import { DISCIPLINES as ALL_DISCIPLINES, hasDiscipline, disciplineLabel } from "@/lib/disciplines";
 
-const DISCIPLINES = ["All", "Painting", "Sculpture", "Photography", "Installation", "Video Art", "Performance", "Drawing", "Ceramics", "Sound Art", "Digital Art", "Mixed Media", "Other"];
+// The same list as the profile form. This copy had lost Printmaking, so an
+// artist who chose it could never be found by the filter.
+const DISCIPLINES = ["All", ...ALL_DISCIPLINES];
 const CHAPTERS = chapterFilterOptions("All Chapters");
 const SEEKING_OPTIONS = ["Exhibition Opportunities", "Collectors", "Collaborators", "Residencies", "Representation", "Press"];
 
@@ -41,12 +44,13 @@ export default function ArtistsDirectory() {
     base44.entities.ArtistProfile.list(
       "-created_date",
       200,
-      "id,display_name,discipline,based_in,chapter,bio,avatar_url,is_premium,is_featured,seeking,portfolio_works,status,slug"
+      "id,display_name,discipline,disciplines,based_in,chapter,bio,avatar_url,is_premium,is_featured,seeking,portfolio_works,status,slug"
     ).then(setArtists);
   }, [rev]);
 
   const filtered = artists.filter((a) => {
-    if (filter !== "All" && a.discipline !== filter) return false;
+    // Any of the artist's disciplines, not only the main one (A3).
+    if (filter !== "All" && !hasDiscipline(a, filter)) return false;
     // Matched on chapter OR based_in, the same rule the chapter page uses.
     // Testing a.chapter alone meant "All Hong Kong artists" led to a shorter
     // list than the chapter page it came from.
@@ -60,7 +64,7 @@ export default function ArtistsDirectory() {
     if (forSaleOnly && !a.portfolio_works?.some(isForSale)) return false;
     if (search) {
       const q = search.toLowerCase();
-      if (!a.display_name?.toLowerCase().includes(q) && !a.discipline?.toLowerCase().includes(q) && !a.based_in?.toLowerCase().includes(q)) return false;
+      if (!a.display_name?.toLowerCase().includes(q) && !disciplineLabel(a).toLowerCase().includes(q) && !a.based_in?.toLowerCase().includes(q)) return false;
     }
     return true;
   });
@@ -175,7 +179,7 @@ export default function ArtistsDirectory() {
                 <div className="mt-3 flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <p className="font-mono-caps text-[10px] text-primary">{a.discipline}</p>
+                      <p className="font-mono-caps text-[10px] text-primary">{disciplineLabel(a)}</p>
                       {/* Only ever visible on your OWN pending profile — RLS
                           hides everyone else's from this list entirely. */}
                       <UnpublishedBadge profile={a} />
