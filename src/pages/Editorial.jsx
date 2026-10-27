@@ -80,8 +80,21 @@ export default function Editorial() {
     return list;
   }, [articles, filter, query]);
 
-  const featured = filtered.filter((a) => a.featured);
-  const rest = filtered.filter((a) => !a.featured);
+  /*
+   * The newest article leads the page, large (A4 in docs/CLIENT-REQUESTS.md).
+   * Julie: "The newest article should always be first then featured can
+   * follow", and "Only on the main page" — so not while a category or a
+   * search narrows the list. It is the newest LIVE article: an editor's draft
+   * or scheduled piece never takes the spot, so editors see the same lead
+   * as visitors.
+   */
+  const isMain = filter === "All" && !query.trim();
+  const now = new Date();
+  const lead = isMain
+    ? filtered.find((a) => a.published && (!a.publish_date || new Date(a.publish_date) <= now))
+    : null;
+  const featured = filtered.filter((a) => a.featured && a !== lead);
+  const rest = filtered.filter((a) => !a.featured && a !== lead);
 
   const href = (a) => `/editorial/${a.slug || a.id}`;
   const chips = (a) => [...(a.categories || []), ...(a.tags || [])];
@@ -116,10 +129,10 @@ export default function Editorial() {
           </div>
         </div>
 
-        {/* Featured */}
-        {featured.map((article) => (
+        {/* Newest, then featured — both large */}
+        {[lead, ...featured].filter(Boolean).map((article) => (
           <motion.div key={article.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="mt-16 group">
+            className="mt-16 group" data-testid={article === lead ? "editorial-lead" : "editorial-featured"}>
             <Link to={href(article)}>
               {article.cover_image_url && (
                 <Image src={article.cover_image_url} alt={article.cover_image_alt || article.title} fittingType="fill" className="aspect-[16/7] w-full" />
@@ -141,9 +154,15 @@ export default function Editorial() {
                       ))}
                     </div>
                   )}
+                  <span className="mt-4 inline-block font-mono-caps text-[11px] text-primary border-b border-primary pb-0.5 group-hover:opacity-80">
+                    Continue reading →
+                  </span>
                 </div>
                 <div className="text-right">
                   <p className="font-mono-caps text-[11px] text-muted-foreground">{article.author_name}</p>
+                  {(article.publish_date || article.created_date) && (
+                    <p className="font-mono-caps text-[11px] text-muted-foreground">{format(new Date(article.publish_date || article.created_date), "d MMM yyyy")}</p>
+                  )}
                   {article.reading_time_mins && <p className="font-mono-caps text-[11px] text-muted-foreground">{article.reading_time_mins} min read</p>}
                 </div>
               </div>
