@@ -128,6 +128,30 @@ USER = { id: "u1", role: "editor" };
 }
 USER = null;
 
+// ---- 4b. an editor's FEATURED draft is not a second large card (found 2026-10-28:
+// a featured draft copy of the newest article showed large, right under it)
+ARTICLES = [
+  art("pub", { publish_date: day(1) }),
+  art("featdraft", { published: false, featured: true, publish_date: day(2) }),
+  art("featlater", { featured: true, publish_date: new Date(Date.now() + 5 * 864e5).toISOString() }),
+  art("older", { publish_date: day(9) }),
+];
+USER = { id: "u1", role: "admin" };
+{
+  const p = await page();
+  const bigCards = c.querySelectorAll('[data-testid="editorial-lead"], [data-testid="editorial-featured"]').length;
+  check("admin: exactly ONE large card when nothing live is featured", bigCards === 1 && p.lead.join() === "Title pub", `${bigCards} large: ${p.lead.join()} | ${p.featured.join()}`);
+  check("admin: the featured draft and featured scheduled piece sit in the grid", p.grid.includes("Title featdraft") && p.grid.includes("Title featlater"), p.grid.join());
+  check("admin: nothing appears twice", new Set([...p.lead, ...p.featured, ...p.grid]).size === p.lead.length + p.featured.length + p.grid.length);
+  p.root.unmount();
+}
+USER = null;
+{
+  const p = await page();
+  check("visitor: one large card, no drafts at all", p.lead.join() === "Title pub" && p.featured.length === 0 && !p.grid.includes("Title featdraft"), JSON.stringify({ l: p.lead, f: p.featured, g: p.grid }));
+  p.root.unmount();
+}
+
 // ---- 5. no articles
 ARTICLES = [];
 {

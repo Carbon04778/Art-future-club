@@ -90,11 +90,16 @@ export default function Editorial() {
    */
   const isMain = filter === "All" && !query.trim();
   const now = new Date();
-  const lead = isMain
-    ? filtered.find((a) => a.published && (!a.publish_date || new Date(a.publish_date) <= now))
-    : null;
-  const featured = filtered.filter((a) => a.featured && a !== lead);
-  const rest = filtered.filter((a) => !a.featured && a !== lead);
+  const isLive = (a) => a.published && (!a.publish_date || new Date(a.publish_date) <= now);
+  const lead = isMain ? filtered.find(isLive) : null;
+  /*
+   * Only LIVE articles get a large card. A draft marked "featured" was shown
+   * large to admins and editors, right under the lead — the same article
+   * twice, one of them a draft (found 2026-10-28). Drafts and scheduled
+   * pieces stay in the grid with their Draft label, featured or not.
+   */
+  const featured = filtered.filter((a) => a.featured && isLive(a) && a !== lead);
+  const rest = filtered.filter((a) => a !== lead && !featured.includes(a));
 
   const href = (a) => `/editorial/${a.slug || a.id}`;
   const chips = (a) => [...(a.categories || []), ...(a.tags || [])];
