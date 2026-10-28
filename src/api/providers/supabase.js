@@ -408,6 +408,27 @@ export const auth = {
     return (data || []).map((r) => r.claimed).filter(Boolean);
   },
 
+  /**
+   * May the current visitor see Open Calls, and post one? (B9)
+   *
+   * Asked of the database (migration 026) rather than worked out here, so
+   * the page and the read policy can never disagree about who is premium.
+   * Any failure answers "no": a locked page is the safe way to be wrong.
+   * `failed` tells the page it was a failure, not a "no", so it can offer
+   * to try again rather than tell a paying member to upgrade.
+   */
+  async openCallAccess() {
+    let data, error;
+    try {
+      ({ data, error } = await client().rpc("open_call_access"));
+    } catch (e) {
+      error = e;
+    }
+    if (error) return { can_view: false, can_post: false, failed: true };
+    const row = Array.isArray(data) ? data[0] : data;
+    return { can_view: !!row?.can_view, can_post: !!row?.can_post };
+  },
+
   onAuthStateChange(callback) {
     return client().auth.onAuthStateChange((event) => callback(event));
   },

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { isLocked } from "@/lib/featureLimits";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Plus, ExternalLink, X, Loader2, Calendar, MapPin } from "lucide-react";
+import { Plus, ExternalLink, X, Loader2, Calendar, MapPin, Lock } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
 import { format, isPast } from "date-fns";
 
@@ -13,16 +12,33 @@ export default function OpenCalls() {
   const [filter, setFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
   const [user, setUser] = useState(null);
-  const [isPaidMember, setIsPaidMember] = useState(false);
+  // null while checking. Premium members only (B9): Julie — "Open Calls is
+  // only open to view by premium users"; galleries "need to be paid/partner
+  // to post". The database enforces the same rule (migration 026), so a
+  // non-premium visitor cannot read the list from the API either.
+  const [access, setAccess] = useState(null);
+  // A failed load is said as such — never "no opportunities" or "upgrade",
+  // which would be wrong for a paying member on a bad connection.
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  const loadCalls = () => {
+    setLoadFailed(false);
+    return base44.entities.OpenCall.list("-created_date", 100).then(setCalls).catch(() => setLoadFailed(true));
+  };
+
+  const check = () => {
+    setAccess(null);
+    base44.auth.openCallAccess()
+      .then((a) => {
+        setAccess(a);
+        if (a.can_view) loadCalls();
+      })
+      .catch(() => setAccess({ can_view: false, can_post: false, failed: true }));
+  };
 
   useEffect(() => {
-    base44.entities.OpenCall.list("-created_date", 100).then(setCalls);
-    base44.auth.me().then((u) => {
-      setUser(u);
-      base44.entities.Subscription.filter({ user_id: u.id, status: "active" }).then((subs) => {
-        setIsPaidMember(Array.isArray(subs) && subs.length > 0);
-      }).catch(() => setIsPaidMember(false));
-    }).catch(() => {});
+    base44.auth.me().then(setUser).catch(() => setUser(null));
+    check();
   }, []);
 
   const filtered = filter === "All" ? calls : calls.filter((c) => c.type === filter);
@@ -31,7 +47,7 @@ export default function OpenCalls() {
 
   return (
     <>
-      {user?.role === "admin" && (
+      {access?.can_post && (
         <div className="flex justify-end px-6 py-3 md:px-10 border-b border-border">
           <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 bg-primary px-4 py-2 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">
             <Plus className="h-3 w-3" /> Post Opportunity
@@ -44,6 +60,15 @@ export default function OpenCalls() {
         <h1 className="mt-3 font-heading text-5xl font-medium tracking-[-0.02em] md:text-7xl">Open Calls</h1>
         <p className="mt-4 text-lg text-muted-foreground"><span className="text-primary">Residencies</span>, <span className="text-accent">grants</span>, <span className="text-highlight">fellowships</span> and calls for submissions.</p>
 
+        {access === null && (
+          <div className="mt-16 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        )}
+
+        {access?.failed && <TryAgain onRetry={check} />}
+
+        {access && !access.can_view && !access.failed && <UpgradeToView signedIn={!!user} />}
+
+        {access?.can_view && (<>
         <div className="mt-10 flex flex-wrap gap-2">
           {TYPES.map((t) => (
             <button key={t} onClick={() => setFilter(t)}
@@ -53,20 +78,23 @@ export default function OpenCalls() {
           ))}
         </div>
 
+        {loadFailed && <TryAgain onRetry={loadCalls} />}
+
         <div className="mt-12 space-y-4">
-          {active.length === 0 && expired.length === 0 && (
+          {!loadFailed && active.length === 0 && expired.length === 0 && (
             <div className="py-16 text-center border border-border">
               <p className="font-mono-caps text-[11px] text-muted-foreground">No opportunities posted yet.</p>
             </div>
           )}
-          {active.map((c) => <CallCard key={c.id} call={c} isPaidMember={isPaidMember} />)}
+          {active.map((c) => <CallCard key={c.id} call={c} />)}
           {expired.length > 0 && (
             <>
               <p className="font-mono-caps text-[11px] text-muted-foreground pt-8 pb-2">Past Deadlines</p>
-              {expired.map((c) => <CallCard key={c.id} call={c} expired isPaidMember={isPaidMember} />)}
+              {expired.map((c) => <CallCard key={c.id} call={c} expired />)}
             </>
           )}
         </div>
+        </>)}
       </div>
 
       <SlimFooter />
@@ -75,15 +103,47 @@ export default function OpenCalls() {
         <OpenCallForm
           user={user}
           onClose={() => setShowForm(false)}
-          onCreated={() => { setShowForm(false); base44.entities.OpenCall.list("-created_date", 100).then(setCalls); }}
+          onCreated={() => { setShowForm(false); loadCalls(); }}
         />
       )}
     </>
   );
 }
 
-function CallCard({ call, expired, isPaidMember }) {
-  const [showUpgrade, setShowUpgrade] = useState(false);
+/**
+ * What a visitor without premium sees instead of the list (B9).
+ * Julie: "it will just say 'Upgrade to view' and maybe a prompt button to
+ * click on to upgrade." Signed-out visitors are offered sign-in as well, in
+ * case they are already members.
+ */
+function UpgradeToView({ signedIn }) {
+  return (
+    <div className="mt-12 border border-border px-6 py-16 text-center" data-testid="open-calls-locked">
+      <Lock className="mx-auto h-5 w-5 text-primary" />
+      <h2 className="mt-4 font-heading text-3xl tracking-[-0.02em] md:text-4xl">Upgrade to view</h2>
+      <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground leading-relaxed">
+        Open calls — residencies, grants, fellowships and calls for submissions — are for premium members.
+      </p>
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+        <Link to="/upgrade" className="bg-primary px-6 py-3 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">Upgrade Membership ↑</Link>
+        {!signedIn && (
+          <Link to="/login" className="font-mono-caps text-[11px] text-muted-foreground underline hover:text-foreground">Already a member? Sign in</Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TryAgain({ onRetry }) {
+  return (
+    <div className="mt-12 border border-border px-6 py-12 text-center" data-testid="open-calls-failed" role="alert">
+      <p className="font-mono-caps text-[11px] text-muted-foreground">Couldn't load open calls. Check your connection.</p>
+      <button type="button" onClick={onRetry} className="mt-4 font-mono-caps text-[11px] text-primary underline hover:opacity-80">Try again</button>
+    </div>
+  );
+}
+
+function CallCard({ call, expired }) {
   return (
     <div className={`border border-border p-6 ${expired ? "opacity-50" : ""}`}>
       <div className="flex items-start justify-between gap-4">
@@ -114,33 +174,14 @@ function CallCard({ call, expired, isPaidMember }) {
         </div>
         {call.external_link && (
           <a
-            href={isLocked(isPaidMember) ? undefined : call.external_link}
+            href={call.external_link}
             target="_blank" rel="noreferrer"
-            className="shrink-0 flex items-center gap-1.5 border border-border px-4 py-2 font-mono-caps text-[11px] text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-            onClick={(e) => { e.stopPropagation(); if (isLocked(isPaidMember)) { e.preventDefault(); setShowUpgrade(true); } }}>
+            className="shrink-0 flex items-center gap-1.5 border border-border px-4 py-2 font-mono-caps text-[11px] text-muted-foreground hover:border-primary hover:text-primary transition-colors">
             <ExternalLink className="h-3 w-3" /> Apply
           </a>
         )}
       </div>
 
-      {showUpgrade && (
-        <div className="fixed inset-0 z-[70] bg-background/90 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setShowUpgrade(false)}>
-          <div className="bg-card border border-border w-full max-w-md p-8" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <span className="font-mono-caps text-[11px] text-primary">Membership Required</span>
-              <button onClick={() => setShowUpgrade(false)}><X className="h-4 w-4 text-muted-foreground" /></button>
-            </div>
-            <h3 className="font-heading text-3xl tracking-[-0.02em]">Join to apply</h3>
-            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              Applying to open calls is a <span className="text-primary">paid-member</span> benefit. Upgrade to unlock residencies, grants and submissions across the <span className="text-primary">network</span>.
-            </p>
-            <div className="mt-6 flex items-center gap-3">
-              <Link to="/upgrade" className="bg-primary px-6 py-3 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">Upgrade Membership ↑</Link>
-              <button onClick={() => setShowUpgrade(false)} className="font-mono-caps text-[11px] text-muted-foreground hover:text-foreground">Maybe later</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -150,6 +191,7 @@ function OpenCallForm({ user, onClose, onCreated }) {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const input = "w-full border border-border bg-transparent px-4 py-3 text-base outline-none focus:border-foreground";
 
@@ -162,14 +204,25 @@ function OpenCallForm({ user, onClose, onCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    let image_url = form.image_url;
-    if (imageFile) {
-      const r = await base44.integrations.Core.UploadFile({ file: imageFile });
-      image_url = r.file_url;
+    setError("");
+    // A refused save used to leave the button spinning with nothing said.
+    try {
+      let image_url = form.image_url;
+      if (imageFile) {
+        const r = await base44.integrations.Core.UploadFile({ file: imageFile });
+        image_url = r.file_url;
+      }
+      // deadline is a date column: an empty box must be null. "" was refused by
+      // the database, so a call with no deadline could never be posted.
+      await base44.entities.OpenCall.create({ ...form, deadline: form.deadline || null, image_url, posted_by_id: user?.id, posted_by_name: user?.full_name || "Member" });
+      onCreated();
+    } catch (err) {
+      setError(/row-level security|permission|policy/i.test(String(err?.message))
+        ? "Only admins and paid or partner galleries and venues can post open calls."
+        : String(err?.message || err) || "Could not post. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    await base44.entities.OpenCall.create({ ...form, image_url, posted_by_id: user?.id, posted_by_name: user?.full_name || "Member" });
-    setSaving(false);
-    onCreated();
   };
 
   return (
@@ -233,6 +286,7 @@ function OpenCallForm({ user, onClose, onCreated }) {
               <input className={`${input} mt-2`} value={form.fee} onChange={(e) => set("fee", e.target.value)} placeholder="e.g. £25" />
             </div>
           )}
+          {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <button type="submit" disabled={saving} className="flex items-center gap-2 bg-primary px-8 py-4 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80 disabled:opacity-50">
               {saving && <Loader2 className="h-3 w-3 animate-spin" />} Post Opportunity

@@ -590,6 +590,16 @@ export const auth = {
     return [];
   },
 
+  /** Demo stand-in for open_call_access (migration 026): admins, or an active subscription. */
+  async openCallAccess() {
+    const user = readSession();
+    if (!user) return { can_view: false, can_post: false };
+    const now = Date.now();
+    const subs = table("Subscription").filter((s) => s.user_id === user.id && s.status === "active" && (!s.expires_at || new Date(s.expires_at).getTime() > now));
+    const admin = user.role === "admin";
+    return { can_view: admin || subs.length > 0, can_post: admin };
+  },
+
   onAuthStateChange() {
     // No live session events in the demo provider; return the same shape the
     // Supabase client returns so callers can unsubscribe unconditionally.
