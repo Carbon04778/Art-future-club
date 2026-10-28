@@ -53,6 +53,18 @@ export function useProgressiveList(items, batchSize = BATCH_SIZE) {
     [batchSize, list.length]
   );
 
+  const shown = Math.min(count, list.length);
+
+  /*
+   * Re-attached whenever `shown` changes, not only when the list's length
+   * does. The marker is only rendered while there is more to show, so after a
+   * list had been scrolled to its end, picking a filter brought the marker
+   * back one render AFTER this ran — nothing watched it, and the page sat on
+   * "18 of 36 — keep scrolling" for good (found 2026-10-27 on the Artists
+   * page; Galleries and Venues use the same hook). A fresh observer also
+   * reports straight away if the marker is still in range after a batch, so
+   * a short batch never leaves the list stuck.
+   */
   useEffect(() => {
     /*
      * No IntersectionObserver — jsdom in the verify suite, or a very old
@@ -76,9 +88,7 @@ export function useProgressiveList(items, batchSize = BATCH_SIZE) {
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [showMore, list.length]);
-
-  const shown = Math.min(count, list.length);
+  }, [showMore, list.length, shown]);
 
   return {
     visible: list.slice(0, shown),

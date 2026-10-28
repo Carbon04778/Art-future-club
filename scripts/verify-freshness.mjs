@@ -265,6 +265,10 @@ check("without IntersectionObserver it renders everything rather than hiding it"
   /typeof IntersectionObserver === "undefined"[\s\S]{0,120}setCount\(list\.length\)/.test(hookSrc));
 check("changing the filter starts the list again from the top",
   /setCount\(batchSize\)/.test(hookSrc));
+// 2026-10-27: scrolled to the end, then filtered — stuck on "18 of 36" for
+// good, because the watcher only re-attached when the length changed.
+check("the load-more watcher re-attaches after every batch (no stuck list after filtering)",
+  /\}, \[showMore, list\.length, shown\]\);/.test(hookSrc));
 
 for (const [rel, label] of [
   ["../src/pages/GalleryShowcase.jsx", "galleries"],
