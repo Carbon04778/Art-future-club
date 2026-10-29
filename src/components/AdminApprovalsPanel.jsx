@@ -11,6 +11,7 @@ import {
   isModeratedCollectorType,
 } from "@/lib/profileReadiness";
 import { useDataRevision } from "@/lib/dataRevision";
+import AdminSwitchRequests from "@/components/AdminSwitchRequests";
 
 /**
  * The review queue.
@@ -113,6 +114,9 @@ export default function AdminApprovalsPanel({ user }) {
         Members who joined before approvals existed are unaffected, and a
         profile is reviewed once — later edits publish straight away.
       </p>
+
+      {/* A1: members asking to change profile type. Shows only when there are any. */}
+      <div className="mt-6"><AdminSwitchRequests /></div>
 
       {error && (
         <div className="mt-4 border border-destructive bg-destructive/10 p-4">

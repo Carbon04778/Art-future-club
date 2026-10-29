@@ -16,6 +16,9 @@ import { isSold } from "@/lib/workSale";
 import { cleanLinks } from "@/lib/links";
 import { disciplinesOf, disciplineFields } from "@/lib/disciplines";
 import DisciplinePicker from "@/components/DisciplinePicker";
+import ProfileSwitchPanel from "@/components/ProfileSwitchPanel";
+import { spacePath } from "@/lib/slugs";
+import { isVenueType } from "@/lib/venueTypes";
 
 const CHAPTERS = CHAPTER_OPTIONS;
 const SEEKING_OPTIONS = ["Exhibition Opportunities", "Collectors", "Collaborators", "Residencies", "Representation", "Press"];
@@ -101,7 +104,16 @@ export default function ArtistProfileEdit() {
     base44.auth.me().then((u) => {
       setUser(u);
       setForm((f) => ({ ...f, display_name: u.full_name || "" }));
-      base44.entities.ArtistProfile.filter({ user_id: u.id }).then((res) => {
+      base44.entities.ArtistProfile.filter({ user_id: u.id }).then(async (res) => {
+        if (res.length === 0) {
+          // No artist profile, but a gallery/venue/collector one — e.g. just
+          // after an approved change of type (A1): their editor, not a blank
+          // "Create Profile" form.
+          const spaces = await base44.entities.CollectorProfile.filter({ user_id: u.id }).catch(() => []);
+          const s = spaces[0];
+          if (s) navigate(s.type === "Gallery" ? spacePath(s, false) : isVenueType(s.type) ? spacePath(s, true) : "/collector-profile", { replace: true });
+          return;
+        }
         if (res.length > 0) {
           const p = res[0];
           setProfileId(p.id);
@@ -578,6 +590,13 @@ export default function ArtistProfileEdit() {
           {saved && <span className="font-mono-caps text-[11px] text-primary">Saved ✓</span>}
         </div>
       </form>
+
+      {/* A1: ask to change profile type (goes to the approval queue). */}
+      {profileId && user?.id && (
+        <div className="px-6 md:px-10 mx-auto max-w-3xl mt-12">
+          <ProfileSwitchPanel userId={user.id} currentType="Artist" />
+        </div>
+      )}
 
       {upgradePrompt && (
         <div className="fixed inset-0 z-[70] bg-background/90 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setUpgradePrompt(false)}>

@@ -123,6 +123,30 @@ function clearCacheOnIdentityChange(auth) {
   }
 
   /*
+   * Calls that change data through a database function rather than an
+   * entity write (A1, migration 027). The entity cache never saw those
+   * writes, so a member who had just asked to change type was shown the old,
+   * empty list of requests — as if nothing had been sent (found by the A1
+   * browser test, 2026-10-29). Cleared AFTER a success, and open pages are
+   * told to reload, exactly as an entity write does.
+   */
+  const DATA_CHANGING = [
+    "requestProfileSwitch",
+    "cancelProfileSwitch",
+    "reviewProfileSwitch",
+    "restoreProfileArchive",
+  ];
+  for (const method of DATA_CHANGING) {
+    if (typeof auth[method] !== "function") continue;
+    wrapped[method] = async (...args) => {
+      const result = await auth[method](...args);
+      invalidateEntityCache();
+      bumpDataRevision();
+      return result;
+    };
+  }
+
+  /*
    * Belt and braces for the transitions no explicit call covers — a token
    * refresh, or another tab signing out. Subscribing here rather than relying
    * on the app to do it, because the guarantee above has to hold whether or not

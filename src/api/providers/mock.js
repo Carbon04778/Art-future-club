@@ -393,6 +393,8 @@ export const ENTITY_NAMES = [
   "NewsletterSubscriber",
   "Notification",
   "OpenCall",
+  "ProfileSwitchRequest",
+  "ProfileArchive",
   "Subscription",
   // Read-state for derived notifications — see migration 018.
   "NotificationRead",
@@ -588,6 +590,44 @@ export const auth = {
   async claimMyProfile() {
     // The demo provider has no pre-made profiles to claim.
     return [];
+  },
+
+  /** Demo stand-ins for the profile-switch functions (migration 027), simplified. */
+  async requestProfileSwitch({ toType, discipline = null, reason = null }) {
+    const user = readSession();
+    if (!user) throw new Error("Please sign in first.");
+    const a = table("ArtistProfile").find((p) => p.user_id === user.id);
+    const s = table("CollectorProfile").find((p) => p.user_id === user.id);
+    const from = a ? { kind: "artist", id: a.id, type: "Artist", name: a.display_name } : s ? { kind: "space", id: s.id, type: s.type, name: s.display_name } : null;
+    if (!from) throw new Error("This account has 0 profiles, so it cannot be switched here. Please contact the AFC team.");
+    if (from.type === toType) throw new Error(`Your profile is already a ${toType}.`);
+    if (toType === "Artist" && !String(discipline || "").trim()) throw new Error("Please choose your main discipline.");
+    if (table("ProfileSwitchRequest").some((r) => r.user_id === user.id && r.status === "pending")) throw new Error("You already have a request waiting for approval.");
+    const row = { id: uid(), user_id: user.id, from_kind: from.kind, from_id: from.id, from_type: from.type, display_name: from.name, to_type: toType, to_discipline: toType === "Artist" ? discipline : null, reason, status: "pending", created_date: new Date().toISOString() };
+    table("ProfileSwitchRequest").push(row);
+    persist();
+    return row.id;
+  },
+  async cancelProfileSwitch() {
+    const user = readSession();
+    let n = 0;
+    for (const r of table("ProfileSwitchRequest")) if (r.user_id === user?.id && r.status === "pending") { r.status = "cancelled"; n++; }
+    persist();
+    return n;
+  },
+  async reviewProfileSwitch({ requestId, approve, note = null }) {
+    const r = table("ProfileSwitchRequest").find((x) => x.id === requestId);
+    if (!r || r.status !== "pending") throw new Error("This request is no longer waiting for review.");
+    Object.assign(r, { status: approve ? "approved" : "rejected", review_note: note });
+    if (approve && r.from_kind === "space" && r.to_type !== "Artist") {
+      const s = table("CollectorProfile").find((p) => p.id === r.from_id);
+      if (s) Object.assign(s, { type: r.to_type, status: "approved" });
+    }
+    persist();
+    return approve ? r.from_id : null;
+  },
+  async restoreProfileArchive() {
+    throw new Error("Restoring is not available in the demo.");
   },
 
   /** Demo stand-in for open_call_access (migration 026): admins, or an active subscription. */

@@ -65,6 +65,9 @@ const TABLES = {
   NewsletterSubscriber: "newsletter_subscriber",
   Notification: "notification",
   OpenCall: "open_call",
+  // A1: profile type change requests and the archive of replaced profiles (027).
+  ProfileSwitchRequest: "profile_switch_request",
+  ProfileArchive: "profile_archive",
   Subscription: "subscription",
   // Which derived notifications this member has already read. See migration
   // 018 — the notifications themselves are derived and never stored.
@@ -427,6 +430,33 @@ export const auth = {
     if (error) return { can_view: false, can_post: false, failed: true };
     const row = Array.isArray(data) ? data[0] : data;
     return { can_view: !!row?.can_view, can_post: !!row?.can_post };
+  },
+
+  /*
+   * Changing profile type (A1, migration 027). Each runs one database
+   * function, which checks who is asking; the member's own profile is never
+   * written from the browser for this. Errors carry the database's own
+   * wording, which is written for members to read.
+   */
+  async requestProfileSwitch({ toType, discipline = null, reason = null }) {
+    const { data, error } = await client().rpc("request_profile_switch", { p_to_type: toType, p_discipline: discipline, p_reason: reason });
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  async cancelProfileSwitch() {
+    const { data, error } = await client().rpc("cancel_profile_switch");
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  async reviewProfileSwitch({ requestId, approve, note = null }) {
+    const { data, error } = await client().rpc("review_profile_switch", { p_request: requestId, p_approve: approve, p_note: note });
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  async restoreProfileArchive(archiveId) {
+    const { data, error } = await client().rpc("restore_profile_archive", { p_archive: archiveId });
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   onAuthStateChange(callback) {

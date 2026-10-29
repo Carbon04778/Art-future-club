@@ -130,6 +130,10 @@ const EXPECTED_ENTITIES = [
   // admin_listings, the read-only union of artist_profile and collector_profile
   // added by migration 021 so the admin panel can page and count across both.
   "AdminListing",
+  // Profile type change requests, and the archive of profiles they replaced
+  // (A1, migration 027). Members read their own requests; the archive is
+  // admin-only; neither is written directly — only by database functions.
+  "ProfileSwitchRequest", "ProfileArchive",
 ];
 const missing = EXPECTED_ENTITIES.filter((e) => !entities[e]);
 const extra = Object.keys(entities).filter((e) => !EXPECTED_ENTITIES.includes(e));

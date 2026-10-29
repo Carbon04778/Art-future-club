@@ -7,6 +7,7 @@ import { spacePath } from "@/lib/slugs";
 import { COLLECTOR_TYPES as TYPES, isVenueType } from "@/lib/venueTypes";
 import { isModeratedCollectorType } from "@/lib/profileReadiness";
 import SubmitForReview from "@/components/SubmitForReview";
+import ProfileSwitchPanel from "@/components/ProfileSwitchPanel";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import ProfilePhotoPicker from "@/components/ProfilePhotoPicker";
@@ -42,7 +43,14 @@ export default function CollectorProfilePage() {
     base44.auth.me().then((u) => {
       setUser(u);
       setForm((f) => ({ ...f, display_name: u.full_name || "" }));
-      base44.entities.CollectorProfile.filter({ user_id: u.id }).then((res) => {
+      base44.entities.CollectorProfile.filter({ user_id: u.id }).then(async (res) => {
+        if (res.length === 0) {
+          // An artist (e.g. just after an approved change of type, A1) goes
+          // to the artist editor rather than a blank collector form.
+          const artists = await base44.entities.ArtistProfile.filter({ user_id: u.id }).catch(() => []);
+          if (artists[0]) navigate("/profile/edit", { replace: true });
+          return;
+        }
         if (res.length > 0) {
           // Galleries maintain their own dedicated profile page — send them there
           // if any of the user's profiles is a Gallery (even if a Collector one exists too).
@@ -141,7 +149,10 @@ export default function CollectorProfilePage() {
           <Field label="Display Name *"><input className={input} value={form.display_name} onChange={(e) => set("display_name", e.target.value)} required /></Field>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <Field label="Profile Type *">
-              <select className={select} value={form.type} onChange={(e) => set("type", e.target.value)}>
+              {/* Chosen once, when the profile is made. Changing it later goes
+                  through "Change profile type" below and the approval queue
+                  (A1) — it used to publish a "Gallery" with no review. */}
+              <select className={select} value={form.type} onChange={(e) => set("type", e.target.value)} disabled={!!profileId}>
                 {TYPES.map((t) => <option key={t}>{t}</option>)}
               </select>
             </Field>
@@ -190,6 +201,12 @@ export default function CollectorProfilePage() {
           {saved && <span className="font-mono-caps text-[11px] text-primary">Saved ✓</span>}
         </div>
       </form>
+      {/* A1: ask to change profile type (goes to the approval queue). */}
+      {profileId && user?.id && (
+        <div className="px-6 md:px-10 mx-auto max-w-3xl mt-12">
+          <ProfileSwitchPanel userId={user.id} currentType={form.type} />
+        </div>
+      )}
       <SlimFooter />
     </>
   );

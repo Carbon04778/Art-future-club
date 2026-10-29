@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useGallerySeoMeta } from "@/hooks/useGallerySeoMeta";
 import GeoAddressField from "@/components/gallery/GeoAddressField";
 import SubmitForReview from "@/components/SubmitForReview";
+import ProfileSwitchPanel from "@/components/ProfileSwitchPanel";
 import { isModeratedCollectorType } from "@/lib/profileReadiness";
 import { findBySlugOrId, shouldRedirectToSlug, spacePath } from "@/lib/slugs";
 import { absoluteUrl } from "@/lib/seo";
@@ -158,7 +159,15 @@ export default function GalleryProfile() {
       )}
 
       {editMode && isOwner ? (
-        <GalleryEditForm profile={profile} onSave={onProfileSaved} onCancel={() => setEditMode(false)} />
+        <>
+          <GalleryEditForm profile={profile} onSave={onProfileSaved} onCancel={() => setEditMode(false)} />
+          {/* A1: the owner (not an admin editing for them) may ask to change type. */}
+          {isActualOwner && (
+            <div className="px-6 md:px-10 mx-auto max-w-3xl mt-10">
+              <ProfileSwitchPanel userId={user.id} currentType={profile.type} />
+            </div>
+          )}
+        </>
       ) : (
         <ProfileHeader profile={profile} isOwner={isOwner} onEdit={() => setEditMode(true)} />
       )}
