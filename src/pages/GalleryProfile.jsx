@@ -5,7 +5,7 @@ import ExpandableText from "@/components/ExpandableText";
 import MyCollection from "@/components/MyCollection";
 import FocalPointPicker from "@/components/FocalPointPicker";
 import ProfilePhotoPicker from "@/components/ProfilePhotoPicker";
-import { isVenueType } from "@/lib/venueTypes";
+import { isVenueType, isDirectoryType } from "@/lib/venueTypes";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -138,8 +138,8 @@ export default function GalleryProfile() {
     <>
 
       <div className="px-6 pt-10 md:px-10">
-        <Link to={isVenueType(profile.type) ? "/venues" : "/gallery"} className="inline-flex items-center gap-1 font-mono-caps text-[11px] text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-3 w-3" /> {isVenueType(profile.type) ? "All Venues" : "All Galleries"}
+        <Link to={isDirectoryType(profile.type) ? "/directory" : isVenueType(profile.type) ? "/venues" : "/gallery"} className="inline-flex items-center gap-1 font-mono-caps text-[11px] text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-3 w-3" /> {isDirectoryType(profile.type) ? "The Directory" : isVenueType(profile.type) ? "All Venues" : "All Galleries"}
         </Link>
       </div>
 
@@ -173,6 +173,10 @@ export default function GalleryProfile() {
       )}
 
       <div className="px-6 pb-24 md:px-10">
+        {/* Directory listings (B11) are a profile image, bio and contact
+            details only — Julie: "no need to upload photos at this point".
+            No space photos, exhibitions or works for them. */}
+        {!isDirectoryType(profile.type) && (<>
         <SpaceGallery profile={profile} isOwner={isOwner} onUpdated={onProfileUpdated} />
         <ExhibitionsSection profile={profile} isOwner={isOwner} events={events} onReload={reloadEvents} />
 
@@ -274,6 +278,7 @@ export default function GalleryProfile() {
             ))}
           </div>
         )}
+        </>)}
 
         <div className="mt-16">
           <GalleryAddressMap profile={profile} />

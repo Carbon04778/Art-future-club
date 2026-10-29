@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { loadGoogleMaps, MONOCHROME_STYLE, hasGoogleMaps, googleAuthFailed, onGoogleAuthFailure } from "@/lib/googleMaps";
-import { isVenueType } from "@/lib/venueTypes";
+import { isVenueType, isDirectoryType } from "@/lib/venueTypes";
 
 /**
  * One place, on a map. Used on a gallery or venue profile.
@@ -27,7 +27,11 @@ import { isVenueType } from "@/lib/venueTypes";
 
 const pinSvg = (type) => {
   const venue = isVenueType(type);
-  const glyph = venue
+  // The same glyphs as the main map: building (venue), shopping bag
+  // (Directory business, B11), star (gallery).
+  const glyph = isDirectoryType(type)
+    ? `<path d="M5.2 8.2h9.6l-.9 7.6H6.1z" fill="none" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/><path d="M7.6 8.2V6.6a2.4 2.4 0 0 1 4.8 0v1.6" fill="none" stroke="#111" stroke-width="1.4" stroke-linecap="round"/>`
+    : venue
     ? `<path d="M4 9h12M5 9v5M9 9v5M13 9v5M3.5 15h13M10 3.5 16 8H4z" fill="none" stroke="#111" stroke-width="1.4" stroke-linecap="round"/>`
     : `<path d="m10 4.2 1.8 3.7 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4L4.2 8.5l4-.6z" fill="#111"/>`;
   return (

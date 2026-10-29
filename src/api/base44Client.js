@@ -131,6 +131,8 @@ function clearCacheOnIdentityChange(auth) {
    * told to reload, exactly as an entity write does.
    */
   const DATA_CHANGING = [
+    // Claiming attaches a listing the AFC team made to the member's account.
+    "claimMyProfile",
     "requestProfileSwitch",
     "cancelProfileSwitch",
     "reviewProfileSwitch",

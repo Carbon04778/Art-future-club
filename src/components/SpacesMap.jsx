@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom";
 import { CornerUpRight, Search, X, Loader2 } from "lucide-react";
 import { spacePath, artistPath } from "@/lib/slugs";
-import { isVenueType, VENUE_TYPES } from "@/lib/venueTypes";
+import { isVenueType, isDirectoryType, VENUE_TYPES, DIRECTORY_TYPES } from "@/lib/venueTypes";
 import { groupArtistsByCity, isArtistGroup, artistCountLabel } from "@/lib/artistGroups";
 import { Image } from "@/components/ui/image";
 import { base44 } from "@/api/base44Client";
@@ -57,7 +57,7 @@ const COLUMNS =
  * that re-ran the fetch, which set state, which re-rendered — an infinite loop
  * that hung verify:render outright.
  */
-const DEFAULT_KINDS = ["Gallery", ...VENUE_TYPES];
+const DEFAULT_KINDS = ["Gallery", ...VENUE_TYPES, ...DIRECTORY_TYPES];
 
 /*
  * `based_in` is free text and wildly inconsistent — 90 distinct values across
@@ -211,7 +211,8 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("All");
   const [kind, setKind] = useState(initialKind);
-  const KIND_FILTERS = includeArtists ? ["All", "Artists", "Galleries", "Venues"] : ["All", "Galleries", "Venues"];
+  // "Directory" (B11): art stores, framers, printers.
+  const KIND_FILTERS = includeArtists ? ["All", "Artists", "Galleries", "Venues", "Directory"] : ["All", "Galleries", "Venues", "Directory"];
   const [bounds, setBounds] = useState(null);
   const [selected, setSelected] = useState(null);
   /* The visitor's own position, once they have offered it — from the find-me
@@ -316,8 +317,9 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
     const q = query.trim().toLowerCase();
     const spaces = kind === "Artists" ? [] : rows.filter((r) => {
       if (!inCity(r)) return false;
-      if (kind === "Galleries" && isVenueType(r.type)) return false;
+      if (kind === "Galleries" && (isVenueType(r.type) || isDirectoryType(r.type))) return false;
       if (kind === "Venues" && !isVenueType(r.type)) return false;
+      if (kind === "Directory" && !isDirectoryType(r.type)) return false;
       if (q && !`${r.display_name} ${r.based_in || ""} ${r.address || ""}`.toLowerCase().includes(q))
         return false;
       return true;
@@ -396,7 +398,7 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
         {busy
           ? "Loading…"
           : includeArtists
-            ? `${artistCountLabel(shown.artists)} · ${shown.spaces} galleries & venues`
+            ? `${artistCountLabel(shown.artists)} · ${shown.spaces} places`
             : `${matching.length} of ${rows.length} pinned`}
         {!busy && bounds && inView.length !== matching.length && ` · ${inView.length} in view`}
       </p>

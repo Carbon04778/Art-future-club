@@ -29,6 +29,8 @@ const SITE_URL = (process.env.VITE_SITE_URL || "https://www.artfutureclub.com").
 
 /** Types that live on /venues rather than /gallery. Mirrors src/lib/venueTypes.js. */
 const VENUE_TYPES = new Set(["Institution", "Museum", "Foundation", "Event Space", "Restaurant"]);
+/** Types that live on /directory (B11). Mirrors DIRECTORY_TYPES in src/lib/venueTypes.js. */
+const DIRECTORY_TYPES = new Set(["Art Store", "Framer", "Printer"]);
 
 /**
  * Types with NO public page of their own, so they do not belong in a sitemap.
@@ -45,6 +47,7 @@ const STATIC_PAGES = [
   ["/artists", 0.9, "daily"],
   ["/gallery", 0.9, "daily"],
   ["/venues", 0.8, "weekly"],
+  ["/directory", 0.7, "weekly"],
   ["/events", 0.9, "daily"],
   ["/editorial", 0.8, "weekly"],
   ["/open-calls", 0.7, "weekly"],
@@ -144,7 +147,7 @@ export default async function handler(req, res) {
     }
     for (const s of spaces) {
       if (NO_PUBLIC_PAGE.has(s.type)) continue;
-      const prefix = VENUE_TYPES.has(s.type) ? "/venues" : "/gallery";
+      const prefix = DIRECTORY_TYPES.has(s.type) ? "/directory" : VENUE_TYPES.has(s.type) ? "/venues" : "/gallery";
       urls.push(entry(`${prefix}/${seg(s)}`, day(s.updated_date), "weekly", 0.8));
     }
     for (const e of events) {

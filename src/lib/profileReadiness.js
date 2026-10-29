@@ -29,7 +29,7 @@
 // Relative, with the extension: the demo provider imports this module, and
 // scripts/verify-provider.mjs loads that provider under plain Node, where the
 // "@/" alias does not exist and extensionless specifiers do not resolve.
-import { VENUE_TYPES } from "./venueTypes.js";
+import { VENUE_TYPES, DIRECTORY_TYPES } from "./venueTypes.js";
 
 /* ------------------------------------------------------------------ status */
 
@@ -80,7 +80,7 @@ export const effectiveStatus = (profile) => profile?.status || STATUS.APPROVED;
  * because a list duplicated across JS and SQL is exactly the kind of thing
  * that drifts in this codebase.
  */
-export const MODERATED_COLLECTOR_TYPES = ["Gallery", ...VENUE_TYPES];
+export const MODERATED_COLLECTOR_TYPES = ["Gallery", ...VENUE_TYPES, ...DIRECTORY_TYPES];
 
 export const isModeratedCollectorType = (type) =>
   MODERATED_COLLECTOR_TYPES.includes(type);

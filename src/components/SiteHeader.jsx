@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { artistPath, spacePath } from "@/lib/slugs";
-import { isVenueType } from "@/lib/venueTypes";
+import { isVenueType, isDirectoryType } from "@/lib/venueTypes";
 import { Link, useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Menu, X, ChevronDown } from "lucide-react";
@@ -11,6 +11,7 @@ const NAV = [
   { to: "/artists", label: "Artists" },
   { to: "/gallery", label: "Galleries" },
   { to: "/venues", label: "Venues" },
+  { to: "/directory", label: "Directory" },
   { to: "/events", label: "Events" },
   { to: "/open-calls", label: "Open Calls" },
   { to: "/editorial", label: "Editorial" },
@@ -40,8 +41,10 @@ export default function SiteHeader() {
         // "My Profile" links to the public preview of the user's profile.
         const gallery = collectors.find((c) => c.type === "Gallery");
         const venue = collectors.find((c) => isVenueType(c.type));
+        const listing = collectors.find((c) => isDirectoryType(c.type)); // B11
         if (gallery) setProfileLink(spacePath(gallery, false));
         else if (venue) setProfileLink(spacePath(venue, true));
+        else if (listing) setProfileLink(spacePath(listing));
         else if (artists.length > 0) setProfileLink(artistPath(artists[0]));
         else if (collectors.length > 0) setProfileLink("/collector-profile/view");
         else setProfileLink("/onboarding");

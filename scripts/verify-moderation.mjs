@@ -208,8 +208,15 @@ check(
   /'flagged'/.test(sql)
 );
 
-// The moderated-type list is written twice: once in SQL, once in JS.
-const sqlTypes = [...(sql.match(/select coalesce\(kind, ''\) in \(([\s\S]*?)\)/) || [])[1]
+// The moderated-type list is written twice: once in SQL, once in JS. The
+// LATEST migration that redefines it is the one in force (028 added the
+// Directory types), so compare against that rather than 017.
+const { readdirSync } = await import("node:fs");
+const latestDef = readdirSync(filePath("../supabase/migrations"))
+  .filter((f) => /^\d+_.*\.sql$/.test(f) && !/revert/.test(f)).sort()
+  .map((f) => readFileSync(filePath(`../supabase/migrations/${f}`), "utf8"))
+  .filter((s) => /create or replace function public\.is_moderated_space/.test(s)).pop();
+const sqlTypes = [...(latestDef.match(/select coalesce\(kind, ''\) in \(([\s\S]*?)\)/) || [])[1]
   .matchAll(/'([^']+)'/g)].map((m) => m[1]);
 check(
   "the moderated-space list in SQL matches the one in JS",

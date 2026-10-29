@@ -15,7 +15,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { VENUE_TYPES, COLLECTOR_TYPES, isVenueType } from "../src/lib/venueTypes.js";
+import { VENUE_TYPES, COLLECTOR_TYPES, isVenueType, isDirectoryType, DIRECTORY_TYPES } from "../src/lib/venueTypes.js";
 
 const reg = readFileSync("src/components/CollectiveRegistry.jsx", "utf8");
 const ven = readFileSync("src/pages/Venues.jsx", "utf8");
@@ -87,11 +87,17 @@ const both = onGalleries.filter((g) => onVenues.includes(g));
 
 check("no profile can appear on both pages", both.length === 0, both.map((b) => b.type).join(", "));
 
+// The Directory (B11) is a third page: art stores, framers, printers.
+const onDirectory = sample.filter((p) => isDirectoryType(p.type));
+check("the Directory page takes exactly its three types", onDirectory.map((p) => p.type).join(",") === DIRECTORY_TYPES.join(","), onDirectory.map((p) => p.type).join(","));
+check("no profile can appear on two of the three pages",
+  sample.every((p) => [p.type === "Gallery", isVenueType(p.type), isDirectoryType(p.type)].filter(Boolean).length <= 1));
+
 const onNeither = sample
-  .filter((p) => p.type !== "Gallery" && !isVenueType(p.type))
+  .filter((p) => p.type !== "Gallery" && !isVenueType(p.type) && !isDirectoryType(p.type))
   .map((p) => p.type);
 check(
-  "people appear on neither page, as they should",
+  "people appear on none of the three pages, as they should",
   onNeither.join(",") === "Collector,Curator,Advisor,Other",
   onNeither.join(",")
 );

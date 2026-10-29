@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { artistPath, spacePath } from "@/lib/slugs";
-import { isVenueType } from "@/lib/venueTypes";
+import { isVenueType, isDirectoryType, DIRECTORY_TYPES } from "@/lib/venueTypes";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Loader2, ChevronRight } from "lucide-react";
@@ -16,7 +16,7 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null); // "artist" | "collector" | "gallery"
-  const [form, setForm] = useState({ display_name: "", discipline: "", disciplines: [], chapter: "", based_in: "", bio: "" });
+  const [form, setForm] = useState({ display_name: "", discipline: "", disciplines: [], chapter: "", based_in: "", bio: "", business_type: "" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -46,6 +46,10 @@ export default function Onboarding() {
         const venue = collectors.find((c) => isVenueType(c.type));
         if (gallery) return navigate(spacePath(gallery, false), { replace: true });
         if (venue) return navigate(spacePath(venue, true), { replace: true });
+        // A Directory business (B11) — e.g. one that has just claimed the
+        // listing the AFC team made for it — goes to that listing.
+        const listing = collectors.find((c) => isDirectoryType(c.type));
+        if (listing) return navigate(spacePath(listing), { replace: true });
         if (collectors.length > 0) return navigate("/collector-profile/view", { replace: true });
       } catch {}
     }).catch(() => navigate("/login"));
@@ -59,11 +63,14 @@ export default function Onboarding() {
     if (role === "artist") {
       const existing = await base44.entities.ArtistProfile.filter({ user_id: user.id });
       if (existing.length === 0) {
-        await base44.entities.ArtistProfile.create({ ...form, user_id: user.id });
+        // business_type belongs to the Directory choice only — artist_profile has
+        // no such column, and sending it would make the whole sign-up fail.
+        const { business_type: _businessType, ...artistFields } = form;
+        await base44.entities.ArtistProfile.create({ ...artistFields, user_id: user.id });
       }
       navigate("/profile/edit");
     } else {
-      const profileType = role === "gallery" ? "Gallery" : role === "venue" ? "Institution" : "Collector";
+      const profileType = role === "gallery" ? "Gallery" : role === "venue" ? "Institution" : role === "business" ? form.business_type : "Collector";
       const existing = await base44.entities.CollectorProfile.filter({ user_id: user.id });
       /*
        * Keep the RECORD, not just its id: the database trigger generates the
@@ -74,13 +81,19 @@ export default function Onboarding() {
       if (existing.length === 0) {
         space = await base44.entities.CollectorProfile.create({ display_name: form.display_name, type: profileType, user_id: user.id });
       } else {
-        space = await base44.entities.CollectorProfile.update(existing[0].id, { type: profileType, display_name: form.display_name });
+        // Name only. A profile's type is changed through "Change profile type"
+        // and the approval queue (A1) — the database refuses it here, which
+        // left this button spinning for anyone who came through again.
+        space = await base44.entities.CollectorProfile.update(existing[0].id, { display_name: form.display_name });
         // update may resolve without the row on some providers — fall back to
         // what was already read so the navigate below always has an id.
         if (!space?.id) space = existing[0];
       }
-      // Galleries and venues have their own profile pages; collectors use the collector form.
-      navigate(role === "collector" ? "/collector-profile" : spacePath(space, role === "venue"));
+      // Galleries, venues and Directory listings have their own profile pages;
+      // collectors use the collector form. Decided by the profile's ACTUAL
+      // type — an existing profile keeps its own.
+      const t = space?.type || profileType;
+      navigate(t === "Gallery" || isVenueType(t) || isDirectoryType(t) ? spacePath(space, isVenueType(t)) : "/collector-profile");
     }
     setSaving(false);
   };
@@ -139,6 +152,8 @@ export default function Onboarding() {
                  */
                 { key: "gallery", label: "Gallery", desc: "I run a commercial or independent gallery and exhibit artists." },
                 { key: "venue", label: "Venue / Museum / Space", desc: "I run a museum, foundation, institution or event space." },
+                // B11: listed on the Directory page.
+                { key: "business", label: "Art store / Framer / Printer", desc: "I run a business artists and collectors use — listed in the Directory." },
               ].map(({ key, label, desc }) => (
                 <button key={key} type="button" onClick={() => setRole(key)}
                   className={`w-full text-left border p-5 transition-colors ${role === key ? "border-foreground bg-foreground text-background" : "border-border hover:border-foreground"}`}>
@@ -166,6 +181,15 @@ export default function Onboarding() {
                 <label className="font-mono-caps text-[11px] text-muted-foreground">Display Name *</label>
                 <input className={`${input} mt-2`} value={form.display_name} onChange={(e) => set("display_name", e.target.value)} placeholder="Your name or studio" required />
               </div>
+              {role === "business" && (
+                <div>
+                  <label className="font-mono-caps text-[11px] text-muted-foreground">Your business is a… *</label>
+                  <select className="w-full border border-border bg-background px-4 py-3 text-base outline-none mt-2" value={form.business_type} onChange={(e) => set("business_type", e.target.value)} required data-testid="business-type">
+                    <option value="">Choose…</option>
+                    {DIRECTORY_TYPES.map((t) => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+              )}
               {role === "artist" && (
                 <>
                   <div>
@@ -205,7 +229,7 @@ export default function Onboarding() {
             </div>
             <div className="flex gap-4">
               <button onClick={() => setStep(1)} className="font-mono-caps text-[11px] text-muted-foreground">← Back</button>
-              <button onClick={() => setStep(3)} disabled={!form.display_name} className="flex-1 flex items-center justify-center gap-2 bg-primary py-4 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80 disabled:opacity-40">
+              <button onClick={() => setStep(3)} disabled={!form.display_name || (role === "business" && !form.business_type)} className="flex-1 flex items-center justify-center gap-2 bg-primary py-4 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80 disabled:opacity-40">
                 Continue <ChevronRight className="h-3 w-3" />
               </button>
             </div>

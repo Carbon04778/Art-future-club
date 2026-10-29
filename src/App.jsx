@@ -32,6 +32,7 @@ import OpenCalls from '@/pages/OpenCalls';
 import ArtistMap from '@/pages/ArtistMap';
 import GalleryMap from '@/pages/GalleryMap';
 import Venues from '@/pages/Venues';
+import Directory from '@/pages/Directory';
 import Editorial from '@/pages/Editorial';
 import ArticleReader from '@/pages/ArticleReader';
 import EditorialWriter from '@/pages/EditorialWriter';
@@ -111,6 +112,9 @@ const AuthenticatedApp = () => {
         <Route path="/gallery-map" element={<GalleryMap />} />
         <Route path="/venues" element={<Venues />} />
         <Route path="/venues/:id" element={<GalleryProfile />} />
+        {/* B11: art stores, framers, printers. Listings use the space page. */}
+        <Route path="/directory" element={<Directory />} />
+        <Route path="/directory/:id" element={<GalleryProfile />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/terms" element={<TermsAndConditions />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />

@@ -4,7 +4,7 @@ import { spacePath } from "@/lib/slugs";
 // ReferenceError for any member who already had a non-gallery collector
 // profile — the form silently stayed in "create" mode and saving produced a
 // duplicate profile instead of editing the existing one.
-import { COLLECTOR_TYPES as TYPES, isVenueType } from "@/lib/venueTypes";
+import { COLLECTOR_TYPES as TYPES, isVenueType, isDirectoryType } from "@/lib/venueTypes";
 import { isModeratedCollectorType } from "@/lib/profileReadiness";
 import SubmitForReview from "@/components/SubmitForReview";
 import ProfileSwitchPanel from "@/components/ProfileSwitchPanel";
@@ -58,6 +58,9 @@ export default function CollectorProfilePage() {
           if (gallery) { navigate(spacePath(gallery, false), { replace: true }); return; }
           const venue = res.find((p) => isVenueType(p.type));
           if (venue) { navigate(spacePath(venue, true), { replace: true }); return; }
+          // Directory listings (B11) are edited on their own page too.
+          const listing = res.find((p) => isDirectoryType(p.type));
+          if (listing) { navigate(spacePath(listing), { replace: true }); return; }
           // Use the most recently created collector profile.
           const p = res.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0];
           setProfileId(p.id);

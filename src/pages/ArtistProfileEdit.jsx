@@ -18,7 +18,7 @@ import { disciplinesOf, disciplineFields } from "@/lib/disciplines";
 import DisciplinePicker from "@/components/DisciplinePicker";
 import ProfileSwitchPanel from "@/components/ProfileSwitchPanel";
 import { spacePath } from "@/lib/slugs";
-import { isVenueType } from "@/lib/venueTypes";
+import { isVenueType, isDirectoryType } from "@/lib/venueTypes";
 
 const CHAPTERS = CHAPTER_OPTIONS;
 const SEEKING_OPTIONS = ["Exhibition Opportunities", "Collectors", "Collaborators", "Residencies", "Representation", "Press"];
@@ -111,7 +111,7 @@ export default function ArtistProfileEdit() {
           // "Create Profile" form.
           const spaces = await base44.entities.CollectorProfile.filter({ user_id: u.id }).catch(() => []);
           const s = spaces[0];
-          if (s) navigate(s.type === "Gallery" ? spacePath(s, false) : isVenueType(s.type) ? spacePath(s, true) : "/collector-profile", { replace: true });
+          if (s) navigate(s.type === "Gallery" || isDirectoryType(s.type) ? spacePath(s, false) : isVenueType(s.type) ? spacePath(s, true) : "/collector-profile", { replace: true });
           return;
         }
         if (res.length > 0) {

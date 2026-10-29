@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import { Crosshair, Loader2 } from "lucide-react";
 import { loadGoogleMaps, MONOCHROME_STYLE, onGoogleAuthFailure } from "@/lib/googleMaps";
-import { isVenueType } from "@/lib/venueTypes";
+import { isVenueType, isDirectoryType } from "@/lib/venueTypes";
 import { ARTISTS_TYPE } from "@/lib/artistGroups";
 
 /**
@@ -55,9 +55,12 @@ function pinSvg(type, active) {
   const venue = isVenueType(type);
   const fill = active ? "#000" : "#fff";
   const stroke = active ? "#fff" : "#111";
-  // A person for an artist group (one per city), a building for a venue, a star for a gallery.
+  // A person for an artist group (one per city), a building for a venue, a
+  // shopping bag for a Directory business (B11), a star for a gallery.
   const glyph = type === ARTISTS_TYPE
     ? `<circle cx="10" cy="7" r="3.1" fill="${stroke}"/><path d="M4.4 16.2c.6-3.3 2.9-5.2 5.6-5.2s5 1.9 5.6 5.2z" fill="${stroke}"/>`
+    : isDirectoryType(type)
+    ? `<path d="M5.2 8.2h9.6l-.9 7.6H6.1z" fill="none" stroke="${stroke}" stroke-width="1.4" stroke-linejoin="round"/><path d="M7.6 8.2V6.6a2.4 2.4 0 0 1 4.8 0v1.6" fill="none" stroke="${stroke}" stroke-width="1.4" stroke-linecap="round"/>`
     : venue
     ? `<path d="M4 9h12M5 9v5M9 9v5M13 9v5M3.5 15h13M10 3.5 16 8H4z" fill="none" stroke="${stroke}" stroke-width="1.4" stroke-linecap="round"/>`
     : `<path d="m10 4.2 1.8 3.7 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4L4.2 8.5l4-.6z" fill="${stroke}"/>`;

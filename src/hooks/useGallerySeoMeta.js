@@ -3,6 +3,7 @@ import { applySeo, absoluteUrl, breadcrumbs, SITE_NAME } from "@/lib/seo";
 import { spacePath } from "@/lib/slugs";
 import { STATUS, effectiveStatus } from "@/lib/profileReadiness";
 import { websiteUrl } from "@/lib/links";
+import { isDirectoryType } from "@/lib/venueTypes";
 
 /**
  * SEO for a gallery / museum / venue profile.
@@ -88,6 +89,10 @@ export function useGallerySeoMeta(profile, { isVenue = false } = {}) {
             ? "Restaurant"
             : profile.type === "Event Space"
             ? "EventVenue"
+            : profile.type === "Art Store"
+            ? "Store"
+            : profile.type === "Framer" || profile.type === "Printer"
+            ? "LocalBusiness"
             : "Gallery",
         name,
         description: description || undefined,
@@ -123,7 +128,9 @@ export function useGallerySeoMeta(profile, { isVenue = false } = {}) {
     crumbs.text = JSON.stringify(
       breadcrumbs([
         { name: "Home", path: "/" },
-        isVenue ? { name: "Venues", path: "/venues" } : { name: "Gallery", path: "/gallery" },
+        isDirectoryType(profile.type)
+          ? { name: "Directory", path: "/directory" }
+          : isVenue ? { name: "Venues", path: "/venues" } : { name: "Gallery", path: "/gallery" },
         { name, path: spacePath(profile, isVenue) },
       ])
     );

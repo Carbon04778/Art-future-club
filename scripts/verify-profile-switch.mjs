@@ -5,7 +5,8 @@
  *
  * Run: npm run verify:switch
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+const require_fs = { readdirSync };
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
@@ -158,7 +159,7 @@ window.confirm = () => true;
 // ---- pages and providers
 const src = (f) => readFileSync(join(ROOT, f), "utf8");
 check("the four calls clear the data cache and refresh open pages after a success",
-  /const DATA_CHANGING = \[\s*"requestProfileSwitch",\s*"cancelProfileSwitch",\s*"reviewProfileSwitch",\s*"restoreProfileArchive",\s*\];[\s\S]{0,300}await auth\[method\]\(\.\.\.args\);\s*invalidateEntityCache\(\);\s*bumpDataRevision\(\);/.test(src("src/api/base44Client.js")));
+  /const DATA_CHANGING = \[\s*(\/\/[^\n]*\s*)?("claimMyProfile",\s*)?"requestProfileSwitch",\s*"cancelProfileSwitch",\s*"reviewProfileSwitch",\s*"restoreProfileArchive",\s*\];[\s\S]{0,300}await auth\[method\]\(\.\.\.args\);\s*invalidateEntityCache\(\);\s*bumpDataRevision\(\);/.test(src("src/api/base44Client.js")));
 check("artist editor hosts the panel", /<ProfileSwitchPanel userId=\{user\.id\} currentType="Artist"/.test(src("src/pages/ArtistProfileEdit.jsx")));
 check("collector editor hosts the panel", /<ProfileSwitchPanel userId=\{user\.id\} currentType=\{form\.type\}/.test(src("src/pages/CollectorProfilePage.jsx")));
 check("gallery/venue page hosts it for the real owner only", /\{isActualOwner && \([\s\S]{0,200}<ProfileSwitchPanel userId=\{user\.id\} currentType=\{profile\.type\}/.test(src("src/pages/GalleryProfile.jsx")));
@@ -183,8 +184,11 @@ check("027: the profile must still be the one asked about", /The member''s profi
 check("027: restore puts the archived profile back, archiving its replacement first", /restore_profile_archive[\s\S]*Replaced when an earlier profile was restored[\s\S]*jsonb_populate_record\(null::artist_profile/.test(mig));
 check("027: members can no longer change type directly (the review queue only)", /create trigger trg_protect_collector_type\s+before update of type on public\.collector_profile/.test(mig) && /if new\.type is distinct from old\.type then\s+raise exception/.test(mig));
 check("027: anon cannot call any of it", ["request_profile_switch(text, text, text)", "cancel_profile_switch()", "review_profile_switch(uuid, boolean, text)", "restore_profile_archive(uuid)"].every((f) => mig.includes(`revoke execute on function public.${f}`)));
-check("027: the type list matches the site's", (() => {
-  const sql = mig.match(/select array\[([\s\S]*?)\];/)[1].match(/'([^']+)'/g).map((s) => s.slice(1, -1)).sort();
+check("the type list in the database (latest migration) matches the site's", (() => {
+  const { readdirSync } = require_fs;
+  const latest = readdirSync(join(ROOT, "supabase/migrations")).filter((f) => /^\d+_.*\.sql$/.test(f) && !/revert/.test(f)).sort()
+    .map((f) => src(`supabase/migrations/${f}`)).filter((s) => /create or replace function public\.switch_target_types/.test(s)).pop();
+  const sql = latest.match(/select array\[([\s\S]*?)\];/)[1].match(/'([^']+)'/g).map((s) => s.slice(1, -1)).sort();
   return JSON.stringify(sql) === JSON.stringify([...Panel.SWITCH_TYPES].sort());
 })());
 const undo = src("supabase/migrations/027_profile_switch.revert.sql");

@@ -1,3 +1,5 @@
+import { isDirectoryType } from "./venueTypes.js";
+
 /**
  * Readable URLs.
  *
@@ -55,9 +57,14 @@ export const pathId = (record) => record?.slug || record?.id || "";
 /** `/artists/naishi-jogani` */
 export const artistPath = (record) => `/artists/${pathId(record)}`;
 
-/** Galleries and venues share a page but not a path. */
+/**
+ * Galleries, venues and Directory listings share a page but not a path.
+ * A Directory listing (B11) always goes to /directory, whatever the caller
+ * passes: the many existing callers only know gallery-or-venue, and sending
+ * a framer to /gallery would put it under the wrong heading and canonical.
+ */
 export const spacePath = (record, isVenue = false) =>
-  `${isVenue ? "/venues" : "/gallery"}/${pathId(record)}`;
+  `${isDirectoryType(record?.type) ? "/directory" : isVenue ? "/venues" : "/gallery"}/${pathId(record)}`;
 
 export const eventPath = (record) => `/events/${pathId(record)}`;
 

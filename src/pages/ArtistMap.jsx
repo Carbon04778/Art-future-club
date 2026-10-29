@@ -12,9 +12,9 @@ import SpacesMap from "@/components/SpacesMap";
  * map read only the newest 200 artists. Artists are now a layer of the one
  * map — one pin per chapter city, every published artist, paged.
  *
- * ?show=artists|galleries|venues preselects a filter; /gallery-map uses it.
+ * ?show=artists|galleries|venues|directory preselects a filter; /gallery-map uses it.
  */
-const SHOW = { artists: "Artists", galleries: "Galleries", venues: "Venues" };
+const SHOW = { artists: "Artists", galleries: "Galleries", venues: "Venues", directory: "Directory" };
 
 export default function ArtistMap() {
   const [params] = useSearchParams();

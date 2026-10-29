@@ -47,6 +47,7 @@ const ROUTES = [
   { prefix: "/artists",   table: "artist_profile",    kind: "artist" },
   { prefix: "/gallery",   table: "collector_profile", kind: "space" },
   { prefix: "/venues",    table: "collector_profile", kind: "space", venue: true },
+  { prefix: "/directory", table: "collector_profile", kind: "space", directory: true },
   { prefix: "/events",    table: "event",             kind: "event" },
   { prefix: "/editorial", table: "article",           kind: "article" },
 ];
@@ -236,6 +237,10 @@ function describe(route, row, path) {
         ? "Restaurant"
         : row.type === "Event Space"
         ? "EventVenue"
+        : row.type === "Art Store"
+        ? "Store"
+        : row.type === "Framer" || row.type === "Printer"
+        ? "LocalBusiness"
         : "Gallery";
     const hasGeo = row.geo_lat != null && row.geo_lng != null;
     return {
@@ -444,6 +449,8 @@ function crumbTrail(route, seo, path) {
       ? ["Editorial", "/editorial"]
       : route.venue
       ? ["Venues", "/venues"]
+      : route.directory
+      ? ["Directory", "/directory"]
       : ["Gallery", "/gallery"];
   return {
     "@context": "https://schema.org",

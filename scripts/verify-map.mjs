@@ -62,7 +62,8 @@ const map = read("../src/components/SpacesMap.jsx");
 const artistPage = read("../src/pages/ArtistMap.jsx");
 const galleryPage = read("../src/pages/GalleryMap.jsx");
 
-check("the map offers an Artists filter", /\["All", "Artists", "Galleries", "Venues"\]/.test(map));
+check("the map offers an Artists filter", /\["All", "Artists", "Galleries", "Venues", "Directory"\]/.test(map));
+check("the map offers a Directory filter (B11) that shows only directory listings", /kind === "Directory" && !isDirectoryType\(r\.type\)/.test(map) && /DEFAULT_KINDS = \["Gallery", \.\.\.VENUE_TYPES, \.\.\.DIRECTORY_TYPES\]/.test(map));
 check("artists are paged, not capped at 200",
   /ArtistProfile\.page\(/.test(map) && !/ArtistProfile\.list\([^)]*200/.test(map + artistPage));
 check("only published artists are plotted", /where: \{ status: "approved" \}/.test(map));

@@ -21,10 +21,18 @@ export const VENUE_TYPES = [
   "Restaurant",
 ];
 
+/**
+ * The Directory (B11): places of interest that are not exhibition spaces —
+ * Julie: "art stores, framers and printers would be the start". Their own
+ * page (/directory), held for approval like galleries and venues.
+ */
+export const DIRECTORY_TYPES = ["Art Store", "Framer", "Printer"];
+
 /** Everything a collector_profile may be. */
 export const COLLECTOR_TYPES = [
   "Gallery",
   ...VENUE_TYPES,
+  ...DIRECTORY_TYPES,
   "Collector",
   "Curator",
   "Advisor",
@@ -38,3 +46,6 @@ export const COLLECTOR_TYPES = [
  * in each of them is what made adding a new type silently hide those venues.
  */
 export const isVenueType = (type) => VENUE_TYPES.includes(type);
+
+/** Does this profile belong on the Directory page? */
+export const isDirectoryType = (type) => DIRECTORY_TYPES.includes(type);
