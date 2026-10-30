@@ -4,7 +4,7 @@ import { spacePath } from "@/lib/slugs";
 // ReferenceError for any member who already had a non-gallery collector
 // profile — the form silently stayed in "create" mode and saving produced a
 // duplicate profile instead of editing the existing one.
-import { COLLECTOR_TYPES as TYPES, isVenueType, isDirectoryType } from "@/lib/venueTypes";
+import { COLLECTOR_TYPES as TYPES, isVenueType, isDirectoryType, isPeopleType } from "@/lib/venueTypes";
 import { isModeratedCollectorType } from "@/lib/profileReadiness";
 import SubmitForReview from "@/components/SubmitForReview";
 import ProfileSwitchPanel from "@/components/ProfileSwitchPanel";
@@ -33,7 +33,7 @@ export default function CollectorProfilePage() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [profileId, setProfileId] = useState(null);
-  const [form, setForm] = useState({ display_name: "", type: "Collector", based_in: "", bio: "", website: "", instagram: "", avatar_url: "", interests: [], seeking: [], budget_range: "" });
+  const [form, setForm] = useState({ display_name: "", type: "Collector", based_in: "", bio: "", website: "", instagram: "", avatar_url: "", interests: [], seeking: [], budget_range: "", is_private: false });
   const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -65,7 +65,7 @@ export default function CollectorProfilePage() {
           const p = res.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0];
           setProfileId(p.id);
           setModeration({ status: p.status, review_note: p.review_note || "" });
-          setForm({ display_name: p.display_name || "", type: p.type || "Collector", based_in: p.based_in || "", bio: p.bio || "", website: p.website || "", instagram: p.instagram || "", avatar_url: p.avatar_url || "", interests: p.interests || [], seeking: p.seeking || [], budget_range: p.budget_range || "" });
+          setForm({ display_name: p.display_name || "", type: p.type || "Collector", based_in: p.based_in || "", bio: p.bio || "", website: p.website || "", instagram: p.instagram || "", avatar_url: p.avatar_url || "", interests: p.interests || [], seeking: p.seeking || [], budget_range: p.budget_range || "", is_private: !!p.is_private });
         }
       });
     });
@@ -188,6 +188,17 @@ export default function CollectorProfilePage() {
               {BUDGETS.map((b) => <option key={b}>{b}</option>)}
             </select>
           </Field>
+          {/* B10: Julie — a collector can make their profile private. Only
+              people profiles (collectors, curators, advisors) have this. */}
+          {isPeopleType(form.type) && (
+            <label className="flex items-start gap-3 cursor-pointer" data-testid="private-toggle">
+              <input type="checkbox" checked={!!form.is_private} onChange={(e) => set("is_private", e.target.checked)} className="mt-1 h-4 w-4 accent-primary" />
+              <span>
+                <span className="font-mono-caps text-[11px]">Make my profile private</span>
+                <span className="block text-xs text-muted-foreground">Hides your profile and collections from everyone except you and the AFC team. Otherwise only collectors and premium members can see them.</span>
+              </span>
+            </label>
+          )}
         </div>
 
         <div className="space-y-6">

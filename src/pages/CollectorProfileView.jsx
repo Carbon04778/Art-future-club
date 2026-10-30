@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { spacePath } from "@/lib/slugs";
+import { spacePath, collectorPath } from "@/lib/slugs";
+import MyCollection from "@/components/MyCollection";
+import { isPeopleType } from "@/lib/venueTypes";
 import { useNavigate, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -11,33 +13,23 @@ export default function CollectorProfileView() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [collection, setCollection] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     base44.auth.me().then(async (u) => {
       setUser(u);
       try {
-        const [res, collected] = await Promise.all([
-          base44.entities.CollectorProfile.filter({ user_id: u.id }),
-          base44.entities.CollectedWork.filter({ user_id: u.id }, "-created_date", 60),
-        ]);
+        const res = await base44.entities.CollectorProfile.filter({ user_id: u.id });
         if (res.length > 0) {
           const p = res[0];
           // Galleries have their own preview page.
           if (p.type === "Gallery") { navigate(spacePath(p, false), { replace: true }); return; }
           setProfile(p);
         }
-        setCollection(collected);
       } catch {}
       setLoading(false);
     }).catch(() => navigate("/login"));
   }, []);
-
-  const removeFromCollection = async (id) => {
-    await base44.entities.CollectedWork.delete(id);
-    setCollection((c) => c.filter((w) => w.id !== id));
-  };
 
   if (loading) {
     return (
@@ -79,6 +71,14 @@ export default function CollectorProfileView() {
               <h1 className="font-heading text-5xl font-medium tracking-[-0.02em]">{profile.display_name}</h1>
               {profile.based_in && (
                 <p className="mt-3 flex items-center gap-1.5 text-muted-foreground"><MapPin className="h-3 w-3" />{profile.based_in}</p>
+              )}
+              {/* B10: who can see this profile, and the members' page. */}
+              {isPeopleType(profile.type) && (
+                <p className="mt-3 font-mono-caps text-[10px] text-muted-foreground" data-testid="privacy-status">
+                  {profile.is_private
+                    ? "Private — only you and the AFC team can see your profile."
+                    : <>Visible to collectors and premium members · <Link to={collectorPath(profile)} className="text-primary underline">See how they see it</Link></>}
+                </p>
               )}
             </div>
           </div>
@@ -148,54 +148,9 @@ export default function CollectorProfileView() {
           </div>
         )}
 
-        {/* Collection gallery */}
-        <div className="py-10">
-          <div className="flex items-end justify-between mb-8">
-            <div>
-              <p className="font-mono-caps text-[11px] text-muted-foreground">My Collection</p>
-              <p className="mt-2 font-heading text-2xl tracking-[-0.01em]">{collection.length} {collection.length === 1 ? "work" : "works"}</p>
-            </div>
-          </div>
-          {collection.length === 0 ? (
-            <div className="border border-dashed border-border p-12 text-center">
-              <p className="text-muted-foreground mb-2">No works collected yet.</p>
-              <p className="font-mono-caps text-[11px] text-muted-foreground/60">Browse artist profiles and tap <span className="text-primary">Collect</span> to build your gallery.</p>
-              <Link to="/artists" className="inline-block mt-6 border border-border px-5 py-3 font-mono-caps text-[11px] hover:border-foreground transition-colors">Discover Artists →</Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {collection.map((w) => (
-                <div key={w.id} className="group">
-                  {w.work_image_url && (
-                    <Image src={w.work_image_url} alt={w.work_title} fittingType="fill" className="aspect-[4/5] w-full mb-4" />
-                  )}
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="font-heading text-xl tracking-[-0.01em]">{w.work_title || "Untitled"}</h3>
-                      {w.artist_name && (
-                        <Link to={`/artists/${w.artist_id}`} className="mt-1 inline-block font-mono-caps text-[11px] text-primary hover:opacity-80">{w.artist_name}</Link>
-                      )}
-                      <p className="mt-1 font-mono-caps text-[11px] text-muted-foreground">
-                        {[w.work_medium, w.work_dimensions, w.work_year].filter(Boolean).join(" · ")}
-                      </p>
-                    </div>
-                    {w.work_price && (
-                      <p className="shrink-0 font-mono-caps text-[11px] text-primary">{w.work_currency || "USD"} {w.work_price}</p>
-                    )}
-                  </div>
-                  {w.work_description && (
-                    <p className="mt-3 text-sm text-muted-foreground leading-relaxed line-clamp-3">{w.work_description}</p>
-                  )}
-                  <div className="mt-4 border-t border-border pt-3 flex items-center justify-between">
-                    <Link to={`/artists/${w.artist_id}`} className="font-mono-caps text-[10px] text-muted-foreground hover:text-primary">View Artist →</Link>
-                    <button onClick={() => removeFromCollection(w.id)} className="font-mono-caps text-[10px] text-muted-foreground hover:text-destructive transition-colors">Remove</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
+      {/* B10: their collections, with the controls to manage them. */}
+      <MyCollection userId={user?.id} isOwner />
       <SlimFooter />
     </>
   );

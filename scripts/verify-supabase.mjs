@@ -134,6 +134,8 @@ const EXPECTED_ENTITIES = [
   // (A1, migration 027). Members read their own requests; the archive is
   // admin-only; neither is written directly — only by database functions.
   "ProfileSwitchRequest", "ProfileArchive",
+  // A member's named collections (B10, migration 029).
+  "Collection",
 ];
 const missing = EXPECTED_ENTITIES.filter((e) => !entities[e]);
 const extra = Object.keys(entities).filter((e) => !EXPECTED_ENTITIES.includes(e));

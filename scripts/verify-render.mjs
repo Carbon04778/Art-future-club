@@ -27,7 +27,7 @@ if (BACKEND !== "mock") {
 
 const ROUTES = [
   "/", "/artists", "/artists/artist_lin", "/gallery", "/gallery/gallery_vetiva",
-  "/venues", "/venues/venue_kunsthalle", "/directory", "/events", "/events/ev_basel",
+  "/venues", "/venues/venue_kunsthalle", "/directory", "/collectors", "/collectors/nobody", "/events", "/events/ev_basel",
   "/open-calls", "/editorial", "/editorial/julie-chan-painting-the-city",
   "/editorial/writer/julie-chan",
   "/map", "/gallery-map", "/about", "/terms", "/privacy", "/cookies",

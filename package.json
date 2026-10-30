@@ -11,7 +11,7 @@
     "lint:fix": "eslint . --fix",
     "verify": "node scripts/verify-provider.mjs",
     "verify:render": "vite-node --mode test scripts/verify-render.mjs",
-    "verify:all": "npm run verify:imports && npm run verify && npm run verify:backend && npm run verify:supabase && npm run verify:images && npm run verify:webp && npm run verify:map && npm run verify:sold && npm run verify:writers && npm run verify:headings && npm run verify:gallery && npm run verify:links && npm run verify:photo && npm run verify:editorial && npm run verify:disciplines && npm run verify:opencalls && npm run verify:switch && npm run verify:directory && npm run verify:layout && npm run verify:adminpanel && npm run verify:moderation && npm run verify:notifications && npm run verify:gallery-works && npm run verify:freshness && npm run verify:pdf && npm run verify:datetime && npm run verify:categories && npm run verify:admintabs && npm run verify:adminforms && npm run verify:lightbox && npm run verify:modals && npm run verify:cache && npm run verify:seo && npm run verify:consent && npm run verify:geocoding && npm run verify:slug-routes && npm run verify:render && npm run build",
+    "verify:all": "npm run verify:imports && npm run verify && npm run verify:backend && npm run verify:supabase && npm run verify:images && npm run verify:webp && npm run verify:map && npm run verify:sold && npm run verify:writers && npm run verify:headings && npm run verify:gallery && npm run verify:links && npm run verify:photo && npm run verify:editorial && npm run verify:disciplines && npm run verify:opencalls && npm run verify:switch && npm run verify:directory && npm run verify:collectors && npm run verify:layout && npm run verify:adminpanel && npm run verify:moderation && npm run verify:notifications && npm run verify:gallery-works && npm run verify:freshness && npm run verify:pdf && npm run verify:datetime && npm run verify:categories && npm run verify:admintabs && npm run verify:adminforms && npm run verify:lightbox && npm run verify:modals && npm run verify:cache && npm run verify:seo && npm run verify:consent && npm run verify:geocoding && npm run verify:slug-routes && npm run verify:render && npm run build",
     "verify:supabase": "node scripts/verify-supabase.mjs",
     "localise-images": "node scripts/localise-images.mjs",
     "verify:backend": "node scripts/verify-backend.mjs",
@@ -47,7 +47,8 @@
     "verify:disciplines": "vite-node --mode test scripts/verify-disciplines.mjs",
     "verify:opencalls": "vite-node --mode test scripts/verify-open-calls.mjs",
     "verify:switch": "vite-node --mode test scripts/verify-profile-switch.mjs",
-    "verify:directory": "vite-node --mode test scripts/verify-directory.mjs"
+    "verify:directory": "vite-node --mode test scripts/verify-directory.mjs",
+    "verify:collectors": "vite-node --mode test scripts/verify-collectors.mjs"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.10",

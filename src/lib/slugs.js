@@ -68,6 +68,9 @@ export const spacePath = (record, isVenue = false) =>
 
 export const eventPath = (record) => `/events/${pathId(record)}`;
 
+/** `/collectors/jane-doe` — a collector's page (B10), members only. */
+export const collectorPath = (record) => `/collectors/${pathId(record)}`;
+
 /** `/editorial/...` — article slugs predate this module. */
 export const articlePath = (record) => `/editorial/${record?.slug || record?.id || ""}`;
 

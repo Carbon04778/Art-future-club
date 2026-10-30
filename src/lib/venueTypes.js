@@ -47,5 +47,13 @@ export const COLLECTOR_TYPES = [
  */
 export const isVenueType = (type) => VENUE_TYPES.includes(type);
 
+/**
+ * People, not places (B10): the Collectors page. Everything that is not a
+ * gallery, venue or Directory listing — the same rule as is_people_type in
+ * migration 029.
+ */
+export const PEOPLE_TYPES = ["Collector", "Curator", "Advisor", "Other"];
+export const isPeopleType = (type) => PEOPLE_TYPES.includes(type);
+
 /** Does this profile belong on the Directory page? */
 export const isDirectoryType = (type) => DIRECTORY_TYPES.includes(type);

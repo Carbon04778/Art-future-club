@@ -24,6 +24,8 @@ export default function SiteHeader() {
   const { pathname } = useLocation();
   const [user, setUser] = useState(null);
   const [profileLink, setProfileLink] = useState("/profile/edit");
+  // B10: "Collectors" is shown only to those allowed to see collectors.
+  const [seesCollectors, setSeesCollectors] = useState(false);
   const [open, setOpen] = useState(false);
   const [chaptersOpen, setChaptersOpen] = useState(false);
 
@@ -38,6 +40,7 @@ export default function SiteHeader() {
           base44.entities.CollectorProfile.filter({ user_id: u.id }),
         ]);
         if (!alive) return;
+        base44.auth.canSeeCollectors?.().then((a) => alive && setSeesCollectors(!!a?.allowed)).catch(() => {});
         // "My Profile" links to the public preview of the user's profile.
         const gallery = collectors.find((c) => c.type === "Gallery");
         const venue = collectors.find((c) => isVenueType(c.type));
@@ -101,7 +104,7 @@ export default function SiteHeader() {
               </div>
             )}
           </div>
-          {NAV.map((n) => (
+          {(seesCollectors ? [...NAV.slice(0, -2), { to: "/collectors", label: "Collectors" }, ...NAV.slice(-2)] : NAV).map((n) => (
             <Link
               key={n.to}
               to={n.to}
@@ -140,7 +143,7 @@ export default function SiteHeader() {
             ))}
           </div>
           <div className="border-t border-border my-1" />
-          {NAV.map((n) => (
+          {(seesCollectors ? [...NAV.slice(0, -2), { to: "/collectors", label: "Collectors" }, ...NAV.slice(-2)] : NAV).map((n) => (
             <Link key={n.to} to={n.to} className="font-mono-caps text-[11px] text-muted-foreground hover:text-primary">{n.label}</Link>
           ))}
           {user ? (

@@ -33,6 +33,8 @@ import ArtistMap from '@/pages/ArtistMap';
 import GalleryMap from '@/pages/GalleryMap';
 import Venues from '@/pages/Venues';
 import Directory from '@/pages/Directory';
+import Collectors from '@/pages/Collectors';
+import CollectorPublic from '@/pages/CollectorPublic';
 import Editorial from '@/pages/Editorial';
 import ArticleReader from '@/pages/ArticleReader';
 import EditorialWriter from '@/pages/EditorialWriter';
@@ -115,6 +117,9 @@ const AuthenticatedApp = () => {
         {/* B11: art stores, framers, printers. Listings use the space page. */}
         <Route path="/directory" element={<Directory />} />
         <Route path="/directory/:id" element={<GalleryProfile />} />
+        {/* B10: members only — the pages check, and the database enforces. */}
+        <Route path="/collectors" element={<Collectors />} />
+        <Route path="/collectors/:id" element={<CollectorPublic />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/terms" element={<TermsAndConditions />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />

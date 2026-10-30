@@ -67,6 +67,8 @@ const TABLES = {
   OpenCall: "open_call",
   // A1: profile type change requests and the archive of replaced profiles (027).
   ProfileSwitchRequest: "profile_switch_request",
+  // B10: a member's named collections (029).
+  Collection: "collection",
   ProfileArchive: "profile_archive",
   Subscription: "subscription",
   // Which derived notifications this member has already read. See migration
@@ -430,6 +432,19 @@ export const auth = {
     if (error) return { can_view: false, can_post: false, failed: true };
     const row = Array.isArray(data) ? data[0] : data;
     return { can_view: !!row?.can_view, can_post: !!row?.can_post };
+  },
+
+  /**
+   * May the current visitor see collectors? (B10, migration 029: admins,
+   * premium members, and collectors themselves.) Asked of the database so
+   * the page and the read policy agree. `failed` marks a failure rather
+   * than a "no", so the page can offer to try again.
+   */
+  async canSeeCollectors() {
+    let data, error;
+    try { ({ data, error } = await client().rpc("can_see_collectors")); } catch (e) { error = e; }
+    if (error) return { allowed: false, failed: true };
+    return { allowed: data === true };
   },
 
   /*

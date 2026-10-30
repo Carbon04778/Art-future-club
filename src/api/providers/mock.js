@@ -394,6 +394,7 @@ export const ENTITY_NAMES = [
   "Notification",
   "OpenCall",
   "ProfileSwitchRequest",
+  "Collection",
   "ProfileArchive",
   "Subscription",
   // Read-state for derived notifications — see migration 018.
@@ -590,6 +591,16 @@ export const auth = {
   async claimMyProfile() {
     // The demo provider has no pre-made profiles to claim.
     return [];
+  },
+
+  /** Demo stand-in for can_see_collectors (029): admins, an active subscription, or a collector. */
+  async canSeeCollectors() {
+    const user = readSession();
+    if (!user) return { allowed: false };
+    const people = ["Collector", "Curator", "Advisor", "Other"];
+    const isCollector = table("CollectorProfile").some((p) => p.user_id === user.id && people.includes(p.type));
+    const premium = table("Subscription").some((s) => s.user_id === user.id && s.status === "active");
+    return { allowed: user.role === "admin" || premium || isCollector };
   },
 
   /** Demo stand-ins for the profile-switch functions (migration 027), simplified. */
