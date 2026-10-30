@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CornerUpRight, Search, X, Loader2 } from "lucide-react";
-import { spacePath, artistPath } from "@/lib/slugs";
+import { spacePath, artistPath, eventPath } from "@/lib/slugs";
+import { isEventRow, toEventRows, eventDateLabel, spreadSharedPoints } from "@/lib/mapEvents";
 import { isVenueType, isDirectoryType, VENUE_TYPES, DIRECTORY_TYPES } from "@/lib/venueTypes";
 import { groupArtistsByCity, isArtistGroup, artistCountLabel } from "@/lib/artistGroups";
 import { Image } from "@/components/ui/image";
@@ -170,6 +171,20 @@ function ArtistGroupPopup({ row }) {
   );
 }
 
+/** An event pin (B7): what, when, where, and how to get there. */
+function EventPopup({ row: r, here, onLocated }) {
+  const e = r.event;
+  return (
+    <div className="min-w-[200px]">
+      <Link to={eventPath(e)} className="block font-body text-sm font-medium leading-tight hover:underline">{e.title}</Link>
+      <p className="mt-0.5 font-mono-caps text-[10px] text-primary">{eventDateLabel(e)}</p>
+      <p className="mt-1 text-xs leading-snug text-muted-foreground">{[e.venue, e.address].filter(Boolean).join(", ")}</p>
+      {/* The exact venue, not the few metres the pin was moved to stay tappable. */}
+      <DirectionsLink row={r.exact ? { ...r, ...r.exact } : r} here={here} onLocated={onLocated} />
+    </div>
+  );
+}
+
 /** What a pin shows when tapped: who it is, where, and how to get there. */
 function SpacePopup({ row: r, here, onLocated }) {
   return (
@@ -208,11 +223,14 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
   const [loading, setLoading] = useState(true);
   const [artists, setArtists] = useState([]);
   const [artistsLoading, setArtistsLoading] = useState(includeArtists);
+  // B7: events on the main map (the one that includes artists).
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(includeArtists);
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("All");
   const [kind, setKind] = useState(initialKind);
   // "Directory" (B11): art stores, framers, printers.
-  const KIND_FILTERS = includeArtists ? ["All", "Artists", "Galleries", "Venues", "Directory"] : ["All", "Galleries", "Venues", "Directory"];
+  const KIND_FILTERS = includeArtists ? ["All", "Artists", "Galleries", "Venues", "Directory", "Events"] : ["All", "Galleries", "Venues", "Directory"];
   const [bounds, setBounds] = useState(null);
   const [selected, setSelected] = useState(null);
   /* The visitor's own position, once they have offered it — from the find-me
@@ -276,6 +294,18 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
     return () => { alive = false; };
   }, [includeArtists, rev]);
 
+  /* B7: upcoming and running events that have a position. */
+  useEffect(() => {
+    if (!includeArtists) return undefined;
+    let alive = true;
+    base44.entities.Event.list("start_date", 1000,
+      "id,title,slug,venue,address,chapter,start_date,end_date,image_url,geo_lat,geo_lng")
+      .then((evs) => alive && setEvents(toEventRows(evs)))
+      .catch(() => {})
+      .finally(() => alive && setEventsLoading(false));
+    return () => { alive = false; };
+  }, [includeArtists, rev]);
+
   /*
    * Artists matching the search, grouped into one row per city. A search for an
    * artist's name keeps their city's pin and narrows its list to the match.
@@ -315,7 +345,7 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
   /* What the map should show. The list then narrows this to the viewport. */
   const matching = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const spaces = kind === "Artists" ? [] : rows.filter((r) => {
+    const spaces = kind === "Artists" || kind === "Events" ? [] : rows.filter((r) => {
       if (!inCity(r)) return false;
       if (kind === "Galleries" && (isVenueType(r.type) || isDirectoryType(r.type))) return false;
       if (kind === "Venues" && !isVenueType(r.type)) return false;
@@ -327,9 +357,13 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
     const groups = includeArtists && (kind === "All" || kind === "Artists")
       ? artistGroups.groups.filter(inCity)
       : [];
+    const evs = includeArtists && (kind === "All" || kind === "Events")
+      ? events.filter((r) => inCity(r) && (!q || `${r.display_name} ${r.address}`.toLowerCase().includes(q)))
+      : [];
     // Artist cities first in the list: one row each, so they never bury the listings.
-    return [...groups, ...spaces];
-  }, [rows, query, kind, inCity, includeArtists, artistGroups]);
+    // Events sharing a point are spread a few metres so each can be opened.
+    return spreadSharedPoints([...groups, ...spaces, ...evs]);
+  }, [rows, query, kind, inCity, includeArtists, artistGroups, events]);
 
   /*
    * A filter that hides the selected pin also drops the selection. Otherwise
@@ -344,9 +378,11 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
   /* Totals for the line under the title — what is plotted, by kind. */
   const shown = useMemo(() => {
     const groups = matching.filter(isArtistGroup);
+    const evs = matching.filter(isEventRow).length;
     return {
       artists: groups.reduce((n, g) => n + g.members.length, 0),
-      spaces: matching.length - groups.length,
+      spaces: matching.length - groups.length - evs,
+      events: evs,
     };
   }, [matching]);
 
@@ -376,10 +412,12 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
   const renderPopup = useCallback(
     (row) => isArtistGroup(row)
       ? <ArtistGroupPopup row={row} />
+      : isEventRow(row)
+      ? <EventPopup row={row} here={here} onLocated={setHere} />
       : <SpacePopup row={row} here={here} onLocated={setHere} />,
     [here]
   );
-  const busy = loading || artistsLoading;
+  const busy = loading || artistsLoading || eventsLoading;
 
   /* googleAuthFailed(): if Google has already refused the key on this page,
    * skip it rather than mount a map that will draw an error box and fall back. */
@@ -398,7 +436,7 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
         {busy
           ? "Loading…"
           : includeArtists
-            ? `${artistCountLabel(shown.artists)} · ${shown.spaces} places`
+            ? `${artistCountLabel(shown.artists)} · ${shown.spaces} places · ${shown.events} event${shown.events === 1 ? "" : "s"}`
             : `${matching.length} of ${rows.length} pinned`}
         {!busy && bounds && inView.length !== matching.length && ` · ${inView.length} in view`}
       </p>
@@ -421,7 +459,9 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
         >
           {cities.map((c) => <option key={c} value={c}>{c === "All" ? "All cities" : c}</option>)}
         </select>
-        <div className="flex gap-2">
+        {/* Wraps on a phone. With Directory (B11) and Events (B7) the row no
+            longer fits 390px, and the page scrolled sideways. */}
+        <div className="flex flex-wrap gap-2">
           {KIND_FILTERS.map((k) => (
             <button
               key={k}
@@ -498,6 +538,8 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
                     <span className="block truncate font-mono-caps text-[10px] text-muted-foreground">
                       {isArtistGroup(r)
                         ? `Artists · ${artistCountLabel(r.members.length)}`
+                        : isEventRow(r)
+                        ? `Event · ${eventDateLabel(r.event)}`
                         : `${r.type}${r.based_in ? ` · ${r.based_in}` : ""}`}
                     </span>
                     {r.address && (

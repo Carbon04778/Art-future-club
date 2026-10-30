@@ -62,7 +62,11 @@ const map = read("../src/components/SpacesMap.jsx");
 const artistPage = read("../src/pages/ArtistMap.jsx");
 const galleryPage = read("../src/pages/GalleryMap.jsx");
 
-check("the map offers an Artists filter", /\["All", "Artists", "Galleries", "Venues", "Directory"\]/.test(map));
+check("the map offers an Artists filter", /\["All", "Artists", "Galleries", "Venues", "Directory", "Events"\]/.test(map));
+// B7: events on the map — upcoming/running ones with a position, own pin and popup.
+check("the map offers an Events filter, loading events with a position", /"Events"\]/.test(map) && /toEventRows\(evs\)/.test(map) && /kind === "Artists" \|\| kind === "Events" \? \[\]/.test(map));
+check("the filter buttons wrap on a phone (they overflowed 41px once Directory was added)", /<div className="flex flex-wrap gap-2">\s*\{KIND_FILTERS\.map/.test(map));
+check("an event pin opens the event's own popup", /isEventRow\(row\)\s*\?\s*<EventPopup/.test(map));
 check("the map offers a Directory filter (B11) that shows only directory listings", /kind === "Directory" && !isDirectoryType\(r\.type\)/.test(map) && /DEFAULT_KINDS = \["Gallery", \.\.\.VENUE_TYPES, \.\.\.DIRECTORY_TYPES\]/.test(map));
 check("artists are paged, not capped at 200",
   /ArtistProfile\.page\(/.test(map) && !/ArtistProfile\.list\([^)]*200/.test(map + artistPage));

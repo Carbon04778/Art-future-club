@@ -7,6 +7,8 @@ import { MapPin, ExternalLink, Plus, X, Loader2 } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
 import { motion } from "framer-motion";
 import { chapterFilterOptions } from "@/lib/chaptersData";
+import { eventPosition } from "@/lib/eventPlace";
+import { fromLocalInput } from "@/lib/datetime";
 
 const CHAPTERS = chapterFilterOptions("All");
 const EVENT_TYPES = ["All", "Exhibition", "Opening", "Talk", "Workshop", "Screening", "Performance", "Social", "Other"];
@@ -250,24 +252,41 @@ function AddEventModal({ user, onClose, onCreated }) {
   });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    let image_url = form.image_url;
-    if (file) {
-      const res = await base44.integrations.Core.UploadFile({ file });
-      image_url = res.file_url;
+    setError("");
+    // A refused save used to leave the button spinning with nothing said.
+    try {
+      let image_url = form.image_url;
+      if (file) {
+        const res = await base44.integrations.Core.UploadFile({ file });
+        image_url = res.file_url;
+      }
+      // B7: placed on the map from its venue's pin, or its address.
+      const position = await eventPosition(form);
+      await base44.entities.Event.create({
+        ...form,
+        ...position,
+        // The organiser's own time, as the gallery form does. The raw
+        // "2026-11-01T18:00" was stored as 18:00 UTC — 2am the next day for
+        // a Hong Kong organiser — and an empty end date ("") was refused by
+        // the database, so an event without one could not be posted.
+        start_date: fromLocalInput(form.start_date),
+        end_date: fromLocalInput(form.end_date),
+        image_url,
+        organizer_id: user.id,
+        organizer_name: user.full_name || "AFC Member",
+      });
+      onCreated();
+    } catch (err) {
+      setError(String(err?.message || err) || "Could not post the event. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    await base44.entities.Event.create({
-      ...form,
-      image_url,
-      organizer_id: user.id,
-      organizer_name: user.full_name || "AFC Member",
-    });
-    setSaving(false);
-    onCreated();
   };
 
   const input = "w-full border border-border bg-transparent px-4 py-3 text-base outline-none focus:border-foreground";
@@ -340,6 +359,7 @@ function AddEventModal({ user, onClose, onCreated }) {
             </div>
           )}
           <div className="flex flex-wrap items-center gap-4 pt-2">
+            {error && <p className="w-full text-sm text-destructive" role="alert">{error}</p>}
             <button type="submit" disabled={saving} className="flex items-center gap-2 bg-primary px-8 py-4 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80 disabled:opacity-50">
               {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
               Publish Event

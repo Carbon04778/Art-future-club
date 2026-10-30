@@ -14,7 +14,7 @@ import SpacesMap from "@/components/SpacesMap";
  *
  * ?show=artists|galleries|venues|directory preselects a filter; /gallery-map uses it.
  */
-const SHOW = { artists: "Artists", galleries: "Galleries", venues: "Venues", directory: "Directory" };
+const SHOW = { artists: "Artists", galleries: "Galleries", venues: "Venues", directory: "Directory", events: "Events" };
 
 export default function ArtistMap() {
   const [params] = useSearchParams();

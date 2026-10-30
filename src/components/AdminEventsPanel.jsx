@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from "lucide-react";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import { useDataRevision } from "@/lib/dataRevision";
+import { eventPosition } from "@/lib/eventPlace";
 
 // Must match the filter list on the events page. Offering a narrower set here
 // would mean an admin editing an event silently changed its type to something
@@ -73,7 +74,9 @@ export default function AdminEventsPanel() {
     setError("");
     setBusyId(ev.id);
     try {
-      const updated = await base44.entities.Event.update(ev.id, patch);
+      // B7: re-place it on the map if its venue or address changed.
+      const position = await eventPosition({ ...ev, ...patch }, ev);
+      const updated = await base44.entities.Event.update(ev.id, { ...patch, ...position });
       setEvents((prev) => prev.map((x) => (x.id === ev.id ? { ...x, ...updated } : x)));
       setEditing(null);
       flash(`${patch.title || ev.title} saved.`);

@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import FocalPointPicker from "@/components/FocalPointPicker";
+import { eventPosition } from "@/lib/eventPlace";
 
 const fmt = (d) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
@@ -259,8 +260,12 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
       organizer_name: profile.display_name,
     };
     try {
-      if (isEdit) await base44.entities.Event.update(exhibition.id, payload);
-      else await base44.entities.Event.create(payload);
+      // B7: an exhibition is at the gallery — use the gallery's own pin
+      // unless it is somewhere else (a different address).
+      const elsewhere = form.address && profile.address && form.address.trim() !== profile.address.trim();
+      const position = await eventPosition(payload, isEdit ? exhibition : null, elsewhere ? null : profile);
+      if (isEdit) await base44.entities.Event.update(exhibition.id, { ...payload, ...position });
+      else await base44.entities.Event.create({ ...payload, ...position });
     } catch (err) {
       setSaving(false);
       setError(String(err?.message || err) || "Could not save.");
