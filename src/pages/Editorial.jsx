@@ -19,6 +19,8 @@ export default function Editorial() {
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
+  // B6: the draft being continued, if any.
+  const [editingDraft, setEditingDraft] = useState(null);
   const [user, setUser] = useState(null);
   const rev = useDataRevision();
   const canPublish = user?.role === "admin" || user?.role === "editor";
@@ -101,6 +103,12 @@ export default function Editorial() {
   const featured = filtered.filter((a) => a.featured && isLive(a) && a !== lead);
   const rest = filtered.filter((a) => a !== lead && !featured.includes(a));
 
+  // B6: drafts, newest first — staff only (the database shows them to
+  // editors and admins only).
+  const drafts = canPublish
+    ? articles.filter((a) => !a.published).sort((a, b) => new Date(b.updated_date || b.created_date) - new Date(a.updated_date || a.created_date))
+    : [];
+
   const href = (a) => `/editorial/${a.slug || a.id}`;
   const chips = (a) => [...(a.categories || []), ...(a.tags || [])];
 
@@ -111,6 +119,31 @@ export default function Editorial() {
           <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 bg-primary px-4 py-2 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">
             <Plus className="h-3 w-3" /> New Article
           </button>
+        </div>
+      )}
+
+      {/* B6: "go back to them and complete later". Editors could save a draft
+          but had no way back to it — only admins, through the dashboard. */}
+      {drafts.length > 0 && (
+        <div className="px-6 pt-8 md:px-10 max-w-6xl mx-auto" data-testid="drafts">
+          <div className="border border-border p-5">
+            <p className="font-mono-caps text-[11px] text-primary">Drafts ({drafts.length}) — only editors and admins see these</p>
+            <ul className="mt-3 divide-y divide-border">
+              {drafts.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5" data-testid="draft-row">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm">{d.title || "Untitled"}</span>
+                    <span className="block font-mono-caps text-[10px] text-muted-foreground">
+                      {[d.author_name, (d.updated_date || d.created_date) && `last saved ${format(new Date(d.updated_date || d.created_date), "d MMM yyyy, HH:mm")}`].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                  <button type="button" onClick={() => setEditingDraft(d)} className="font-mono-caps text-[11px] text-primary underline hover:opacity-80">
+                    Continue editing
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 
@@ -215,7 +248,11 @@ export default function Editorial() {
       <SlimFooter />
 
       {showForm && canPublish && (
-        <ArticleForm user={user} onClose={() => setShowForm(false)} onCreated={() => { setShowForm(false); refresh(); }} />
+        <ArticleForm user={user} onClose={() => { setShowForm(false); refresh(); }} onSaved={refresh} onCreated={() => { setShowForm(false); refresh(); }} />
+      )}
+
+      {editingDraft && canPublish && (
+        <ArticleForm user={user} article={editingDraft} onClose={() => { setEditingDraft(null); refresh(); }} onSaved={refresh} onCreated={() => { setEditingDraft(null); refresh(); }} />
       )}
     </>
   );

@@ -55,11 +55,26 @@ const Section = ({ title, children }) => (
   </div>
 );
 
-export default function ArticleForm({ user, article, onClose, onCreated }) {
+export default function ArticleForm({ user, article, onClose, onCreated, onSaved }) {
   // URL of the image being viewed full size, or null. Editing side only —
   // the reader view is unchanged.
   const [expanded, setExpanded] = useState(null);
-  const isEdit = !!article;
+  /*
+   * Drafts (B6 — Julie: "We need a save function in Editorials so we can go
+   * back to them and complete later").
+   *
+   * savedId is the article's id once it exists. A NEW article saved as a
+   * draft gets one on its first save, and every save after that updates the
+   * same article. Before, the form only knew `article` from when it opened,
+   * so each save created another copy — very likely how the two "The Color
+   * of an Imagined World" articles (one a draft) came about.
+   */
+  const [savedId, setSavedId] = useState(article?.id || null);
+  const isEdit = !!savedId;
+  // Whether the article is live right now (as last saved).
+  const [livePublished, setLivePublished] = useState(!!article?.published);
+  const [savedAt, setSavedAt] = useState(null);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     title: article?.title || "",
     subtitle: article?.subtitle || "",
@@ -349,9 +364,27 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
     );
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  /*
+   * mode: "draft"   — hidden; needs only a title, so a piece just started can
+   *                   be kept. The form stays open.
+   *       "publish" — needs the title and the text.
+   *       "keep"    — an article already live stays live (Save Changes).
+   */
+  const save = async (mode) => {
+    setError("");
+    if (!form.title.trim()) {
+      setError("Give the article a title first — that is all a draft needs.");
+      return;
+    }
+    if (mode === "publish" && !form.body.trim()) {
+      setError("Add the article text before publishing — or save it as a draft.");
+      return;
+    }
     setSaving(true);
+    try {
+    // What this save uploaded, by entry, so the next save does not upload
+    // the same pictures again.
+    const uploaded = new Map();
     let cover_image_url = form.cover_image_url;
     if (coverFile) {
       const r = await base44.integrations.Core.UploadFile({ file: coverFile });
@@ -364,13 +397,14 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
       if (entry.file) {
         const r = await base44.integrations.Core.UploadFile({ file: entry.file });
         url = r.file_url;
+        uploaded.set(entry.id, url);
       }
       images.push({ url, alt: entry.alt || "", caption: entry.caption || "", full: !!entry.full });
     }
     let closing_image_url = "", closing_image_alt = "", closing_image_caption = "";
     if (hasClosing && closing[0]) {
       const e = closing[0];
-      if (e.file) { const r = await base44.integrations.Core.UploadFile({ file: e.file }); closing_image_url = r.file_url; }
+      if (e.file) { const r = await base44.integrations.Core.UploadFile({ file: e.file }); closing_image_url = r.file_url; uploaded.set(e.id, closing_image_url); }
       else closing_image_url = e.url;
       closing_image_alt = e.alt || "";
       closing_image_caption = e.caption || "";
@@ -398,14 +432,53 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
       geo_lat: form.geo_lat === "" || form.geo_lat == null ? null : Number(form.geo_lat),
       geo_lng: form.geo_lng === "" || form.geo_lng == null ? null : Number(form.geo_lng),
       publish_date: fromLocalInput(form.publish_date),
+      published: mode === "draft" ? false : mode === "publish" ? true : livePublished,
     };
-    if (isEdit) {
-      await base44.entities.Article.update(article.id, payload);
-    } else {
-      await base44.entities.Article.create(payload);
+    const write = (p) => (savedId ? base44.entities.Article.update(savedId, p) : base44.entities.Article.create(p));
+    let row;
+    try {
+      row = await write(payload);
+    } catch (err) {
+      // Two articles may share a title, but not a web address. A new one
+      // whose address is taken gets a short suffix instead of failing.
+      if (!savedId && /duplicate|unique/i.test(String(err?.message)) && /slug/i.test(String(err?.message))) {
+        payload.slug = `${payload.slug}-${Date.now().toString(36).slice(-4)}`;
+        row = await write(payload);
+      } else {
+        throw err;
+      }
     }
-    setSaving(false);
-    onCreated();
+
+    // Keep what was uploaded as uploaded.
+    if (coverFile) { setCoverFile(null); setCoverRaw(null); }
+    const settle = (list) => list.map((e) => (uploaded.has(e.id) ? { ...e, url: uploaded.get(e.id), file: null } : e));
+    setIntro(settle); setGallery(settle); setClosing(settle);
+    setForm((f) => ({ ...f, slug: payload.slug, cover_image_url }));
+    if (!savedId && row?.id) setSavedId(row.id);
+    setLivePublished(payload.published);
+
+    if (mode === "draft") {
+      setSavedAt(new Date());
+      onSaved?.();
+    } else {
+      onCreated();
+    }
+    } catch (err) {
+      // There was no catch: a refused save left the button spinning.
+      setError(String(err?.message || err) || "Could not save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    save(livePublished ? "keep" : "publish");
+  };
+  const saveDraft = () => {
+    // Taking a live article off the site is a big step: ask first.
+    if (livePublished && !window.confirm("Move this article to drafts? It will be hidden from the site until you publish it again.")) return;
+    save("draft");
   };
 
   return (
@@ -571,22 +644,39 @@ export default function ArticleForm({ user, article, onClose, onCreated }) {
                   </p>
                 )}
               </div>
+              {/* "Publish immediately" was a tickbox here, ticked by default and
+                  easy to miss — the one button then published. Draft or
+                  publish is now the choice of button below (B6). */}
               <div className="flex flex-wrap items-center gap-6 mt-3">
-                <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={form.published} onChange={(e) => set("published", e.target.checked)} className="h-4 w-4 accent-primary" /><span className="font-mono-caps text-[11px] text-muted-foreground">Publish immediately</span></label>
                 <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={form.featured} onChange={(e) => set("featured", e.target.checked)} className="h-4 w-4 accent-primary" /><span className="font-mono-caps text-[11px] text-muted-foreground">Featured</span></label>
               </div>
             </Section>
 
-            <div className="flex flex-wrap items-center gap-4 pt-2 pb-6">
-              <button type="submit" disabled={saving} className="flex items-center gap-2 bg-primary px-8 py-4 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80 disabled:opacity-50">
-                {saving && <Loader2 className="h-3 w-3 animate-spin" />}{" "}
-                {/* Say what the button will actually do. "Publish Article" is
-                    misleading when a future date means it will not appear. */}
-                {isScheduled
-                  ? (isEdit ? "Save as Scheduled" : "Schedule Article")
-                  : (isEdit ? "Save Changes" : "Publish Article")}
-              </button>
-              <button type="button" onClick={onClose} className="font-mono-caps text-[11px] text-muted-foreground">Cancel</button>
+            <div className="space-y-3 pt-2 pb-6" data-testid="article-actions">
+              <p className="font-mono-caps text-[10px] text-muted-foreground" data-testid="article-status">
+                {livePublished ? (isScheduled ? "Scheduled" : "Published — live on the site") : isEdit ? "Draft — hidden from the site" : "New article — not saved yet"}
+              </p>
+              {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+              {savedAt && !error && (
+                <p className="text-sm text-primary" role="status" data-testid="draft-saved">
+                  Draft saved at {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. Find it under Drafts on the Editorial page to carry on later.
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-4">
+                <button type="submit" disabled={saving} className="flex items-center gap-2 bg-primary px-8 py-4 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80 disabled:opacity-50">
+                  {saving && <Loader2 className="h-3 w-3 animate-spin" />}{" "}
+                  {/* Say what the button will actually do. "Publish Article" is
+                      misleading when a future date means it will not appear. */}
+                  {livePublished
+                    ? (isScheduled ? "Save as Scheduled" : "Save Changes")
+                    : (isScheduled ? "Schedule Article" : "Publish Article")}
+                </button>
+                <button type="button" onClick={saveDraft} disabled={saving}
+                  className="border border-border px-6 py-4 font-mono-caps text-[11px] hover:border-foreground disabled:opacity-50">
+                  {livePublished ? "Move to Drafts" : "Save Draft"}
+                </button>
+                <button type="button" onClick={onClose} className="font-mono-caps text-[11px] text-muted-foreground">{savedAt ? "Close" : "Cancel"}</button>
+              </div>
             </div>
           </form>
           <div className="hidden lg:block border-l border-border overflow-y-auto bg-background">

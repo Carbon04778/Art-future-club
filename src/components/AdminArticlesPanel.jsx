@@ -118,7 +118,7 @@ export default function AdminArticlesPanel({ user }) {
                 <p className="truncate font-mono-caps text-[10px] text-muted-foreground">
                   {a.author_name || "Unknown"}
                   {a.category ? ` · ${a.category}` : ""}
-                  {a.published ? "" : " · HIDDEN"}
+                  {a.published ? "" : " · DRAFT"}
                 </p>
               </div>
 
@@ -186,7 +186,8 @@ export default function AdminArticlesPanel({ user }) {
         <ArticleForm
           user={user}
           article={editing}
-          onClose={() => setEditing(null)}
+          onClose={() => { setEditing(null); load(); }}
+          onSaved={load}
           onCreated={() => {
             setEditing(null);
             load();
