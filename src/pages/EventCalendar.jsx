@@ -6,7 +6,7 @@ import { Image } from "@/components/ui/image";
 import { MapPin, ExternalLink, Plus, X, Loader2 } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
 import { motion } from "framer-motion";
-import { chapterFilterOptions } from "@/lib/chaptersData";
+import { chapterFilterOptions, CHAPTER_NAMES } from "@/lib/chaptersData";
 import { eventPosition } from "@/lib/eventPlace";
 import { fromLocalInput } from "@/lib/datetime";
 
@@ -314,7 +314,9 @@ function AddEventModal({ user, onClose, onCreated }) {
             <div>
               <label className="font-mono-caps text-[11px] text-muted-foreground">Chapter</label>
               <select className={`${selectCls} mt-2`} value={form.chapter} onChange={(e) => set("chapter", e.target.value)}>
-                {["London", "Tokyo", "Berlin", "Seoul", "Mexico City", "Online", "Other"].map((c) => <option key={c}>{c}</option>)}
+                {/* Was London, Tokyo, Berlin, Seoul, Mexico City — mostly cities
+                    with no chapter, and no Hong Kong. Now the real chapters. */}
+                {[...CHAPTER_NAMES, "Online", "Other"].map((c) => <option key={c}>{c}</option>)}
               </select>
             </div>
           </div>

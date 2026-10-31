@@ -2,13 +2,16 @@ import React, { useState } from "react";
 import { Send, Loader2 } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
 import { base44 } from "@/api/base44Client";
+import { CHAPTER_NAMES } from "@/lib/chaptersData";
+
+const CHAPTER_LIST = `${CHAPTER_NAMES.slice(0, -1).join(", ")} and ${CHAPTER_NAMES[CHAPTER_NAMES.length - 1]}`;
 
 const PARTNERSHIP_TYPES = [
   {
     code: "01",
     title: "Event Sponsorship",
     description:
-      "Brand your presence across our chapter gatherings, openings, salons and collector dinners in Hong Kong, London, New York, Los Angeles, Bangkok, Milano, Toronto and Zurich. From headline sponsorship to drinks-table activation.",
+      `Brand your presence across our chapter gatherings, openings, salons and collector dinners in ${CHAPTER_LIST}. From headline sponsorship to drinks-table activation.`,
     examples: ["Logo placement at chapter events", "Brand mentions in invitations & comms", "Reserved guest seats for your team", "Custom activation concepts welcome"],
   },
   {

@@ -216,8 +216,12 @@ export default function CityChapterDetail() {
       {/* ── ABOUT ────────────────────────────────────────── */}
       <section className="atmospheric-space grid grid-cols-1 gap-10 px-6 md:grid-cols-[1fr_2fr] md:px-10">
         <div>
-          <p className="font-mono-caps text-[11px] text-muted-foreground">Local Pulse</p>
-          <p className="mt-2 font-mono-caps text-[13px] text-primary">{chapter.pulse}</p>
+          {chapter.pulse && (
+            <>
+              <p className="font-mono-caps text-[11px] text-muted-foreground">Local Pulse</p>
+              <p className="mt-2 font-mono-caps text-[13px] text-primary">{chapter.pulse}</p>
+            </>
+          )}
         </div>
         <div>
           <p className="font-mono-caps text-[11px] text-muted-foreground">About the Chapter</p>

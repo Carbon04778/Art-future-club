@@ -46,8 +46,12 @@ function ChapterBlock({ chapter, events }) {
             </p>
           </div>
           <div className="mt-10">
-            <p className="font-mono-caps text-[10px] text-muted-foreground">Local Pulse</p>
-            <p className="mt-2 font-mono-caps text-[13px] text-primary">{chapter.pulse}</p>
+            {chapter.pulse && (
+              <>
+                <p className="font-mono-caps text-[10px] text-muted-foreground">Local Pulse</p>
+                <p className="mt-2 font-mono-caps text-[13px] text-primary">{chapter.pulse}</p>
+              </>
+            )}
             <Link
               to={`/chapter/${chapter.slug}`}
               className="mt-6 inline-flex items-center gap-2 font-mono-caps text-[11px] text-foreground transition-colors hover:text-primary"

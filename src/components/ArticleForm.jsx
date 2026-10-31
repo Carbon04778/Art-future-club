@@ -5,6 +5,7 @@ import { X, Loader2, Trash2 } from "lucide-react";
 import ArticlePreview from "@/components/ArticlePreview";
 import ImageCropBox from "@/components/ImageCropBox";
 import { HEADING_MARK, plainArticleText } from "@/lib/articleText";
+import { CHAPTER_NAMES } from "@/lib/chaptersData";
 
 // Which gallery-placement layouts also use a full-width intro image (images[0]).
 const INTRO_LAYOUTS = ["image_after_intro", "intro_middle"];
@@ -20,10 +21,9 @@ const CATEGORY_TAGS = [
   "Artist Feature", "Gallery Feature", "Collector Feature", "Curator Feature",
   "Art Fair", "Exhibition", "Festival", "Residency", "Studio Visit",
   "Auction", "Market", "Commission", "Scholarship",
-  "Chapter: Hong Kong", "Chapter: London", "Chapter: New York", "Chapter: Los Angeles",
-  "Chapter: Bangkok", "Chapter: Milano", "Chapter: Toronto", "Chapter: Zurich",
+  ...CHAPTER_NAMES.map((c) => `Chapter: ${c}`),
 ];
-const CHAPS = ["Hong Kong", "London", "New York", "Los Angeles", "Bangkok", "Milano", "Toronto", "Zurich"];
+const CHAPS = CHAPTER_NAMES;
 
 const slugify = (s) => (s || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 

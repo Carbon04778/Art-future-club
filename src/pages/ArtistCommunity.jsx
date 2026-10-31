@@ -7,6 +7,7 @@ import { Image } from "@/components/ui/image";
 import { ArrowUpRight, Plus, MessageSquare } from "lucide-react";
 import ForumPostModal from "@/components/ForumPostModal";
 import SlimFooter from "@/components/SlimFooter";
+import { chapterFilterOptions } from "@/lib/chaptersData";
 
 const CATEGORY_COLORS = {
   "Open Call": "text-primary",
@@ -43,7 +44,7 @@ export default function ArtistCommunity() {
   };
 
   const CATEGORIES = ["All", "Open Call", "Critique Request", "Collaboration", "Advice", "Exhibition News", "Opportunities", "General"];
-  const LOCATIONS = ["All", "Hong Kong", "London", "New York", "Los Angeles", "Bangkok", "Milano", "Toronto", "Zurich", "Other"];
+  const LOCATIONS = chapterFilterOptions("All");
   const filtered = posts
     .filter((p) => filter === "All" || p.category === filter)
     .filter((p) => locationFilter === "All" || p.author_chapter === locationFilter);

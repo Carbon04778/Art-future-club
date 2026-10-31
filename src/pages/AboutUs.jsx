@@ -56,6 +56,7 @@ export default function AboutUs() {
                 { name: "Benedetta Barzaghi", role: "Editorial Editor", city: "Milano", img: "/images/team/benedetta-barzaghi.webp" },
                 { name: "Christie Melville", role: "Editorial Editor", city: "Toronto", img: "/images/team/christie-melville.webp" },
                 { name: "Saskia Key", role: "Editorial Editor", city: "Zurich", img: "/images/team/saskia-key.webp" },
+                { name: "Erynne Byrd-Quigtar", role: "Editorial Editor", city: "Seattle", img: "/images/team/erynne-byrd-quigtar.webp" },
               ].map((p) => (
                 <div key={p.name} className="group">
                   <div className="aspect-[4/5] overflow-hidden bg-muted">

@@ -2,6 +2,14 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import SocialLinks from '@/components/SocialLinks';
+import { CHAPTER_NAMES } from '@/lib/chaptersData';
+
+// The chapter names, three to a line.
+const CHAPTER_LINES = CHAPTER_NAMES.reduce((lines, name, i) => {
+  if (i % 3 === 0) lines.push([]);
+  lines[lines.length - 1].push(name);
+  return lines;
+}, []);
 
 /*
  * The social list used to live here as nine bare names, every one linking to
@@ -60,9 +68,9 @@ export default function ManifestoFooter() {
         <div>
           <p className="font-mono-caps text-[10px] text-highlight">Chapters</p>
           <ul className="mt-2 space-y-1 text-sm text-foreground/70">
-            <li>Hong Kong · London · New York</li>
-            <li>Los Angeles · Bangkok · Milano</li>
-            <li>Toronto · Zurich</li>
+            {CHAPTER_LINES.map((line) => (
+              <li key={line[0]}>{line.join(' · ')}</li>
+            ))}
           </ul>
         </div>
         <div>

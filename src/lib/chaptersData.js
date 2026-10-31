@@ -178,6 +178,43 @@ export const CHAPTERS = [
     ],
     venues: [],
   },
+  // Seattle and Taipei added 2026-10-31 with Julie's tagline and about text.
+  // No "pulse" line yet — it is hidden until the club writes one. Their
+  // artists, events and venues come from the database like every chapter.
+  {
+    city: "Seattle",
+    slug: "seattle",
+    chapter: "Ch.09",
+    coords: "47.6062°N / 122.3321°W",
+    timezone: "PST-8",
+    pulse: "",
+    image: "/images/chapter-seattle.webp",
+    image_credit: "Artwork by: Erynne Byrd-Quigtar",
+    signature: "indent-left",
+    tagline: "Pacific Northwest craft, tech culture and independent spirit.",
+    about:
+      "Seattle's chapter draws on the Pacific Northwest's independent gallery culture and its long history of studio craft. From Pioneer Square galleries to Georgetown studios and Capitol Hill project spaces, our programme connects artists and collectors across a city where experimentation and craft traditions sit side by side.",
+    gatherings: [],
+    artists: [],
+    venues: [],
+  },
+  {
+    city: "Taipei",
+    slug: "taipei",
+    chapter: "Ch.10",
+    coords: "25.0330°N / 121.5654°E",
+    timezone: "CST+8",
+    pulse: "",
+    image: "/images/chapter-taipei.webp",
+    image_credit: "Artwork by: Adam Dupuis",
+    signature: "indent-left",
+    tagline: "A vibrant East Asian hub for contemporary art and cultural dialogue.",
+    about:
+      "Taipei's chapter sits at the heart of one of East Asia's most dynamic and self-assured art cities. From the galleries of the Daan and Neihu districts to the institutions of Zhongshan, our programme convenes artists, collectors and curators engaged in conversation across the island and the wider Asia-Pacific region.",
+    gatherings: [],
+    artists: [],
+    venues: [],
+  },
 ];
 /**
  * Single source of truth for chapter names.
