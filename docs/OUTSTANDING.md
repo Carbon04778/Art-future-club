@@ -3,6 +3,9 @@
 Running list of open items for the v12 gallery import and the claim path.
 Tick things off here as they land. Last updated 2026-09-18.
 
+Julie's change requests (batches A and B) are tracked separately, word for
+word, in [CLIENT-REQUESTS.md](CLIENT-REQUESTS.md).
+
 ## Gallery import — `gallery-import-2026-09`
 
 363 rows in the manifest. Import one city at a time:
