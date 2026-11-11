@@ -10,6 +10,7 @@ import { CHAPTERS } from '@/lib/chaptersData';
 import SlimFooter from '@/components/SlimFooter';
 import VerticalMetadata from '@/components/VerticalMetadata';
 import { useDataRevision } from '@/lib/dataRevision';
+import { loadAll } from '@/lib/loadAll';
 
 const TYPE_COLORS = {
   Salon: 'bg-primary/10 text-primary',
@@ -116,11 +117,10 @@ export default function CityChapterDetail() {
      * end date recorded still appeared in August — the "old dates showing as
      * upcoming" problem. The landing page uses start_date; this now matches it.
      */
-    base44.entities.Event.list(
-      'start_date',
-      500,
-      'id,title,description,event_type,chapter,venue,address,start_date,slug'
-    )
+    loadAll(base44.entities.Event, {
+      sort: 'start_date',
+      columns: 'id,title,description,event_type,chapter,venue,address,start_date,slug',
+    })
       .then((rows) => {
         const city = chapter.city.trim().toLowerCase();
         const now = new Date();

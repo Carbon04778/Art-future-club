@@ -6,6 +6,7 @@ import { Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from "lucide
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import { useDataRevision } from "@/lib/dataRevision";
 import { eventPosition } from "@/lib/eventPlace";
+import { loadAll } from "@/lib/loadAll";
 
 // Must match the filter list on the events page. Offering a narrower set here
 // would mean an admin editing an event silently changed its type to something
@@ -43,7 +44,7 @@ export default function AdminEventsPanel() {
 
   const load = () => {
     setLoading(true);
-    base44.entities.Event.list("-start_date", 500)
+    loadAll(base44.entities.Event, { sort: "-start_date" })
       .then(setEvents)
       .catch((e) => setError(String(e?.message || e)))
       .finally(() => {

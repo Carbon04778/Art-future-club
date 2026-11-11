@@ -6,6 +6,7 @@ import { Image } from '@/components/ui/image';
 import { ArrowUpRight } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { CHAPTERS } from '@/lib/chaptersData';
+import { loadAll } from '@/lib/loadAll';
 
 const fmtEventDate = (iso) => {
   if (!iso) return '';
@@ -156,7 +157,7 @@ export default function CityChapters() {
     // Each chapter block lists at most three upcoming gatherings: a date, a
     // title and a venue. Every column of 72 events was 233 kB and the slowest
     // request on the page at 2.2 s.
-    base44.entities.Event.list("start_date", 500, "id,title,venue,chapter,start_date,slug")
+    loadAll(base44.entities.Event, { sort: "start_date", columns: "id,title,venue,chapter,start_date,slug" })
       .then(setEvents)
       .catch(() => setEvents([]));
   }, []);

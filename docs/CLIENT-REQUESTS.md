@@ -543,3 +543,22 @@ Wait for her notes before planning.
   with an empty chapter prove it for artists; TEST accepted a Taipei event.
 - Checks: verify:chapters 153/153 (in verify:all); real Chrome 38/38
   (reports/A2-chapters.html).
+
+## Events page stopped at September — fixed 2026-11-11
+
+Reported by the owner. Cause: the Events page loaded only the 200 OLDEST
+events (list("start_date", 200)); live had 291, so everything from late
+September on — every current and upcoming event — was missing. Live before
+the fix: 200 shown, first heading "September 2026" (reports/events-all-BEFORE-fix.html).
+All event lists now load every event a page at a time (src/lib/loadAll.js):
+Events page, home chapters section (was 500), chapter pages (500), map (1000),
+admin Events tab (newest 500). Also: on phones the page scrolled 2px sideways
+because one address ("Tomorrow Maybe") contains pasted links; long addresses
+now wrap. Checks: verify:events-all 16/16; real Chrome on live data 13/13.
+
+Found, not changed (owner to decide):
+- Times show in the VISITOR's time zone. 187 of 291 events are stored at
+  03:00 UTC (11:00 Hong Kong); a New York event on 13 Nov shows as Thu 12 Nov
+  21:00 to a New York visitor.
+- Event "hlhu": starts 2028-09-22, ends 2026-09-25 — looks like a test entry.
+- "Tomorrow Maybe" address contains "[1] (https://www.instagram.com/...)".

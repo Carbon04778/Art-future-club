@@ -237,7 +237,8 @@ async function editSurvivesRefresh({ label, Component, props = {}, addWork = fal
 /* ---------------------------------------------------------------- tests */
 
 const EventsPanel = await loadPanel("AdminEventsPanel", {
-  entities: { Event: { ...noop, list: async () => EVENTS } },
+  // The panel loads every event a page at a time (src/lib/loadAll.js).
+  entities: { Event: { ...noop, list: async () => EVENTS, page: async () => ({ rows: EVENTS, count: EVENTS.length }) } },
   integrations: uploads,
 });
 // "A show." is the description — a textarea, not the title the list row shows.

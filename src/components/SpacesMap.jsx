@@ -13,6 +13,7 @@ import { useDataRevision } from "@/lib/dataRevision";
 import GoogleSpacesSurface from "@/components/map/GoogleSpacesSurface";
 import LeafletSpacesSurface from "@/components/map/LeafletSpacesSurface";
 import { disciplineLabel } from "@/lib/disciplines";
+import { loadAll } from "@/lib/loadAll";
 
 /**
  * Every gallery and venue, pinned where it actually is.
@@ -298,8 +299,8 @@ export default function SpacesMap({ kinds = DEFAULT_KINDS, title = "Map", includ
   useEffect(() => {
     if (!includeArtists) return undefined;
     let alive = true;
-    base44.entities.Event.list("start_date", 1000,
-      "id,title,slug,venue,address,chapter,start_date,end_date,image_url,geo_lat,geo_lng")
+    loadAll(base44.entities.Event, { sort: "start_date",
+      columns: "id,title,slug,venue,address,chapter,start_date,end_date,image_url,geo_lat,geo_lng" })
       .then((evs) => alive && setEvents(toEventRows(evs)))
       .catch(() => {})
       .finally(() => alive && setEventsLoading(false));

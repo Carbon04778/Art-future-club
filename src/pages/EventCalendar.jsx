@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { chapterFilterOptions, CHAPTER_NAMES } from "@/lib/chaptersData";
 import { eventPosition } from "@/lib/eventPlace";
 import { fromLocalInput } from "@/lib/datetime";
+import { loadAll } from "@/lib/loadAll";
 
 const CHAPTERS = chapterFilterOptions("All");
 const EVENT_TYPES = ["All", "Exhibition", "Opening", "Talk", "Workshop", "Screening", "Performance", "Social", "Other"];
@@ -50,7 +51,8 @@ export default function EventCalendar() {
   }, []);
 
   const loadEvents = () =>
-    base44.entities.Event.list("start_date", 200).then((evs) => {
+    // Every event, not the first 200: the cap hid everything after September.
+    loadAll(base44.entities.Event, { sort: "start_date" }).then((evs) => {
       // Upcoming: soonest first, so the next thing to attend leads.
       // Past: MOST RECENT first — the query returns ascending, which put the
       // oldest event at the top of the past section.
@@ -178,8 +180,11 @@ export default function EventCalendar() {
                         </div>
                         <h3 className="font-heading text-2xl tracking-[-0.01em] group-hover:text-primary transition-colors">{ev.title}</h3>
                         {ev.venue && (
-                          <p className="mt-1 flex items-center gap-1 font-mono-caps text-[11px] text-muted-foreground">
-                            <MapPin className="h-3 w-3" /> {ev.venue}{ev.address ? `, ${ev.address}` : ""}
+                          <p className="mt-1 flex items-start gap-1 font-mono-caps text-[11px] text-muted-foreground">
+                            {/* An address with a pasted link in it has no spaces to wrap
+                                at and pushed the page sideways on phones; let it break. */}
+                            <MapPin className="mt-px h-3 w-3 shrink-0" />
+                            <span className="min-w-0 break-words [overflow-wrap:anywhere]">{ev.venue}{ev.address ? `, ${ev.address}` : ""}</span>
                           </p>
                         )}
                         {ev.description && (
