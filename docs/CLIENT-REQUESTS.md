@@ -562,3 +562,8 @@ Found, not changed (owner to decide):
   21:00 to a New York visitor.
 - Event "hlhu": starts 2028-09-22, ends 2026-09-25 — looks like a test entry.
 - "Tomorrow Maybe" address contains "[1] (https://www.instagram.com/...)".
+
+Live 2026-11-11 (v11/GitHub 710d256): Events 13/13 on the live site (291
+events, opens on November 2026; was 2/13 before). Chapters 38/38, event map
+7/7, drafts 4/4, editorial checked again. Drafts test now handles live having
+no drafts (it had assumed at least one).

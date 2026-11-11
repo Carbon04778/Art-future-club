@@ -57,10 +57,15 @@ if (LIVE) {
   const n = (await rows("article?select=id&published=eq.false")).length;
   const listed = await p.evaluate(() => document.querySelectorAll('[data-testid="draft-row"]').length);
   await p.screenshot({ path: R.shotPath("1-admin-drafts.png") });
-  R.ok("Admin", `the admin sees the Drafts list with all ${n} drafts`, listed === n && n > 0, `${listed} listed`, "1-admin-drafts.png");
-  await click("^Continue editing$");
-  await p.waitForSelector('[data-testid="article-status"]', { timeout: 30000 }).catch(() => {});
-  R.ok("Admin", "'Continue editing' opens a draft in the form (nothing saved)", /draft — hidden from the site/i.test(await p.evaluate(() => document.querySelector('[data-testid="article-status"]')?.innerText || "")));
+  if (n === 0) {
+    // Nothing saved as a draft right now: the box must simply not be there.
+    R.ok("Admin", "no drafts on live right now — so no Drafts box is shown", listed === 0 && !(await p.$('[data-testid="drafts"]')), "0 drafts in the database", "1-admin-drafts.png");
+  } else {
+    R.ok("Admin", `the admin sees the Drafts list with all ${n} drafts`, listed === n, `${listed} listed`, "1-admin-drafts.png");
+    await click("^Continue editing$");
+    await p.waitForSelector('[data-testid="article-status"]', { timeout: 30000 }).catch(() => {});
+    R.ok("Admin", "'Continue editing' opens a draft in the form (nothing saved)", /draft — hidden from the site/i.test(await p.evaluate(() => document.querySelector('[data-testid="article-status"]')?.innerText || "")));
+  }
 } else {
   const title = `B6 draft check ${Date.now()}`;
   let art = null;
