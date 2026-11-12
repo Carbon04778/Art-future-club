@@ -567,3 +567,149 @@ Live 2026-11-11 (v11/GitHub 710d256): Events 13/13 on the live site (291
 events, opens on November 2026; was 2/13 before). Chapters 38/38, event map
 7/7, drafts 4/4, editorial checked again. Drafts test now handles live having
 no drafts (it had assumed at least one).
+
+---
+
+## Batch C — received 2026-11-12 (her words; NOT started — waiting on quote approval)
+
+> 1. Gallery Profile Pages
+> Reference: https://www.artmajeur.com/signaturefineart#presentation
+> This reference is for the layout inside an individual gallery profile, not the main gallery listing page.
+> Replace the "Works" section with "Represented Artists."
+> Allow galleries to link to the existing Art Future Club profiles of artists they represent.
+> Each represented artist should be clickable and link to their profile.
+> This feature applies to gallery profiles only.
+>
+> 2. Follow, News and Reviews
+> Add the following features to gallery profiles, venue profiles and individual directory listing pages:
+> A Follow/Unfollow button.
+> A visible follower count.
+> A Reviews section with a visible review count and an option to submit a review.
+> A News section where the profile owner can add updates.
+> Please confirm how review moderation and publishing permissions will be handled before implementation.
+>
+> 3. Artwork Detail Page Layout
+> References:
+> Artist profile: https://www.saatchiart.com/en-gb/moncada
+> Artwork detail page: https://www.saatchiart.com/en-gb/art/Painting-Octhopuses/626451/10544327/view
+> When a visitor clicks on an artwork, the page should prioritise the selected artwork first, followed by information about the artist.
+> Please use this section order:
+> Selected artwork and its details — make the artwork image the main visual focus.
+> About the Artist — include artist information, a profile link and a Follow button.
+> More from [Artist Name] — display other artworks by the same artist.
+> Similar Artworks — display related artworks by other artists.
+> The current "More from [Artist Name]" section should appear after the artist information, rather than being the next main section beneath the selected artwork.
+> Use the Saatchi Art references for the page hierarchy and presentation; we do not need to replicate all their features.
+>
+> 4. Collect Artworks into Collections
+> Add a collection-saving feature similar to Pinterest.
+> When a member clicks Collect on an artwork, open a dialog with two options:
+> Create a new collection: enter a collection name and save the artwork.
+> Add to an existing collection: choose one of their existing collections and save the artwork.
+> Members should be able to display their collections on their profiles, including collector, artist and gallery profiles.
+>
+> 5. Display Collections as Compact Cards
+> To keep profiles from becoming overcrowded, display each collection as a card containing:
+> The collection name.
+> A cover image using the first artwork added to that collection.
+> Do not display every saved artwork directly on the profile. Clicking a collection card should open a dedicated collection page showing all the saved artworks, each linked to its artwork detail page.
+>
+> 6. "Featured in Curated Collections"
+> Add a "Featured in Curated Collections" section to artist profiles, using the Saatchi Art artist profile as a reference.
+> This section should display collections that include that artist's work, using the same compact format: collection name, cover image and a link to the full collection.
+> Keep these two sections distinct:
+> Collections: collections created by the profile owner.
+> Featured in Curated Collections: collections that include the artist's work.
+>
+> 7. Similar Artworks
+> Add "Similar Artworks" below the "More from [Artist Name]" section on artwork detail pages.
+> Include artworks by other artists.
+> Link each artwork to its detail page.
+> Please propose how related artworks will be selected—for example, by style, subject, medium or colour.
+>
+> 8. AI Event Automation and Discovery
+> Please implement an AI automation that collects new events from gallery and venue websites and prepares them for publication on Art Future Club.
+> Weekly Event Collection
+> Run the automation weekly to check designated gallery and venue websites for new events.
+> Extract available information, including the event title, description, dates, times, location, organiser and booking link.
+> Retain the source URL for verification.
+> Check for duplicate listings before creating a new event.
+> Draft Creation and Approval
+> Automatically create a draft event listing from the extracted information.
+> Place each draft in an admin approval queue. Events must not be published automatically.
+> Keep all extracted information and AI-generated content editable.
+> Require admin approval and organiser approval before publishing.
+> AI must not invent missing event details. Clearly flag missing or uncertain information for review.
+> Event Discovery
+> Recommend relevant events based on members' interests, location and the artists, galleries or venues they follow.
+> Explore natural-language search, allowing members to search using phrases such as "painting workshops near me this weekend."
+> Developer response requested: Please advise on the technical approach, website access restrictions, running costs and how the admin and organiser approval workflow would operate.
+>
+> 9. Update the Website Favicon
+> Please replace the current favicon with the Art Future Club logo so it appears in browser tabs, bookmarks and supported browser shortcuts.
+> Use the official logo, ensuring it remains clear and recognisable at small sizes.
+> Apply the updated favicon across the entire website.
+> Include the appropriate favicon formats and sizes for desktop and mobile browsers
+>
+> 10. Display the Full Event Date Range
+> Page: https://www.artfutureclub.com/events
+> Currently, event listings show only the start date. Please display both the start and end dates so visitors can clearly see the full event period and whether an event is still running.
+> Show the date range on both event cards and individual event pages — for example, "8–15 December 2026."
+> For single-day events, display the date only once.
+> Keep multi-day events in the current events listings until their end date has passed, rather than removing them after the start date.
+> Clearly label events as Upcoming, Ongoing or Past, based on their start and end dates.
+> Ensure the event creation form supports start and end dates, with times and a timezone where applicable.
+>
+> 11. Export Contacts and Subscription Lists from the Admin Page
+> Please add an option in the admin dashboard to download contact and subscription lists for:
+> Members
+> Collectors
+> Galleries
+> Venues
+> Artists
+> Newsletter subscribers
+> Allow admins to export each group separately or download a combined list in CSV format or an equivalent spreadsheet-compatible format.
+> Where available, include:
+> Name or organisation name
+> Email address
+> Account/profile type
+> Subscription status
+> Signup date
+> Newsletter or marketing consent status
+> The purpose is to make it easier to contact these groups and send relevant updates. Please include filters for active subscriptions and marketing consent, remove duplicate email addresses from combined exports, and restrict downloads to authorised admins. Unsubscribed contacts should be clearly identified and excluded from marketing mailing lists.
+>
+> 12. This is a request from the last 3 edits but not done yet: Bulk Import Gallery and Venue Profiles via CSV
+> Please add a CSV import feature in the admin dashboard so we can create multiple gallery and venue profiles at once, rather than entering each one manually.
+> We are currently focused on Hong Kong, and bulk importing would significantly reduce the time needed to populate these listings.
+> Support imports for both galleries and venues, with a field to identify the listing type.
+> Import text-based field data only—images are not required.
+> Provide a downloadable CSV template matching the website's fields, such as name, description, address, city, country, website, contact email, phone number and opening hours, where supported.
+> Validate the file and show a preview before confirming the import.
+> Flag missing required information and formatting errors, identifying the affected rows.
+> Check for potential duplicates and allow admins to skip them or update existing listings.
+> Allow profiles to be imported as drafts for review before publishing.
+> Show an import summary with the number of listings created, updated, skipped or unsuccessful.
+> Please ensure this feature can also be used for other locations as we expand beyond Hong Kong.
+
+### What already exists (checked in the code, 2026-11-12)
+- C1: no "Represented Artists" link between galleries and artists yet.
+- C2: Follow exists for ARTISTS only (FollowButton, follow table keyed on
+  the artist's user id). Galleries/venues/directory listings are often
+  unclaimed (no owner), so following must be keyed on the listing. No
+  reviews, no news posts.
+- C3: there is NO artwork page — works open in a pop-up (PortfolioLightbox).
+  A real page (/artworks/:id) is new: route, page, links from every grid, SEO.
+- C4–C5: Collect already exists from B10 (CollectButton "Save to…" menu,
+  new collection on the spot; collection + collected_work tables, migration
+  029). Needs: the two-option dialog, collections on artist and gallery
+  profiles, compact cards, a collection page.
+- C6: new (reads collected_work by artist).
+- C7: new; artists have disciplines (A3) — usable for "similar".
+- C8: nothing yet. New: scheduled job, website reader, AI extraction, draft
+  queue, organiser approval, recommendations, search.
+- C9: public/favicon.png is really a JPEG (512x512), one size only.
+- C10: end_date is stored and shown on the event's own page, not on the
+  list; the list marks past by START date. Ties in with the time-zone
+  finding above (times show in the visitor's zone).
+- C11: newsletter subscribers already export to CSV (AdminSubscribersPanel).
+- C12: = B8 (planned 2026-10-20, not built).
