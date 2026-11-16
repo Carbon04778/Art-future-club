@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { artistPath, spacePath } from "@/lib/slugs";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { loadAll } from "@/lib/loadAll";
 import { Image } from "@/components/ui/image";
 import { Loader2, Check, X, Clock, ExternalLink, AlertTriangle } from "lucide-react";
 import {
@@ -39,8 +40,10 @@ export default function AdminApprovalsPanel({ user }) {
     setLoading(true);
     setError("");
     Promise.allSettled([
-      base44.entities.ArtistProfile.list("-created_date", 500),
-      base44.entities.CollectorProfile.list("-created_date", 500),
+      // Every profile, not the newest 500 (live had 505 galleries and venues
+      // on 2026-11-16, and a CSV import can queue hundreds at once).
+      loadAll(base44.entities.ArtistProfile, { sort: "-created_date" }),
+      loadAll(base44.entities.CollectorProfile, { sort: "-created_date" }),
     ])
       .then(([a, c]) => {
         const artists = (a.status === "fulfilled" ? a.value : []).map((r) => ({

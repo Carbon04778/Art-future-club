@@ -28,6 +28,16 @@ export const VENUE_TYPES = [
  */
 export const DIRECTORY_TYPES = ["Art Store", "Framer", "Printer"];
 
+/**
+ * A gallery's disciplines (profile.interests). Must match the discipline
+ * filter on the Galleries page: a gallery saved without one of these appears
+ * only under "All". Shared by Add Listing and the CSV import.
+ */
+export const GALLERY_INTERESTS = [
+  "Painting", "Sculpture", "Photography", "Installation", "Video Art",
+  "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media",
+];
+
 /** Everything a collector_profile may be. */
 export const COLLECTOR_TYPES = [
   "Gallery",

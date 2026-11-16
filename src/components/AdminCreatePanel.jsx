@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 // Single source of truth, shared with the venues page so a new type cannot
 // be offered here and then silently filtered out there.
-import { COLLECTOR_TYPES } from "@/lib/venueTypes";
+import { COLLECTOR_TYPES, GALLERY_INTERESTS } from "@/lib/venueTypes";
 import { base44 } from "@/api/base44Client";
+import { loadAll } from "@/lib/loadAll";
 import { Plus, Loader2, Check, X } from "lucide-react";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
 import ImageCropBox from "@/components/ImageCropBox";
@@ -20,10 +21,7 @@ const DISCIPLINES = [
 // Must match the discipline filter on the Galleries page, which reads
 // profile.interests. A gallery created without these appears only under
 // "All" and disappears the moment a visitor filters by discipline.
-const INTERESTS = [
-  "Painting", "Sculpture", "Photography", "Installation", "Video Art",
-  "Performance", "Drawing", "Ceramics", "Digital Art", "Mixed Media",
-];
+const INTERESTS = GALLERY_INTERESTS;
 
 /** Mirrors the options on the artist profile editor. */
 const SEEKING_OPTIONS = [
@@ -132,7 +130,9 @@ export default function AdminCreatePanel({ onCreated }) {
       const name = form.display_name.trim().toLowerCase();
       try {
         const entity = kind === "Artist" ? "ArtistProfile" : "CollectorProfile";
-        const existing = await base44.entities[entity].list("-created_date", 500);
+        // Every listing, not the newest 500: live had 505 galleries and
+        // venues on 2026-11-16, so the oldest ones were never checked.
+        const existing = await loadAll(base44.entities[entity], { columns: "id,display_name" });
         const clash = existing.find(
           (p) => (p.display_name || "").trim().toLowerCase() === name
         );

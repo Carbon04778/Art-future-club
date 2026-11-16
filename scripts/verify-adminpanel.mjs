@@ -192,7 +192,11 @@ check("panel collects `interests`", /interests,/.test(src));
 const SENTINELS = ["All", "Uncategorised"];
 const listOf = (t) =>
   (t.match(/"([^"]+)"/g) || []).map((x) => x.slice(1, -1)).filter((x) => !SENTINELS.includes(x));
-const panelInterests = listOf((src.match(/const INTERESTS = \[([\s\S]*?)\]/) || [])[1] || "");
+// The panel's list lives in src/lib/venueTypes.js (GALLERY_INTERESTS), shared
+// with the CSV import, since 2026-11-16.
+const venueTypesSrc = readFileSync(new URL("../src/lib/venueTypes.js", import.meta.url), "utf8");
+check("panel uses the shared gallery disciplines list", /const INTERESTS = GALLERY_INTERESTS;/.test(src));
+const panelInterests = listOf((venueTypesSrc.match(/export const GALLERY_INTERESTS = \[([\s\S]*?)\]/) || [])[1] || "");
 const pageInterests = listOf((showcase.match(/const INTERESTS = \[([\s\S]*?)\]/) || [])[1] || "");
 const missing = pageInterests.filter((d) => !panelInterests.includes(d));
 check("every discipline on the galleries page is offered in the panel",

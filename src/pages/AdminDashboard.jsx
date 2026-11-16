@@ -7,6 +7,7 @@ import { VENUE_TYPES } from "@/lib/venueTypes";
 import SlimFooter from "@/components/SlimFooter";
 import { Image } from "@/components/ui/image";
 import AdminCreatePanel from "@/components/AdminCreatePanel";
+import AdminImportPanel from "@/components/AdminImportPanel";
 import AdminMembersPanel from "@/components/AdminMembersPanel";
 import AdminArticlesPanel from "@/components/AdminArticlesPanel";
 import AdminSubscribersPanel from "@/components/AdminSubscribersPanel";
@@ -18,7 +19,7 @@ import { useDataRevision } from "@/lib/dataRevision";
 // Approvals leads, and is the tab the dashboard opens on. Profiles waiting for
 // review are the only thing here that blocks somebody else — a queue nobody
 // looks at is the same as no review at all.
-const TABS = ["Approvals", "Add Listing", "Edit Listings", "Events", "Members", "Editorial", "Artists", "Inquiries", "Forum", "Open Calls", "Newsletter", "Subscriptions"];
+const TABS = ["Approvals", "Add Listing", "Import CSV", "Edit Listings", "Events", "Members", "Editorial", "Artists", "Inquiries", "Forum", "Open Calls", "Newsletter", "Subscriptions"];
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState("Approvals");
@@ -214,10 +215,12 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-px border-b border-border mb-8">
+        {/* The row scrolls by itself on a phone: 13 tabs are ~1350px wide,
+            and without this the whole admin page scrolled sideways. */}
+        <div className="flex gap-px overflow-x-auto border-b border-border mb-8" data-testid="admin-tabs">
           {TABS.map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              className={`px-5 py-3 font-mono-caps text-[11px] border-b-2 transition-colors ${tab === t ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+              className={`shrink-0 whitespace-nowrap px-5 py-3 font-mono-caps text-[11px] border-b-2 transition-colors ${tab === t ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
               {t}
             </button>
           ))}
@@ -233,6 +236,9 @@ export default function AdminDashboard() {
           the facade, so every mounted list refreshes itself.
         */}
         {tab === "Add Listing" && <AdminCreatePanel />}
+
+        {/* C12 (B8): many galleries and venues from one spreadsheet. */}
+        {tab === "Import CSV" && <AdminImportPanel />}
 
         {tab === "Edit Listings" && <AdminEditListingsPanel />}
 

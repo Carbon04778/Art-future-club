@@ -570,7 +570,16 @@ no drafts (it had assumed at least one).
 
 ---
 
-## Batch C — received 2026-11-12 (her words; NOT started — waiting on quote approval)
+## Batch C — received 2026-11-12 (her words)
+
+**Quote sent (owner, 2026-11-12), split into 4 parts, about 1 month in all:**
+- Part 1 — $120: outstanding from the past job (new chapters Seattle/Taipei,
+  switch profile A1 — both already live) + CSV import (C12 = B8).
+  **PAID — owner, 2026-11-16. Building: CSV import.**
+- Part 2 — $330: C3–C7 (artwork page, collections, Featured in, Similar).
+- Part 3 — $200: C1–C2 (represented artists, follow, news, reviews).
+- Part 4 — $300: C8 (AI events), plus about $5–20/month running cost.
+- Not in the quote: C9 favicon, C10 event date range, C11 exports.
 
 > 1. Gallery Profile Pages
 > Reference: https://www.artmajeur.com/signaturefineart#presentation
@@ -713,3 +722,30 @@ no drafts (it had assumed at least one).
   finding above (times show in the visitor's zone).
 - C11: newsletter subscribers already export to CSV (AdminSubscribersPanel).
 - C12: = B8 (planned 2026-10-20, not built).
+
+## C12 CSV import — built 2026-11-16 (v12, not yet live)
+
+Admin → **Import CSV** (new tab after Add Listing). No database change.
+- Template download (site fields: listing_type, name, city, country,
+  address, description, website, contact_email, phone, opening_hours,
+  socials, disciplines, latitude/longitude or geo, SEO). Her own headings
+  also work (display_name, based_in, bio, geo…); a file with no type column
+  asks "every row is a: Gallery / Museum / …".
+- Preview before anything is saved: Ready / Already on the site / Problem,
+  with the row number and the reason. Duplicates by name (+city) or website,
+  checked against EVERY listing; Skip (default) or Update. Update fills only
+  non-empty cells, never renames, retypes, publishes or changes the owner.
+  A member-owned listing is never updated.
+- New listings: drafts waiting in Approvals (default) or live at once.
+  Unclaimed, no claim email. Map pin from the file's coordinates, else
+  looked up from the address (about 1 s a listing).
+- Summary: created / updated / skipped / unsuccessful, results CSV, and
+  "Undo this import" — remembered in the browser, so it still works after
+  opening Approvals or refreshing, until the next import.
+- Fixed on the way: Add Listing's duplicate check and the Approvals queue
+  read only the newest 500 listings (live has 505); the admin tab row made
+  the whole admin page scroll sideways on phones (now scrolls by itself).
+- Checks: verify:csv-import 119/119 (includes Julie's real 363-row
+  September sheet — all read, all detected as already on the site if
+  imported again); real Chrome on TEST 32/32 (reports/C12-csv-import.html),
+  everything cleaned up afterwards.
