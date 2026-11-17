@@ -748,4 +748,13 @@ Admin → **Import CSV** (new tab after Add Listing). No database change.
 - Checks: verify:csv-import 119/119 (includes Julie's real 363-row
   September sheet — all read, all detected as already on the site if
   imported again); real Chrome on TEST 32/32 (reports/C12-csv-import.html),
-  everything cleaned up afterwards.
+  everything cleaned up afterwards. Run 3 times (32/32 each); template and
+  results files opened in real Excel: columns right, Chinese/accents/dashes
+  intact (reports/C12-downloads/).
+
+Live 2026-11-17 (v11/GitHub 012aa2b, bundle index-CIbKezY1.js): read-only
+live check 17/17 (reports/C12-csv-import-live.html) — tab there, template
+downloads, preview against the real 505 listings finds duplicates incl. the
+oldest and the member-owned one, phone fits, Cancel, 505 → 505 listings
+(nothing saved). Earlier live checks still pass: Events 13/13, Chapters
+38/38, drafts 4/4, event map 7/7, Editorial 16/16.
