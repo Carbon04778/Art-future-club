@@ -213,12 +213,22 @@ window.localStorage.setItem(
  * for, so it waits the full cap — which is the conservative direction: the
  * longer it waits, the more chance a wrongly rendered link has to show up.
  */
-async function renderAndGetText(route, waitFor = null) {
+async function renderAndGetText(route, waitFor = null, { openMore = false } = {}) {
   window.history.pushState({}, "", route);
   const container = document.getElementById("root");
   container.innerHTML = "";
   const root = createRoot(container);
   await renderUntilSettled(root, container);
+
+  // Admin and Messages live under the header's "More ⌄" (2026-11-22), which
+  // renders its links only while open. Open it, or the member check below
+  // would pass vacuously: a closed menu hides the link from everyone.
+  if (openMore) {
+    const more = container.querySelector('[data-testid="nav-more"] button');
+    if (!more) throw new Error("header has no 'More' menu to open");
+    more.click();
+    await new Promise((r) => setTimeout(r, 50));
+  }
 
   if (waitFor) {
     const deadline = Date.now() + 4000;
@@ -239,8 +249,10 @@ async function renderAndGetText(route, waitFor = null) {
 
 const ADMIN_LINK = /href="\/admin"/;
 
-const memberHtml = await renderAndGetText("/");
+const memberHtml = await renderAndGetText("/", null, { openMore: true });
 const memberSeesAdmin = ADMIN_LINK.test(memberHtml);
+// Proof the menu really was open for the member: Community sits in it for everyone.
+const memberMoreOpen = /href="\/community"/.test(memberHtml);
 
 window.localStorage.setItem(
   "afc_mock_session_v1",
@@ -248,10 +260,15 @@ window.localStorage.setItem(
 );
 // Wait for the link itself: it appears only once auth.me() and the role lookup
 // have resolved, which is later than the page looking settled.
-const adminHtml = await renderAndGetText("/", ADMIN_LINK);
+const adminHtml = await renderAndGetText("/", ADMIN_LINK, { openMore: true });
 const adminSeesAdmin = ADMIN_LINK.test(adminHtml);
 
-console.log("\n  ADMIN LINK GATING");
+console.log("\n  ADMIN LINK GATING (inside the header's 'More' menu)");
+console.log(`    'More' was open for the member : ${memberMoreOpen ? "yes  (check is real)" : "NO   <-- check would be vacuous"}`);
+if (!memberMoreOpen) {
+  errors.push("could not open the More menu for the member check");
+  results.push({ route: "ADMIN LINK GATING", chars: 0, errors: ["More menu not open"] });
+}
 console.log(`    normal member sees Admin link : ${memberSeesAdmin ? "YES  <-- BUG" : "no   (correct)"}`);
 console.log(`    admin sees Admin link         : ${adminSeesAdmin ? "yes  (correct)" : "NO   <-- BUG"}`);
 if (memberSeesAdmin || !adminSeesAdmin) {

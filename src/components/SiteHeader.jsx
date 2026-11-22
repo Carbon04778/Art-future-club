@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { artistPath, spacePath } from "@/lib/slugs";
 import { isVenueType, isDirectoryType } from "@/lib/venueTypes";
 import { Link, useLocation } from "react-router-dom";
@@ -16,9 +16,58 @@ const NAV = [
   { to: "/open-calls", label: "Open Calls" },
   { to: "/editorial", label: "Editorial" },
   { to: "/map", label: "Map" },
+];
+
+// Owner, 2026-11-22: at 100% zoom the bar was too long and crowded, so these
+// moved under "More ⌄". Messages and Admin join them when signed in.
+const MORE = [
   { to: "/community", label: "Community" },
   { to: "/about", label: "About" },
 ];
+
+/**
+ * A menu button with a small arrow (Chapters, More). Opens on hover or click,
+ * works from the keyboard (Enter/Space opens, Esc closes and returns focus),
+ * and closes on a click anywhere else.
+ */
+function NavDropdown({ label, active, open, setOpen, width = "w-56", align = "left", testId, children }) {
+  const wrap = useRef(null);
+  const button = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (wrap.current && !wrap.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") { setOpen(false); button.current?.focus(); } };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [open, setOpen]);
+  return (
+    <div
+      ref={wrap}
+      className="relative"
+      data-testid={testId}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}
+    >
+      <button
+        ref={button}
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={open}
+        className={`flex items-center gap-1 whitespace-nowrap font-mono-caps text-[11px] transition-colors ${active ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {label} <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className={`absolute top-full pt-2 ${width} ${align === "right" ? "right-0" : "left-0"}`}>
+          <div className="border border-border bg-card shadow-lg">{children}</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function SiteHeader() {
   const { pathname } = useLocation();
@@ -28,6 +77,7 @@ export default function SiteHeader() {
   const [seesCollectors, setSeesCollectors] = useState(false);
   const [open, setOpen] = useState(false);
   const [chaptersOpen, setChaptersOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -58,11 +108,20 @@ export default function SiteHeader() {
     // onboarding creates a profile (e.g. a brand-new artist profile).
   }, [pathname]);
 
-  useEffect(() => { setOpen(false); setChaptersOpen(false); }, [pathname]);
+  useEffect(() => { setOpen(false); setChaptersOpen(false); setMoreOpen(false); }, [pathname]);
 
   const isActive = (to) => to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(to + "/");
 
   const chaptersActive = pathname.startsWith("/chapter/");
+
+  const mainNav = seesCollectors ? [...NAV, { to: "/collectors", label: "Collectors" }] : NAV;
+  const moreNav = [
+    ...MORE,
+    ...(user ? [{ to: "/messages", label: "Messages" }] : []),
+    ...(user?.role === "admin" ? [{ to: "/admin", label: "Admin", accent: true }] : []),
+  ];
+  const moreActive = moreNav.some((n) => isActive(n.to));
+  const itemClass = (to, accent) => `block px-4 py-2.5 font-mono-caps text-[10px] transition-colors hover:bg-foreground hover:text-background focus:bg-foreground focus:text-background focus:outline-none ${isActive(to) ? "text-primary" : accent ? "text-accent" : "text-muted-foreground"}`;
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm">
@@ -75,55 +134,44 @@ export default function SiteHeader() {
           />
         </Link>
 
-        <nav className="hidden items-center gap-6 lg:flex">
-          <div
-            className="relative"
-            onMouseEnter={() => setChaptersOpen(true)}
-            onMouseLeave={() => setChaptersOpen(false)}
-          >
-            <button
-              className={`flex items-center gap-1 font-mono-caps text-[11px] transition-colors ${chaptersActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-              onClick={() => setChaptersOpen((v) => !v)}
-            >
-              Chapters <ChevronDown className="h-3 w-3" />
-            </button>
-            {chaptersOpen && (
-              <div className="absolute left-0 top-full pt-2 w-56">
-                <div className="border border-border bg-card shadow-lg">
-                  {CHAPTERS.map((c) => (
-                    <Link
-                      key={c.slug}
-                      to={`/chapter/${c.slug}`}
-                      onClick={() => setChaptersOpen(false)}
-                      className={`block px-4 py-2.5 font-mono-caps text-[10px] transition-colors hover:bg-foreground hover:text-background ${pathname === `/chapter/${c.slug}` ? "text-primary" : "text-muted-foreground"}`}
-                    >
-                      <span className="text-foreground/80">{c.chapter}</span> · {c.city}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          {(seesCollectors ? [...NAV.slice(0, -2), { to: "/collectors", label: "Collectors" }, ...NAV.slice(-2)] : NAV).map((n) => (
+        {/* gap-4 on small laptops (1024–1279px), gap-6 from 1280px: at 1024px
+            the admin's bar (with Collectors) was 41px too wide at gap-6. */}
+        <nav className="hidden items-center gap-4 lg:flex xl:gap-6" data-testid="main-nav">
+          <NavDropdown label="Chapters" active={chaptersActive} open={chaptersOpen} setOpen={setChaptersOpen} testId="nav-chapters">
+            {CHAPTERS.map((c) => (
+              <Link
+                key={c.slug}
+                to={`/chapter/${c.slug}`}
+                onClick={() => setChaptersOpen(false)}
+                className={`block px-4 py-2.5 font-mono-caps text-[10px] transition-colors hover:bg-foreground hover:text-background focus:bg-foreground focus:text-background focus:outline-none ${pathname === `/chapter/${c.slug}` ? "text-primary" : "text-muted-foreground"}`}
+              >
+                <span className="text-foreground/80">{c.chapter}</span> · {c.city}
+              </Link>
+            ))}
+          </NavDropdown>
+          {mainNav.map((n) => (
             <Link
               key={n.to}
               to={n.to}
-              className={`font-mono-caps text-[11px] transition-colors ${isActive(n.to) ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              className={`whitespace-nowrap font-mono-caps text-[11px] transition-colors ${isActive(n.to) ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
             >
               {n.label}
             </Link>
           ))}
+          <NavDropdown label="More" active={moreActive} open={moreOpen} setOpen={setMoreOpen} width="w-44" testId="nav-more">
+            {moreNav.map((n) => (
+              <Link key={n.to} to={n.to} onClick={() => setMoreOpen(false)} className={itemClass(n.to, n.accent)}>
+                {n.label}
+              </Link>
+            ))}
+          </NavDropdown>
         </nav>
 
         <div className="flex flex-wrap items-center gap-4">
           {user ? (
             <div className="hidden items-center gap-4 md:flex">
-              {user.role === "admin" && (
-                <Link to="/admin" className={`font-mono-caps text-[11px] transition-colors ${isActive("/admin") ? "text-primary" : "text-accent hover:text-foreground"}`}>Admin</Link>
-              )}
-              <Link to="/messages" className={`font-mono-caps text-[11px] transition-colors ${isActive("/messages") ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>Messages</Link>
               <NotificationBell userId={user.id} isAdmin={user.role === "admin"} />
-              <Link to={profileLink} className={`font-mono-caps text-[11px] transition-colors ${isActive("/profile/edit") || isActive("/collector-profile") || pathname.includes("/gallery/") || pathname.includes("/collector-profile/view") ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>My Profile</Link>
+              <Link to={profileLink} className={`whitespace-nowrap font-mono-caps text-[11px] transition-colors ${isActive("/profile/edit") || isActive("/collector-profile") || pathname.includes("/gallery/") || pathname.includes("/collector-profile/view") ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>My Profile</Link>
             </div>
           ) : (
             <Link to="/login" className="font-mono-caps text-[11px] text-primary">Sign in →</Link>
@@ -143,7 +191,7 @@ export default function SiteHeader() {
             ))}
           </div>
           <div className="border-t border-border my-1" />
-          {(seesCollectors ? [...NAV.slice(0, -2), { to: "/collectors", label: "Collectors" }, ...NAV.slice(-2)] : NAV).map((n) => (
+          {[...mainNav, ...MORE].map((n) => (
             <Link key={n.to} to={n.to} className="font-mono-caps text-[11px] text-muted-foreground hover:text-primary">{n.label}</Link>
           ))}
           {user ? (

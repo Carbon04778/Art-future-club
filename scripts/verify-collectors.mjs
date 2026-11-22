@@ -203,7 +203,7 @@ async function renderAt(path, access) {
 
 // ---- wiring
 check("routes /collectors and /collectors/:id", /path="\/collectors" element=\{<Collectors \/>\}/.test(src("src/App.jsx")) && /path="\/collectors\/:id" element=\{<CollectorPublic \/>\}/.test(src("src/App.jsx")));
-check("the menu shows 'Collectors' only to those allowed", /seesCollectors \? \[\.\.\.NAV\.slice\(0, -2\), \{ to: "\/collectors", label: "Collectors" \}/.test(src("src/components/SiteHeader.jsx")));
+check("the menu shows 'Collectors' only to those allowed", /seesCollectors \? \[\.\.\.NAV, \{ to: "\/collectors", label: "Collectors" \}\] : NAV/.test(src("src/components/SiteHeader.jsx")));
 check("collector editor: 'Make my profile private' for people types only", /isPeopleType\(form\.type\) && \([\s\S]{0,700}Make my profile private/.test(src("src/pages/CollectorProfilePage.jsx")) && /is_private: !!p\.is_private/.test(src("src/pages/CollectorProfilePage.jsx")));
 check("collector's own page shows the collections view with controls", /<MyCollection userId=\{user\?\.id\} isOwner \/>/.test(src("src/pages/CollectorProfileView.jsx")));
 check("provider asks the database can_see_collectors, failure = locked", /rpc\("can_see_collectors"\)/.test(src("src/api/providers/supabase.js")) && /if \(error\) return \{ allowed: false, failed: true \}/.test(src("src/api/providers/supabase.js")));
