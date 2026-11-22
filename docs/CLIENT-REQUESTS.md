@@ -14,7 +14,10 @@ Status: **open** · **on hold** (waiting on an answer) · **in progress** · **d
   no website change needed. Who counts as premium then: admins, active
   subscriptions (20 on 2026-11-22, all set by hand — payments not switched
   on), and Paid Member / Partner galleries/venues (2). Posting stayed
-  restricted the whole time.
+  restricted the whole time. 031 run by the owner on TEST and LIVE
+  2026-11-22; live check 12/12 (reports/B9-open-calls-free-live.html):
+  logged out sees all 4 open calls on phone and desktop, no Post button;
+  admin still sees and can post.
 
 ---
 
