@@ -19,7 +19,9 @@ const E = Object.fromEntries(readFileSync(join(ROOT, ".env"), "utf8").split(/\r?
 const SITE = process.argv[2] || "https://www.artfutureclub.com";
 const U = E.VITE_SUPABASE_URL;
 const SH = { apikey: E.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${E.SUPABASE_SERVICE_ROLE_KEY}` };
-const snapshot = async () => (await fetch(`${U}/rest/v1/open_call?select=id,title,updated_date&order=id`, { headers: SH })).json();
+const snapshot = async () => (await fetch(`${U}/rest/v1/open_call?select=id,slug,title,updated_date&order=id`, { headers: SH })).json();
+// Readable links since 032/033; an id when a call has none.
+const pathOf = (c) => `/open-calls/${c.slug || c.id}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const before = await snapshot();
@@ -48,12 +50,12 @@ try {
     await go(p, "/open-calls");
     await p.waitForFunction((n) => document.querySelectorAll('[data-testid="open-call-link"]').length >= n, { timeout: 45000 }, before.length).catch(() => {});
     const hrefs = await p.$$eval('[data-testid="open-call-link"]', (as) => as.map((a) => a.getAttribute("href")));
-    R.ok(`Visitor (${tag})`, `all ${before.length} calls link to their own page`, before.every((c) => hrefs.includes(`/open-calls/${c.id}`)), `${hrefs.length} links`);
+    R.ok(`Visitor (${tag})`, `all ${before.length} calls link to their own page by a readable link`, before.every((c) => c.slug && hrefs.includes(pathOf(c))) && hrefs.every((h) => !/[0-9a-f]{8}-[0-9a-f]{4}-/.test(h)), hrefs.join(" "));
     R.ok(`Visitor (${tag})`, "no Edit buttons for a visitor", !(await p.$('[data-testid="open-call-edit"]')));
     R.ok(`Visitor (${tag})`, "the list fits the screen", (await p.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 0);
     let opened = 0, fit = true;
     for (const c of before) {
-      await go(p, `/open-calls/${c.id}`);
+      await go(p, pathOf(c));
       if (await waitFor(p, '[data-testid="open-call-title"]')) {
         if ((await p.$eval('[data-testid="open-call-title"]', (el) => el.textContent)) === c.title) opened++;
         if ((await p.evaluate(() => document.documentElement.scrollWidth - innerWidth)) > 0) fit = false;
@@ -65,6 +67,10 @@ try {
     await p.screenshot({ path: R.shotPath(`call-page-${tag}.png`), fullPage: true });
     R.ok(`Visitor (${tag})`, "screenshot of a call's page", true, "", `call-page-${tag}.png`);
     if (tag === "desktop") {
+      const old = before[0];
+      await go(p, `/open-calls/${old.id}`);
+      await waitFor(p, '[data-testid="open-call-title"]');
+      R.ok("Visitor (desktop)", "an old id link still opens the call and becomes the readable link", (await p.evaluate(() => location.pathname)) === pathOf(old), await p.evaluate(() => location.pathname));
       await go(p, "/open-calls/not-a-real-link");
       R.ok("Visitor (desktop)", "a wrong link says 'Open call not found'", await waitFor(p, '[data-testid="open-call-missing"]'));
     }
@@ -78,7 +84,7 @@ try {
   await Promise.all([p.waitForNavigation({ waitUntil: "networkidle2", timeout: 90000 }).catch(() => {}), p.click('button[type="submit"]')]);
   const first = before[0];
   if (first) {
-    await go(p, `/open-calls/${first.id}`);
+    await go(p, pathOf(first));
     R.ok("Admin — call page", "the admin sees Edit and Delete", await waitFor(p, '[data-testid="open-call-owner-tools"]'));
     await p.click('[data-testid="open-call-owner-tools"] [data-testid="open-call-edit"]');
     await waitFor(p, '[data-testid="open-call-form"]', 10000);
