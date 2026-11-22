@@ -144,9 +144,125 @@ async function page(access, user) {
   p.root.unmount();
 }
 
+// ---- still loading: a spinner, never "No opportunities posted yet"
+{
+  const real = base44.entities.OpenCall.list;
+  let release;
+  base44.entities.OpenCall.list = () => { listCalls++; return new Promise((r) => { release = () => r(CALLS); }); };
+  ACCESS = { can_view: true, can_post: false }; USER = null; listCalls = 0;
+  const root = createRoot(c);
+  root.render(React.createElement(MemoryRouter, null, React.createElement(OpenCalls)));
+  for (let i = 0; i < 30 && !release; i++) await tick(50);
+  await tick(100);
+  check("while loading: a spinner shows", !!c.querySelector('[data-testid="open-calls-loading"]'));
+  check("while loading: does NOT say 'No opportunities posted yet'", !/no opportunities posted/i.test(c.textContent));
+  release();
+  for (let i = 0; i < 30 && !/Spring Residency/.test(c.textContent); i++) await tick(50);
+  check("once loaded: the list replaces the spinner", /Spring Residency/.test(c.textContent) && !c.querySelector('[data-testid="open-calls-loading"]'));
+  base44.entities.OpenCall.list = real;
+  root.unmount();
+}
+
+// ---- every call opens its own page; Edit for the poster or an admin only
+const MINE = { id: "c3", title: "My Fellowship", type: "Fellowship", organizer: "Me Gallery", posted_by_id: "g", description: "Line one\nLine two", is_free: false, fee: "£10" };
+{
+  CALLS.push(MINE);
+  const p = await page({ can_view: true, can_post: true }, { id: "g", role: "user" });
+  const links = [...c.querySelectorAll('[data-testid="open-call-link"]')].map((a) => a.getAttribute("href"));
+  check("each title links to its own page /open-calls/<id>", ["/open-calls/c1", "/open-calls/c2", "/open-calls/c3"].every((h) => links.includes(h)), links.join(","));
+  check("each card has 'View full details'", [...c.querySelectorAll('[data-testid="open-call-card"]')].every((card) => /view full details/i.test(card.textContent)));
+  const edits = [...c.querySelectorAll('[data-testid="open-call-edit"]')];
+  check("the poster sees Edit on their own call only", edits.length === 1 && edits[0].closest('[data-testid="open-call-card"]').textContent.includes("My Fellowship"), `${edits.length} edit buttons`);
+  // edit it: the form opens filled in, Save sends an update (not a new post)
+  let updated = null;
+  base44.entities.OpenCall.update = async (id, row) => { updated = { id, row: { ...row } }; Object.assign(MINE, row); return { ...MINE }; };
+  base44.entities.OpenCall.create = async () => { throw new Error("create must not be called when editing"); };
+  edits[0].click();
+  await tick(120);
+  const form = c.querySelector('[data-testid="open-call-form"] form');
+  check("Edit opens the form filled in with the call", form?.querySelector('input[name="title"]')?.value === "My Fellowship" && form?.querySelector('input[name="fee"]')?.value === "£10");
+  check("the form says Edit and Save changes", /edit open call/i.test(c.querySelector('[data-testid="open-call-form"]').textContent) && /save changes/i.test(form.textContent));
+  const fill = (el, v) => { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(el, v); el.dispatchEvent(new window.Event("input", { bubbles: true })); };
+  fill(form.querySelector('input[name="title"]'), "My Fellowship 2027");
+  await tick();
+  form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+  for (let i = 0; i < 30 && !/My Fellowship 2027/.test(c.textContent); i++) await tick(50);
+  check("Save updates that call by its id", updated?.id === "c3" && updated.row.title === "My Fellowship 2027", JSON.stringify(updated?.id));
+  check("Save never changes who posted it", updated && !("posted_by_id" in updated.row) && !("posted_by_name" in updated.row));
+  check("the new title shows straight away and the form closes", /My Fellowship 2027/.test(c.textContent) && !c.querySelector('[data-testid="open-call-form"]'));
+  p.root.unmount();
+  Object.assign(MINE, { title: "My Fellowship", description: "Line one\nLine two", is_free: false, fee: "£10" });
+}
+{
+  const p = await page({ can_view: true, can_post: false }, { id: "someone-else", role: "user" });
+  check("another member sees no Edit buttons", !c.querySelector('[data-testid="open-call-edit"]'));
+  p.root.unmount();
+  const q = await page({ can_view: true, can_post: true }, { id: "a", role: "admin" });
+  check("an admin sees Edit on every call", c.querySelectorAll('[data-testid="open-call-edit"]').length === CALLS.length);
+  q.root.unmount();
+}
+// a refused edit explains who may edit
+{
+  base44.entities.OpenCall.update = async () => { throw new Error("Cannot coerce the result to a single JSON object"); };
+  const p = await page({ can_view: true, can_post: true }, { id: "a", role: "admin" });
+  c.querySelector('[data-testid="open-call-edit"]').click();
+  await tick(120);
+  c.querySelector('[data-testid="open-call-form"] form').dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+  await tick(200);
+  check("a refused edit says only the poster or an admin can edit", /only the person who posted this open call, or an admin/i.test(c.textContent));
+  p.root.unmount();
+}
+
+// ---- the open call's own page
+{
+  const { Routes, Route } = await import("react-router-dom");
+  const OpenCallDetail = (await import("../src/pages/OpenCallDetail.jsx")).default;
+  let filtered = [];
+  base44.entities.OpenCall.filter = async (where) => { filtered.push(where); return CALLS.filter((x) => x.id === where.id); };
+  const detail = async (id, access, user) => {
+    ACCESS = access; USER = user; filtered = [];
+    const root = createRoot(c);
+    root.render(React.createElement(MemoryRouter, { initialEntries: [`/open-calls/${id}`] },
+      React.createElement(Routes, null, React.createElement(Route, { path: "/open-calls/:id", element: React.createElement(OpenCallDetail) }))));
+    for (let i = 0; i < 40 && !c.querySelector('[data-testid="open-call-title"],[data-testid="open-call-missing"],[data-testid="open-calls-locked"]'); i++) await tick(50);
+    await tick(80);
+    return root;
+  };
+  let r = await detail("c3", { can_view: true, can_post: false }, null);
+  const desc = c.querySelector('[data-testid="open-call-description"]');
+  check("own page: shows the title big", c.querySelector("h1[data-testid=open-call-title]")?.textContent === "My Fellowship");
+  check("own page: the FULL description, line breaks kept", desc?.textContent === "Line one\nLine two" && /pre-line/.test(desc.className));
+  check("own page: fee, type and organiser shown", /£10/.test(c.textContent) && /Fellowship/.test(c.textContent) && /Me Gallery/.test(c.textContent));
+  check("own page: looked up by its id", filtered[0]?.id === "c3");
+  check("own page: a visitor sees no Edit/Delete", !c.querySelector('[data-testid="open-call-owner-tools"]'));
+  check("own page: a back link to all open calls", !!c.querySelector('a[href="/open-calls"]'));
+  r.unmount();
+  r = await detail("c1", { can_view: true, can_post: false }, null);
+  check("own page: Apply opens the real link", c.querySelector('[data-testid="open-call-apply"]')?.getAttribute("href") === "https://example.com/apply");
+  r.unmount();
+  r = await detail("c3", { can_view: true, can_post: true }, { id: "g", role: "user" });
+  check("own page: the poster sees Edit and Delete", !!c.querySelector('[data-testid="open-call-owner-tools"]'));
+  r.unmount();
+  r = await detail("c1", { can_view: true, can_post: true }, { id: "a", role: "admin" });
+  check("own page: an admin sees Edit and Delete", !!c.querySelector('[data-testid="open-call-owner-tools"]'));
+  r.unmount();
+  r = await detail("nope", { can_view: true, can_post: false }, null);
+  check("own page: an unknown id says 'not found'", !!c.querySelector('[data-testid="open-call-missing"]'));
+  r.unmount();
+  r = await detail("c1", { can_view: false, can_post: false }, null);
+  check("own page: when Open Calls is premium again, it says 'Upgrade to view' and loads nothing", !!c.querySelector('[data-testid="open-calls-locked"]') && filtered.length === 0);
+  r.unmount();
+}
+
 // ---- the source and the database rule
 const src = (f) => readFileSync(join(ROOT, f), "utf8");
-const page_ = src("src/pages/OpenCalls.jsx");
+const page_ = src("src/pages/OpenCalls.jsx") + src("src/components/openCalls.jsx");
+const app = src("src/App.jsx");
+check("App has the /open-calls/:id route", /path="\/open-calls\/:id" element=\{<OpenCallDetail \/>\}/.test(app));
+const admin = src("src/pages/AdminDashboard.jsx");
+check("Admin Open Calls tab: View, Edit, New and a confirm before Delete", /admin-open-call-edit/.test(admin) && /admin-open-call-new/.test(admin) && /openCallPath\(c\)/.test(admin) && /window\.confirm\(`Delete/.test(admin));
+const rls = src("supabase/migrations/002_rls.sql");
+check("database: the poster or an admin may edit (002 opencall_update_own)", /create policy opencall_update_own[\s\S]*?using \(posted_by_id = auth\.uid\(\) or public\.is_admin\(\)\)/.test(rls));
 check("page no longer uses the switched-off paywall flag", !/isLocked|featureLimits/.test(page_));
 check("page asks the database who may see and post", /openCallAccess\(\)/.test(page_));
 const provider = src("src/api/providers/supabase.js");

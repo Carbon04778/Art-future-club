@@ -29,6 +29,7 @@ import EventCalendar from '@/pages/EventCalendar';
 import EventDetail from '@/pages/EventDetail';
 import Notifications from '@/pages/Notifications';
 import OpenCalls from '@/pages/OpenCalls';
+import OpenCallDetail from '@/pages/OpenCallDetail';
 import ArtistMap from '@/pages/ArtistMap';
 import GalleryMap from '@/pages/GalleryMap';
 import Venues from '@/pages/Venues';
@@ -107,6 +108,7 @@ const AuthenticatedApp = () => {
         <Route path="/events" element={<EventCalendar />} />
         <Route path="/events/:id" element={<EventDetail />} />
         <Route path="/open-calls" element={<OpenCalls />} />
+        <Route path="/open-calls/:id" element={<OpenCallDetail />} />
         <Route path="/editorial" element={<Editorial />} />
         <Route path="/editorial/:slug" element={<ArticleReader />} />
         <Route path="/editorial/writer/:writer" element={<EditorialWriter />} />

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { artistPath } from "@/lib/slugs";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Users, Star, ShoppingBag, FileText, Trash2, Check, X, Building2, Landmark, Gem } from "lucide-react";
+import { Users, Star, ShoppingBag, FileText, Trash2, Check, X, Building2, Landmark, Gem, Plus, Pencil, Eye } from "lucide-react";
+import { OpenCallForm, deadlineInfo, openCallPath } from "@/components/openCalls";
 import { VENUE_TYPES } from "@/lib/venueTypes";
 import SlimFooter from "@/components/SlimFooter";
 import { Image } from "@/components/ui/image";
@@ -163,9 +164,23 @@ export default function AdminDashboard() {
     setInquiries((prev) => prev.map((i) => i.id === id ? { ...i, status } : i));
   };
 
-  const deleteOpenCall = async (id) => {
-    await base44.entities.OpenCall.delete(id);
-    setOpenCalls((prev) => prev.filter((c) => c.id !== id));
+  // Deleting used to happen on one click with no question asked.
+  const deleteOpenCall = async (c) => {
+    if (!window.confirm(`Delete "${c.title}"? This cannot be undone.`)) return;
+    try {
+      await base44.entities.OpenCall.delete(c.id);
+      setOpenCalls((prev) => prev.filter((x) => x.id !== c.id));
+    } catch (e) {
+      window.alert(`Could not delete: ${String(e?.message || e)}`);
+    }
+  };
+
+  // null = closed, "new" = posting, a call = editing it.
+  const [callForm, setCallForm] = useState(null);
+  const onCallSaved = (saved) => {
+    setCallForm(null);
+    if (!saved?.id) return;
+    setOpenCalls((prev) => (prev.some((c) => c.id === saved.id) ? prev.map((c) => (c.id === saved.id ? saved : c)) : [saved, ...prev]));
   };
 
   if (loading) return (
@@ -359,18 +374,37 @@ export default function AdminDashboard() {
 
         {/* Open Calls tab */}
         {tab === "Open Calls" && (
-          <div className="space-y-2">
-            {openCalls.map((c) => (
-              <div key={c.id} className="flex items-center justify-between border-b border-border py-4">
-                <div>
-                  <p className="font-heading text-lg">{c.title}</p>
-                  <p className="font-mono-caps text-[10px] text-muted-foreground">{c.organizer} · {c.type}{c.deadline ? ` · Deadline: ${c.deadline}` : ""}</p>
+          <div className="space-y-2" data-testid="admin-open-calls">
+            <div className="flex justify-end pb-2">
+              <button type="button" onClick={() => setCallForm("new")} data-testid="admin-open-call-new"
+                className="flex items-center gap-1.5 bg-primary px-4 py-2 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">
+                <Plus className="h-3 w-3" /> New open call
+              </button>
+            </div>
+            {openCalls.map((c) => {
+              const d = deadlineInfo(c.deadline);
+              return (
+                <div key={c.id} className="flex flex-col gap-3 border-b border-border py-4 sm:flex-row sm:items-center sm:justify-between" data-testid="admin-open-call-row">
+                  <div className="min-w-0">
+                    <Link to={openCallPath(c)} className="font-heading text-lg hover:text-primary break-words">{c.title}</Link>
+                    <p className="font-mono-caps text-[10px] text-muted-foreground">
+                      {c.organizer} · {c.type}{d ? ` · Deadline: ${d.label}` : ""}{d?.closed ? " · Closed" : ""}{c.posted_by_name ? ` · Posted by ${c.posted_by_name}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Link to={openCallPath(c)} className="flex items-center gap-1 font-mono-caps text-[10px] border border-border px-2 py-1 text-muted-foreground hover:border-foreground hover:text-foreground transition-colors">
+                      <Eye className="h-3 w-3" /> View
+                    </Link>
+                    <button onClick={() => setCallForm(c)} data-testid="admin-open-call-edit" className="flex items-center gap-1 font-mono-caps text-[10px] border border-border px-2 py-1 text-foreground hover:border-primary hover:text-primary transition-colors">
+                      <Pencil className="h-3 w-3" /> Edit
+                    </button>
+                    <button onClick={() => deleteOpenCall(c)} className="flex items-center gap-1 font-mono-caps text-[10px] border border-destructive px-2 py-1 text-destructive hover:bg-destructive hover:text-white transition-colors">
+                      <Trash2 className="h-3 w-3" /> Delete
+                    </button>
+                  </div>
                 </div>
-                <button onClick={() => deleteOpenCall(c.id)} className="flex items-center gap-1 font-mono-caps text-[10px] border border-destructive px-2 py-1 text-destructive hover:bg-destructive hover:text-white transition-colors">
-                  <Trash2 className="h-3 w-3" /> Delete
-                </button>
-              </div>
-            ))}
+              );
+            })}
             {openCalls.length === 0 && <p className="font-mono-caps text-[11px] text-muted-foreground py-8 text-center">No open calls.</p>}
           </div>
         )}
@@ -417,6 +451,14 @@ export default function AdminDashboard() {
         )}
       </div>
       <SlimFooter />
+      {callForm && (
+        <OpenCallForm
+          user={user}
+          call={callForm === "new" ? null : callForm}
+          onClose={() => setCallForm(null)}
+          onSaved={onCallSaved}
+        />
+      )}
     </>
   );
 }

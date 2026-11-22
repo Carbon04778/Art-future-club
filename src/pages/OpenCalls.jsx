@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Plus, ExternalLink, X, Loader2, Calendar, MapPin, Lock } from "lucide-react";
+import { Plus, ExternalLink, Loader2, Calendar, MapPin, Pencil, ArrowRight } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
-import { format, isPast } from "date-fns";
+import { CALL_TYPES, OpenCallForm, UpgradeToView, TryAgain, canEditCall, deadlineInfo, openCallPath } from "@/components/openCalls";
 
-const TYPES = ["All", "Open Call", "Residency", "Grant", "Fellowship", "Competition", "Exhibition", "Other"];
+const TYPES = ["All", ...CALL_TYPES];
 
 export default function OpenCalls() {
   const [calls, setCalls] = useState([]);
+  // false until the list has arrived. The empty message used to show while it
+  // was still loading, so a slow connection read as "no opportunities".
+  const [loaded, setLoaded] = useState(false);
   const [filter, setFilter] = useState("All");
-  const [showForm, setShowForm] = useState(false);
+  // null = closed, "new" = posting, a call = editing it.
+  const [form, setForm] = useState(null);
   const [user, setUser] = useState(null);
-  // null while checking. Premium members only (B9): Julie — "Open Calls is
-  // only open to view by premium users"; galleries "need to be paid/partner
-  // to post". The database enforces the same rule (migration 026), so a
-  // non-premium visitor cannot read the list from the API either.
+  // null while checking. Who may view comes from the database
+  // (open_call_access: premium-only in 026, open to everyone in 031).
   const [access, setAccess] = useState(null);
   // A failed load is said as such — never "no opportunities" or "upgrade",
   // which would be wrong for a paying member on a bad connection.
@@ -23,7 +25,9 @@ export default function OpenCalls() {
 
   const loadCalls = () => {
     setLoadFailed(false);
-    return base44.entities.OpenCall.list("-created_date", 100).then(setCalls).catch(() => setLoadFailed(true));
+    return base44.entities.OpenCall.list("-created_date", 100)
+      .then((rows) => { setCalls(rows || []); setLoaded(true); })
+      .catch(() => setLoadFailed(true));
   };
 
   const check = () => {
@@ -42,14 +46,22 @@ export default function OpenCalls() {
   }, []);
 
   const filtered = filter === "All" ? calls : calls.filter((c) => c.type === filter);
-  const active = filtered.filter((c) => !c.deadline || !isPast(new Date(c.deadline)));
-  const expired = filtered.filter((c) => c.deadline && isPast(new Date(c.deadline)));
+  const active = filtered.filter((c) => !deadlineInfo(c.deadline)?.closed);
+  const expired = filtered.filter((c) => deadlineInfo(c.deadline)?.closed);
+
+  const onSaved = (saved) => {
+    setForm(null);
+    if (saved?.id) {
+      setCalls((prev) => (prev.some((c) => c.id === saved.id) ? prev.map((c) => (c.id === saved.id ? saved : c)) : [saved, ...prev]));
+    }
+    loadCalls();
+  };
 
   return (
     <>
       {access?.can_post && (
         <div className="flex justify-end px-6 py-3 md:px-10 border-b border-border">
-          <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 bg-primary px-4 py-2 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">
+          <button onClick={() => setForm("new")} className="flex items-center gap-1.5 bg-primary px-4 py-2 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">
             <Plus className="h-3 w-3" /> Post Opportunity
           </button>
         </div>
@@ -81,16 +93,19 @@ export default function OpenCalls() {
         {loadFailed && <TryAgain onRetry={loadCalls} />}
 
         <div className="mt-12 space-y-4">
-          {!loadFailed && active.length === 0 && expired.length === 0 && (
+          {!loaded && !loadFailed && (
+            <div className="py-16 flex justify-center" data-testid="open-calls-loading"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          )}
+          {loaded && !loadFailed && active.length === 0 && expired.length === 0 && (
             <div className="py-16 text-center border border-border">
-              <p className="font-mono-caps text-[11px] text-muted-foreground">No opportunities posted yet.</p>
+              <p className="font-mono-caps text-[11px] text-muted-foreground">{filter === "All" ? "No opportunities posted yet." : `No ${filter.toLowerCase()} opportunities right now.`}</p>
             </div>
           )}
-          {active.map((c) => <CallCard key={c.id} call={c} />)}
+          {active.map((c) => <CallCard key={c.id} call={c} canEdit={canEditCall(user, c)} onEdit={() => setForm(c)} />)}
           {expired.length > 0 && (
             <>
               <p className="font-mono-caps text-[11px] text-muted-foreground pt-8 pb-2">Past Deadlines</p>
-              {expired.map((c) => <CallCard key={c.id} call={c} expired />)}
+              {expired.map((c) => <CallCard key={c.id} call={c} expired canEdit={canEditCall(user, c)} onEdit={() => setForm(c)} />)}
             </>
           )}
         </div>
@@ -99,201 +114,73 @@ export default function OpenCalls() {
 
       <SlimFooter />
 
-      {showForm && (
+      {form && (
         <OpenCallForm
           user={user}
-          onClose={() => setShowForm(false)}
-          onCreated={() => { setShowForm(false); loadCalls(); }}
+          call={form === "new" ? null : form}
+          onClose={() => setForm(null)}
+          onSaved={onSaved}
         />
       )}
     </>
   );
 }
 
-/**
- * What a visitor without premium sees instead of the list (B9).
- * Julie: "it will just say 'Upgrade to view' and maybe a prompt button to
- * click on to upgrade." Signed-out visitors are offered sign-in as well, in
- * case they are already members.
- */
-function UpgradeToView({ signedIn }) {
+function CallCard({ call, expired, canEdit, onEdit }) {
+  const d = deadlineInfo(call.deadline);
+  const href = openCallPath(call);
   return (
-    <div className="mt-12 border border-border px-6 py-16 text-center" data-testid="open-calls-locked">
-      <Lock className="mx-auto h-5 w-5 text-primary" />
-      <h2 className="mt-4 font-heading text-3xl tracking-[-0.02em] md:text-4xl">Upgrade to view</h2>
-      <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground leading-relaxed">
-        Open calls — residencies, grants, fellowships and calls for submissions — are for premium members.
-      </p>
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-        <Link to="/upgrade" className="bg-primary px-6 py-3 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">Upgrade Membership ↑</Link>
-        {!signedIn && (
-          <Link to="/login" className="font-mono-caps text-[11px] text-muted-foreground underline hover:text-foreground">Already a member? Sign in</Link>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TryAgain({ onRetry }) {
-  return (
-    <div className="mt-12 border border-border px-6 py-12 text-center" data-testid="open-calls-failed" role="alert">
-      <p className="font-mono-caps text-[11px] text-muted-foreground">Couldn't load open calls. Check your connection.</p>
-      <button type="button" onClick={onRetry} className="mt-4 font-mono-caps text-[11px] text-primary underline hover:opacity-80">Try again</button>
-    </div>
-  );
-}
-
-function CallCard({ call, expired }) {
-  return (
-    <div className={`border border-border p-6 ${expired ? "opacity-50" : ""}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
+    <div className={`border border-border p-6 ${expired ? "opacity-60" : ""}`} data-testid="open-call-card">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             <span className="font-mono-caps text-[10px] border border-border px-2 py-0.5 text-muted-foreground">{call.type}</span>
             {call.is_free && <span className="font-mono-caps text-[10px] border border-green-600 px-2 py-0.5 text-green-700">Free</span>}
             {expired && <span className="font-mono-caps text-[10px] border border-destructive px-2 py-0.5 text-destructive">Closed</span>}
           </div>
-          {call.image_url && <img src={call.image_url} alt={call.title} className="aspect-video w-full mb-4 object-cover" />}
-          <h3 className="font-heading text-2xl tracking-[-0.01em]">{call.title}</h3>
+          {call.image_url && (
+            <Link to={href} tabIndex={-1} aria-hidden="true">
+              <img src={call.image_url} alt="" className="aspect-video w-full mb-4 object-cover" loading="lazy" />
+            </Link>
+          )}
+          <h3 className="font-heading text-2xl tracking-[-0.01em] break-words">
+            <Link to={href} className="hover:text-primary transition-colors" data-testid="open-call-link">{call.title}</Link>
+          </h3>
           <p className="mt-1 font-mono-caps text-[11px] text-primary">{call.organizer}</p>
-          {call.description && <p className="mt-3 text-sm text-muted-foreground leading-relaxed line-clamp-3">{call.description}</p>}
-          <div className="mt-4 flex flex-wrap gap-5">
+          {call.description && <p className="mt-3 text-sm text-muted-foreground leading-relaxed line-clamp-3 whitespace-pre-line">{call.description}</p>}
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
             {call.location && (
               <span className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground">
                 <MapPin className="h-3 w-3" /> {call.location}
               </span>
             )}
-            {call.deadline && (
+            {d && (
               <span className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground">
-                <Calendar className="h-3 w-3" /> Deadline: {format(new Date(call.deadline), "d MMM yyyy")}
+                <Calendar className="h-3 w-3" /> Deadline: {d.label}
               </span>
             )}
             {call.prize && <span className="font-mono-caps text-[11px] text-primary">Prize: {call.prize}</span>}
             {!call.is_free && call.fee && <span className="font-mono-caps text-[11px] text-accent">Fee: {call.fee}</span>}
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-4">
+            <Link to={href} className="flex items-center gap-1.5 font-mono-caps text-[11px] text-foreground underline-offset-4 hover:text-primary hover:underline">
+              View full details <ArrowRight className="h-3 w-3" />
+            </Link>
+            {canEdit && (
+              <button type="button" onClick={onEdit} data-testid="open-call-edit" className="flex items-center gap-1.5 font-mono-caps text-[11px] text-muted-foreground hover:text-primary">
+                <Pencil className="h-3 w-3" /> Edit
+              </button>
+            )}
           </div>
         </div>
         {call.external_link && (
           <a
             href={call.external_link}
             target="_blank" rel="noreferrer"
-            className="shrink-0 flex items-center gap-1.5 border border-border px-4 py-2 font-mono-caps text-[11px] text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+            className="shrink-0 self-start flex items-center gap-1.5 border border-border px-4 py-2 font-mono-caps text-[11px] text-muted-foreground hover:border-primary hover:text-primary transition-colors">
             <ExternalLink className="h-3 w-3" /> Apply
           </a>
         )}
-      </div>
-
-    </div>
-  );
-}
-
-function OpenCallForm({ user, onClose, onCreated }) {
-  const [form, setForm] = useState({ title: "", type: "Open Call", organizer: "", description: "", location: "", deadline: "", prize: "", is_free: true, fee: "", external_link: "", image_url: "" });
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const input = "w-full border border-border bg-transparent px-4 py-3 text-base outline-none focus:border-foreground";
-
-  const onPickImage = (file) => {
-    setImageFile(file);
-    setImagePreview(file ? URL.createObjectURL(file) : "");
-    if (!file) set("image_url", "");
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-    // A refused save used to leave the button spinning with nothing said.
-    try {
-      let image_url = form.image_url;
-      if (imageFile) {
-        const r = await base44.integrations.Core.UploadFile({ file: imageFile });
-        image_url = r.file_url;
-      }
-      // deadline is a date column: an empty box must be null. "" was refused by
-      // the database, so a call with no deadline could never be posted.
-      await base44.entities.OpenCall.create({ ...form, deadline: form.deadline || null, image_url, posted_by_id: user?.id, posted_by_name: user?.full_name || "Member" });
-      onCreated();
-    } catch (err) {
-      setError(/row-level security|permission|policy/i.test(String(err?.message))
-        ? "Only admins and paid or partner galleries and venues can post open calls."
-        : String(err?.message || err) || "Could not post. Please try again.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-6" onClick={onClose}>
-      <div className="bg-card border border-border w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border">
-          <p className="font-mono-caps text-[11px]">Post an Opportunity</p>
-          <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div>
-            <label className="font-mono-caps text-[11px] text-muted-foreground">Title *</label>
-            <input className={`${input} mt-2`} value={form.title} onChange={(e) => set("title", e.target.value)} required />
-          </div>
-          <div>
-            <label className="font-mono-caps text-[11px] text-muted-foreground">Image</label>
-            <input type="file" accept="image/*" onChange={(e) => onPickImage(e.target.files?.[0])} className={`${input} mt-2 file:mr-4 file:border-0 file:bg-muted file:px-3 file:py-1 file:font-mono-caps file:text-[11px]`} />
-            {imagePreview && <img src={imagePreview} alt="" className="mt-3 aspect-video w-full object-cover" />}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="font-mono-caps text-[11px] text-muted-foreground">Type</label>
-              <select className="w-full border border-border bg-background px-4 py-3 text-base outline-none mt-2" value={form.type} onChange={(e) => set("type", e.target.value)}>
-                {["Open Call", "Residency", "Grant", "Fellowship", "Competition", "Exhibition", "Other"].map((t) => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="font-mono-caps text-[11px] text-muted-foreground">Organizer *</label>
-              <input className={`${input} mt-2`} value={form.organizer} onChange={(e) => set("organizer", e.target.value)} required />
-            </div>
-          </div>
-          <div>
-            <label className="font-mono-caps text-[11px] text-muted-foreground">Description</label>
-            <textarea className={`${input} mt-2 resize-none`} rows={4} value={form.description} onChange={(e) => set("description", e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="font-mono-caps text-[11px] text-muted-foreground">Location</label>
-              <input className={`${input} mt-2`} value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="City or Online" />
-            </div>
-            <div>
-              <label className="font-mono-caps text-[11px] text-muted-foreground">Deadline</label>
-              <input type="date" className={`${input} mt-2`} value={form.deadline} onChange={(e) => set("deadline", e.target.value)} />
-            </div>
-          </div>
-          <div>
-            <label className="font-mono-caps text-[11px] text-muted-foreground">Prize / Stipend</label>
-            <input className={`${input} mt-2`} value={form.prize} onChange={(e) => set("prize", e.target.value)} placeholder="e.g. £2,000 + accommodation" />
-          </div>
-          <div>
-            <label className="font-mono-caps text-[11px] text-muted-foreground">External Link</label>
-            <input type="url" className={`${input} mt-2`} value={form.external_link} onChange={(e) => set("external_link", e.target.value)} placeholder="https://…" />
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.is_free} onChange={(e) => set("is_free", e.target.checked)} className="h-4 w-4 accent-primary" />
-            <span className="font-mono-caps text-[11px] text-muted-foreground">Free to apply</span>
-          </label>
-          {!form.is_free && (
-            <div>
-              <label className="font-mono-caps text-[11px] text-muted-foreground">Application Fee</label>
-              <input className={`${input} mt-2`} value={form.fee} onChange={(e) => set("fee", e.target.value)} placeholder="e.g. £25" />
-            </div>
-          )}
-          {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
-          <div className="flex flex-wrap items-center gap-4 pt-2">
-            <button type="submit" disabled={saving} className="flex items-center gap-2 bg-primary px-8 py-4 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80 disabled:opacity-50">
-              {saving && <Loader2 className="h-3 w-3 animate-spin" />} Post Opportunity
-            </button>
-            <button type="button" onClick={onClose} className="font-mono-caps text-[11px] text-muted-foreground">Cancel</button>
-          </div>
-        </form>
       </div>
     </div>
   );
