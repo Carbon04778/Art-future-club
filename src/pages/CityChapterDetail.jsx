@@ -11,6 +11,8 @@ import SlimFooter from '@/components/SlimFooter';
 import VerticalMetadata from '@/components/VerticalMetadata';
 import { useDataRevision } from '@/lib/dataRevision';
 import { loadAll } from '@/lib/loadAll';
+import { applySeo, canonicalUrl } from '@/lib/seo';
+import { chapterTitle } from '@/lib/shareTitles';
 
 const TYPE_COLORS = {
   Salon: 'bg-primary/10 text-primary',
@@ -45,6 +47,20 @@ const EVENT_LIMIT = 10;
 export default function CityChapterDetail() {
   const { slug } = useParams();
   const chapter = CHAPTERS.find((c) => c.slug === slug);
+
+  // The chapter page set no title or share picture of its own, so a shared
+  // chapter link looked like the home page. Same as api/prerender.js sends.
+  useEffect(() => {
+    if (!chapter) return;
+    return applySeo({
+      title: chapterTitle(chapter),
+      description: [chapter.tagline, chapter.about].filter(Boolean).join(" "),
+      image: chapter.image,
+      type: "website",
+      canonical: canonicalUrl(`/chapter/${chapter.slug}`),
+    });
+  }, [chapter]);
+
   const [spotlight, setSpotlight] = useState([]);
   const [venueLinks, setVenueLinks] = useState({});
   const [events, setEvents] = useState([]);

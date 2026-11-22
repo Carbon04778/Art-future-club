@@ -38,6 +38,11 @@ const [made] = await rest("open_call", { method: "POST", body: JSON.stringify({
   external_link: "https://example.com/apply", is_free: true, prize: "HK$10,000",
 }) });
 
+// After migration 032 a call has a readable slug, and that is its address.
+const hasSlugs = !!made.slug;
+const callPath = `/open-calls/${made.slug || made.id}`;
+if (hasSlugs) R.ok("Readable link", "a new call gets a readable slug from its title", /^oc-edit-check-\d+-residency$/.test(made.slug), made.slug);
+
 const b = await puppeteer.launch({ executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: true });
 const errs = [];
 const newPage = async (w = 1366) => {
@@ -70,13 +75,18 @@ try {
     await go(p, "/open-calls");
     await waitText(p, new RegExp(TAG));
     const href = await p.evaluate((t) => [...document.querySelectorAll('[data-testid="open-call-link"]')].find((a) => a.textContent.includes(t))?.getAttribute("href"), TAG);
-    R.ok("Visitor", "the list links the call to its own page", href === `/open-calls/${made.id}`, href || "no link");
+    R.ok("Visitor", `the list links the call to its own page (${hasSlugs ? "readable slug" : "id — 032 not run here"})`, href === callPath, href || "no link");
     R.ok("Visitor", "the card has 'View full details'", /view full details/i.test(await text(p)));
     R.ok("Visitor", "a visitor sees no Edit button", !(await p.$('[data-testid="open-call-edit"]')));
-    await Promise.all([p.waitForFunction((id) => location.pathname === `/open-calls/${id}`, { timeout: 20000 }, made.id).catch(() => {}), p.evaluate((t) => [...document.querySelectorAll('[data-testid="open-call-link"]')].find((a) => a.textContent.includes(t)).click(), TAG)]);
+    await Promise.all([p.waitForFunction((cp) => location.pathname === cp, { timeout: 20000 }, callPath).catch(() => {}), p.evaluate((t) => [...document.querySelectorAll('[data-testid="open-call-link"]')].find((a) => a.textContent.includes(t)).click(), TAG)]);
     await waitText(p, /second paragraph/);
     const desc = await p.$eval('[data-testid="open-call-description"]', (el) => el.innerText).catch(() => "");
-    R.ok("Own page", "clicking the title opens /open-calls/<id>", await p.evaluate((id) => location.pathname === `/open-calls/${id}`, made.id));
+    R.ok("Own page", `clicking the title opens ${callPath}`, await p.evaluate((cp) => location.pathname === cp, callPath));
+    if (hasSlugs) {
+      await go(p, `/open-calls/${made.id}`);
+      await waitText(p, /second paragraph/);
+      R.ok("Readable link", "an old id link still opens the call, and the address becomes the readable one", await p.evaluate((cp) => location.pathname === cp, callPath), await p.evaluate(() => location.pathname));
+    }
     R.ok("Own page", "shows the full description with its line breaks", /First paragraph of the call\.\n\nSecond paragraph, after a blank line\.\nThird line/.test(desc), JSON.stringify(desc.slice(0, 80)));
     // innerText is upper-cased by the mono-caps labels, so compare ignoring case.
     const t = (await text(p)).toLowerCase();
@@ -120,6 +130,7 @@ try {
   let [row] = await rest(`open_call?id=eq.${made.id}&select=*`);
   R.ok("Admin — own page", "Save writes the new title, text and deadline to the database", row.title === `${TAG} Residency (edited)` && row.description === "New text.\nSecond line." && row.deadline === later, `${row.title} | ${row.deadline}`);
   R.ok("Admin — own page", "the rest of the call is unchanged (organiser, link, prize)", row.organizer === "Test Studio" && row.external_link === "https://example.com/apply" && row.prize === "HK$10,000");
+  if (hasSlugs) R.ok("Readable link", "renaming the call keeps its link, so shared links never break", row.slug === made.slug, row.slug);
   R.ok("Admin — own page", "the page shows the new title straight away", (await p.$eval('[data-testid="open-call-title"]', (el) => el.textContent).catch(() => "")) === `${TAG} Residency (edited)`);
   await p.screenshot({ path: R.shotPath("admin-after-edit.png") });
   R.ok("Admin — own page", "screenshot after saving", true, "", "admin-after-edit.png");
@@ -132,7 +143,7 @@ try {
   const rowSel = async () => p.evaluateHandle((t) => [...document.querySelectorAll('[data-testid="admin-open-call-row"]')].find((r) => r.textContent.includes(t)), TAG);
   let adminRow = await rowSel();
   R.ok("Admin tab", "the call is listed with View, Edit and Delete", await adminRow.evaluate((r) => !!r && /View/.test(r.textContent) && /Edit/.test(r.textContent) && /Delete/.test(r.textContent)).catch(() => false));
-  R.ok("Admin tab", "View links to the call's own page", await adminRow.evaluate((r, id) => [...r.querySelectorAll("a")].some((a) => a.getAttribute("href") === `/open-calls/${id}`), made.id));
+  R.ok("Admin tab", "View links to the call's own page", await adminRow.evaluate((r, cp) => [...r.querySelectorAll("a")].some((a) => a.getAttribute("href") === cp), callPath));
   await adminRow.evaluate((r) => r.querySelector('[data-testid="admin-open-call-edit"]').click());
   await p.waitForSelector('[data-testid="open-call-form"]');
   await fillForm(p, { prize: "HK$25,000 + studio", location: "Kowloon" });

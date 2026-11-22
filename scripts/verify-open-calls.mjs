@@ -217,8 +217,10 @@ const MINE = { id: "c3", title: "My Fellowship", type: "Fellowship", organizer: 
 {
   const { Routes, Route } = await import("react-router-dom");
   const OpenCallDetail = (await import("../src/pages/OpenCallDetail.jsx")).default;
+  // The page looks a call up by its slug first, then by its id (old links).
   let filtered = [];
-  base44.entities.OpenCall.filter = async (where) => { filtered.push(where); return CALLS.filter((x) => x.id === where.id); };
+  base44.entities.OpenCall.filter = async (where) => { filtered.push(where); return CALLS.filter((x) => (where.slug != null ? x.slug === where.slug : x.id === where.id)); };
+  base44.entities.OpenCall.get = async (id) => { filtered.push({ id }); const r = CALLS.find((x) => x.id === id); if (!r) throw new Error("not found"); return r; };
   const detail = async (id, access, user) => {
     ACCESS = access; USER = user; filtered = [];
     const root = createRoot(c);
@@ -233,7 +235,7 @@ const MINE = { id: "c3", title: "My Fellowship", type: "Fellowship", organizer: 
   check("own page: shows the title big", c.querySelector("h1[data-testid=open-call-title]")?.textContent === "My Fellowship");
   check("own page: the FULL description, line breaks kept", desc?.textContent === "Line one\nLine two" && /pre-line/.test(desc.className));
   check("own page: fee, type and organiser shown", /£10/.test(c.textContent) && /Fellowship/.test(c.textContent) && /Me Gallery/.test(c.textContent));
-  check("own page: looked up by its id", filtered[0]?.id === "c3");
+  check("own page: an id link still finds the call", filtered.some((w) => w.id === "c3"));
   check("own page: a visitor sees no Edit/Delete", !c.querySelector('[data-testid="open-call-owner-tools"]'));
   check("own page: a back link to all open calls", !!c.querySelector('a[href="/open-calls"]'));
   r.unmount();
@@ -246,6 +248,17 @@ const MINE = { id: "c3", title: "My Fellowship", type: "Fellowship", organizer: 
   r = await detail("c1", { can_view: true, can_post: true }, { id: "a", role: "admin" });
   check("own page: an admin sees Edit and Delete", !!c.querySelector('[data-testid="open-call-owner-tools"]'));
   r.unmount();
+  // readable links (032): a slug opens the call, and the list links to it
+  MINE.slug = "my-fellowship";
+  r = await detail("my-fellowship", { can_view: true, can_post: false }, null);
+  check("own page: a readable slug link opens the call", c.querySelector("h1[data-testid=open-call-title]")?.textContent === "My Fellowship");
+  check("own page: the tab title is '<title> | Open Calls | Art Future Club'", document.title === "My Fellowship | Open Calls | Art Future Club", document.title);
+  r.unmount();
+  {
+    const { openCallPath } = await import("../src/components/openCalls.jsx");
+    check("links use the slug when there is one, else the id", openCallPath(MINE) === "/open-calls/my-fellowship" && openCallPath({ id: "c1" }) === "/open-calls/c1");
+  }
+  delete MINE.slug;
   r = await detail("nope", { can_view: true, can_post: false }, null);
   check("own page: an unknown id says 'not found'", !!c.querySelector('[data-testid="open-call-missing"]'));
   r.unmount();

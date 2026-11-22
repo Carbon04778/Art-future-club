@@ -6,7 +6,7 @@
       "destination": "/api/sitemap"
     },
     {
-      "source": "/:section(artists|gallery|venues|directory|events|editorial)/:segment",
+      "source": "/:section(artists|gallery|venues|directory|events|editorial|open-calls|chapter)/:segment",
       "has": [
         {
           "type": "header",

@@ -113,7 +113,7 @@ for (const f of ["src/components/map/GoogleSpacesSurface.jsx", "src/components/m
 }
 check("the small map on a listing page uses the Directory pin too", /isDirectoryType\(type\)\s*\?\s*`<path d="M5\.2 8\.2h9\.6/.test(src("src/components/map/PlaceMap.jsx")));
 check("map page understands ?show=directory", /directory: "Directory"/.test(src("src/pages/ArtistMap.jsx")));
-check("Google: /directory pages are pre-rendered for crawlers", /artists\|gallery\|venues\|directory\|events\|editorial/.test(src("vercel.json")) && /prefix: "\/directory", table: "collector_profile", kind: "space", directory: true/.test(src("api/prerender.js")));
+check("Google: /directory pages are pre-rendered for crawlers", /:section\([^)]*\bdirectory\b[^)]*\)/.test(src("vercel.json")) && /prefix:\s*"\/directory",\s*table:\s*"collector_profile",\s*kind:\s*"space",\s*directory:\s*true/.test(src("api/prerender.js")));
 check("Google: a framer is a LocalBusiness, an art store a Store — not a 'Gallery'", /"Art Store"\s*\?\s*"Store"[\s\S]{0,80}"Framer" \|\| row\.type === "Printer"\s*\?\s*"LocalBusiness"/.test(src("api/prerender.js")) && /"Art Store"\s*\?\s*"Store"/.test(src("src/hooks/useGallerySeoMeta.js")));
 const sm = src("api/sitemap.js");
 check("sitemap: /directory and each listing under /directory", /\["\/directory", 0\.7/.test(sm) && /DIRECTORY_TYPES\.has\(s\.type\) \? "\/directory"/.test(sm) && /new Set\(\["Art Store", "Framer", "Printer"\]\)/.test(sm));

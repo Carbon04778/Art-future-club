@@ -389,22 +389,59 @@ for (const b of BOTS) check(`crawler matched: ${b.slice(0, 42)}`, ua.test(b));
  */
 process.env.VITE_SUPABASE_URL ||= "https://test-project.supabase.co";
 const SB = process.env.VITE_SUPABASE_URL;
-const { ogImage, isStored, DEFAULT_OG_IMAGE, OG_W, OG_H } = await import("../api/prerender.js");
+const { ogImage, isStored, isSiteImage, DEFAULT_OG_IMAGE, BRAND_CARD, OG_W, OG_H, pickImage, describe, ROUTES } = await import("../api/prerender.js");
 const stored = `${SB}/storage/v1/object/public/uploads/u1/portrait.png`;
 const og = ogImage(stored);
 check("a stored image is served through api/og-image", og.startsWith("https://www.artfutureclub.com/api/og-image?src="), og);
 check("the source is passed encoded, exactly once", og.endsWith(encodeURIComponent(stored)), og);
 check("card size is the 1.91:1 standard", OG_W === 1200 && OG_H === 630);
 check("a non-storage image is passed through untouched", ogImage("https://example.com/pic.jpg") === "https://example.com/pic.jpg");
-check("a site-relative image is made absolute, not proxied", ogImage("/images/x.jpg") === "https://www.artfutureclub.com/images/x.jpg", ogImage("/images/x.jpg"));
+// The site's own pictures are converted too (2026-11-22): chapter photos are
+// WebP, which WhatsApp does not reliably show.
+check("a site picture (/images/) goes through api/og-image too", ogImage("/images/x.webp") === `https://www.artfutureclub.com/api/og-image?src=${encodeURIComponent("https://www.artfutureclub.com/images/x.webp")}`, ogImage("/images/x.webp"));
+check("…written with or without www", isSiteImage("https://artfutureclub.com/images/a.jpg") && isSiteImage("https://www.artfutureclub.com/images/a.jpg") && !isSiteImage("https://evil.example/images/a.jpg"));
 check("another host is never treated as stored", !isStored("https://evil.example/storage/v1/object/public/x.png"));
-check("a profile with no image gets the site image, never nothing", DEFAULT_OG_IMAGE.startsWith("https://www.artfutureclub.com/images/"), DEFAULT_OG_IMAGE);
+check("the home page keeps its own picture", DEFAULT_OG_IMAGE.startsWith("https://www.artfutureclub.com/images/"), DEFAULT_OG_IMAGE);
+check("a page with no picture of its own gets the club card, not the home-page photo", BRAND_CARD === "https://www.artfutureclub.com/api/og-image?card=brand", BRAND_CARD);
+
+/* Which picture: the first of the page's own that really loads (audit
+ * 2026-11-22: 105 of 121 articles named a share picture that does not exist). */
+{
+  const good = new Set(["https://www.artfutureclub.com/images/cover.jpg", `${SB}/storage/v1/object/public/uploads/a.png`]);
+  const fake = async (u) => good.has(u);
+  check("pickImage skips a missing picture and takes the next that loads",
+    (await pickImage(["https://www.artfutureclub.com/images/missing.jpg", "/images/cover.jpg"], fake)) === "https://www.artfutureclub.com/images/cover.jpg");
+  check("pickImage skips empty and page addresses", (await pickImage(["", null, "https://www.artfutureclub.com/artists/someone", `${SB}/storage/v1/object/public/uploads/a.png`], fake)) === `${SB}/storage/v1/object/public/uploads/a.png`);
+  check("pickImage gives '' when nothing loads (then the club card is used)", (await pickImage(["/images/nope.jpg"], fake)) === "");
+  const route = (k) => ROUTES.find((r) => r.kind === k);
+  const art = describe(route("article"), { title: "A", og_image_url: "https://www.artfutureclub.com/images/old.jpg", cover_image_url: "/c.jpg", images: [{ url: "/i.jpg" }], closing_image_url: "/z.jpg" }, "/editorial/a");
+  check("article pictures in the page's order: share picture, cover, inline, closing", JSON.stringify(art.images) === JSON.stringify(["https://www.artfutureclub.com/images/old.jpg", "/c.jpg", "/i.jpg", "/z.jpg"]), JSON.stringify(art.images));
+  const sp = describe(route("space"), { display_name: "G", cover_image_url: "", avatar_url: "/a.jpg", space_images: ["/s1.jpg"] }, "/gallery/g");
+  check("a gallery with no cover falls back to its logo, then its space photos", JSON.stringify(sp.images) === JSON.stringify(["", "/a.jpg", "/s1.jpg"]), JSON.stringify(sp.images));
+  const oc = describe(route("opencall"), { title: "Glitch", type: "Open Call", organizer: "Org", deadline: "2026-12-12", image_url: "/oc.jpg", description: "Full text", is_free: true }, "/open-calls/glitch");
+  check("open calls are prerendered: own title and picture", route("opencall")?.table === "open_call" && oc.title === "Glitch | Open Calls | Art Future Club" && oc.images[0] === "/oc.jpg", oc.title);
+  check("…with the deadline as a date, not a day early", oc.facts.some(([k, v]) => k === "Deadline" && v === "12 December 2026"), JSON.stringify(oc.facts));
+  const ch = describe(route("chapter"), { city: "Hong Kong", slug: "hong-kong", chapter: "Ch.01", tagline: "East meets West", image: "/images/hk.webp" }, "/chapter/hong-kong");
+  check("chapters are prerendered: own title and picture", ch.title === "Hong Kong Chapter | Art Future Club" && ch.images[0] === "/images/hk.webp", ch.title);
+  const vj = JSON.parse(read("../vercel.json"));
+  check("vercel.json sends crawlers on /open-calls and /chapter to the prerender", /open-calls/.test(vj.rewrites.find((r) => r.destination === "/api/prerender").source) && /chapter/.test(vj.rewrites.find((r) => r.destination === "/api/prerender").source));
+}
 
 /* api/og-image.js itself, offline: a synthetic 3000x2000 PNG through the
  * same conversion crawlers get. */
-const { isAllowedSource, toCard } = await import("../api/og-image.js");
+const { isAllowedSource, toCard, brandCard } = await import("../api/og-image.js");
 check("og-image accepts this project's public storage", isAllowedSource(stored));
 check("og-image refuses any other host (not an open proxy)", !isAllowedSource("https://evil.example/x.png") && !isAllowedSource(""));
+check("og-image accepts the site's own /images/ files", isAllowedSource("https://www.artfutureclub.com/images/chapter.webp") && isAllowedSource("https://artfutureclub.com/images/a.jpg"));
+check("og-image refuses a path step out of /images/", !isAllowedSource("https://www.artfutureclub.com/images/../api/x") && !isAllowedSource("https://www.artfutureclub.com/images/%2e%2e/x"));
+check("…but a '..' inside a file name is fine (a real HART HAUS upload)", isAllowedSource(`${SB}/storage/v1/object/public/uploads/u/view_Courtesy_HART_HAUS..webp`));
+{
+  const sharp = (await import("sharp")).default;
+  const logo = await sharp({ create: { width: 518, height: 1024, channels: 4, background: { r: 230, g: 30, b: 120, alpha: 1 } } }).png().toBuffer();
+  const bc = await brandCard(logo);
+  const bm = await sharp(bc).metadata();
+  check("the club card is a 1200x630 JPEG under 300 KB", bm.format === "jpeg" && bm.width === OG_W && bm.height === OG_H && bc.length < 300 * 1024, `${bm.width}x${bm.height} ${Math.round(bc.length / 1024)} KB`);
+}
 const sharp = (await import("sharp")).default;
 const bigPng = await sharp({ create: { width: 3000, height: 2000, channels: 3, background: { r: 120, g: 40, b: 200 } } })
   .composite([{ input: Buffer.from(`<svg width="3000" height="2000"><circle cx="900" cy="1000" r="600" fill="#ffcc00"/><rect x="1800" y="300" width="900" height="1400" fill="#00ccaa"/></svg>`), top: 0, left: 0 }])

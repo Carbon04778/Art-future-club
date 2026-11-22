@@ -11,7 +11,12 @@ import { parseISO, endOfDay, isPast, differenceInCalendarDays, format } from "da
 
 export const CALL_TYPES = ["Open Call", "Residency", "Grant", "Fellowship", "Competition", "Exhibition", "Other"];
 
-export const openCallPath = (call) => `/open-calls/${call.id}`;
+/**
+ * `/open-calls/open-call-01-glitch-the-broken-screen` — the readable slug
+ * (migration 032), or the id for a call that has none yet. Old id links keep
+ * working: the page accepts either and tidies the address to the slug.
+ */
+export const openCallPath = (call) => `/open-calls/${call?.slug || call?.id || ""}`;
 
 /** The poster can edit their own call; an admin can edit any. The database enforces the same (002, opencall_update_own). */
 export const canEditCall = (user, call) => !!user && !!call && (user.role === "admin" || (!!call.posted_by_id && call.posted_by_id === user.id));

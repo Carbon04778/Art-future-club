@@ -3,7 +3,10 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft, ExternalLink, Calendar, MapPin, Loader2, Pencil, Trash2, Award, Tag, Wallet } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
-import { OpenCallForm, UpgradeToView, TryAgain, canEditCall, deadlineInfo } from "@/components/openCalls";
+import { OpenCallForm, UpgradeToView, TryAgain, canEditCall, deadlineInfo, openCallPath } from "@/components/openCalls";
+import { findBySlugOrId, shouldRedirectToSlug } from "@/lib/slugs";
+import { applySeo, canonicalUrl } from "@/lib/seo";
+import { openCallTitle } from "@/lib/shareTitles";
 
 /**
  * One open call on its own page: the full description, every detail, and
@@ -27,15 +30,15 @@ export default function OpenCallDetail() {
       .then((a) => {
         setAccess(a);
         if (!a.can_view) { setState("ready"); return; }
-        return base44.entities.OpenCall.filter({ id }, undefined, 1)
-          .then((rows) => {
-            const row = rows?.[0];
+        // Slug first, then the id: links shared before 032 carry the id.
+        // A mistyped link is simply not found (findBySlugOrId returns null).
+        return findBySlugOrId(base44.entities.OpenCall, id)
+          .then((row) => {
             setCall(row || null);
             setState(row ? "ready" : "missing");
-          })
-          // A mistyped link ("/open-calls/abc") is refused by the database as
-          // "invalid input syntax for type uuid": that is not-found, not offline.
-          .catch((e) => setState(/uuid|22P02/i.test(String(e?.message || e)) ? "missing" : "failed"));
+            // Tidy an id link into the readable one; `replace` keeps Back working.
+            if (row && shouldRedirectToSlug(row, id)) navigate(openCallPath(row), { replace: true });
+          });
       })
       .catch(() => setState("failed"));
   };
@@ -46,11 +49,17 @@ export default function OpenCallDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Title, description, share picture and canonical — the same as the
+  // crawler prerender (api/prerender.js) sends for a shared link.
   useEffect(() => {
     if (!call) return;
-    const before = document.title;
-    document.title = `${call.title} — Open Calls | Art Future Club`;
-    return () => { document.title = before; };
+    return applySeo({
+      title: openCallTitle(call),
+      description: call.description || [call.type, call.organizer, call.location].filter(Boolean).join(" · "),
+      image: call.image_url || "",
+      type: "article",
+      canonical: canonicalUrl(openCallPath(call)),
+    });
   }, [call]);
 
   const onDelete = async () => {

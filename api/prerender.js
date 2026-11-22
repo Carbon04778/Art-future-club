@@ -35,6 +35,9 @@
  * untouched shell, which is exactly the behaviour before this file existed.
  */
 
+import { CHAPTERS } from "../src/lib/chaptersData.js";
+import { openCallTitle, chapterTitle } from "../src/lib/shareTitles.js";
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
 // www, not the apex: the apex answers 308 and redirects to www, so www is the
@@ -44,12 +47,16 @@ const SITE_NAME = "Art Future Club";
 
 /** Which table and shape each public route maps to. */
 const ROUTES = [
-  { prefix: "/artists",   table: "artist_profile",    kind: "artist" },
-  { prefix: "/gallery",   table: "collector_profile", kind: "space" },
-  { prefix: "/venues",    table: "collector_profile", kind: "space", venue: true },
-  { prefix: "/directory", table: "collector_profile", kind: "space", directory: true },
-  { prefix: "/events",    table: "event",             kind: "event" },
-  { prefix: "/editorial", table: "article",           kind: "article" },
+  { prefix: "/artists",    table: "artist_profile",    kind: "artist" },
+  { prefix: "/gallery",    table: "collector_profile", kind: "space" },
+  { prefix: "/venues",     table: "collector_profile", kind: "space", venue: true },
+  { prefix: "/directory",  table: "collector_profile", kind: "space", directory: true },
+  { prefix: "/events",     table: "event",             kind: "event" },
+  { prefix: "/editorial",  table: "article",           kind: "article" },
+  // Shared open calls and chapters showed the home page's title and picture
+  // (audit 2026-11-22: 4 of 4 open calls, 10 of 10 chapters).
+  { prefix: "/open-calls", table: "open_call",         kind: "opencall" },
+  { prefix: "/chapter",    table: null,                kind: "chapter" },
 ];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -107,19 +114,73 @@ const OG_W = 1200;
 const OG_H = 630;
 const STORAGE_OBJECT = "/storage/v1/object/public/";
 const isStored = (abs) => !!SUPABASE_URL && abs.startsWith(`${SUPABASE_URL}${STORAGE_OBJECT}`);
+/*
+ * The site's own pictures (/images/...) go through the converter too: chapter
+ * photos are WebP, which WhatsApp does not reliably show, and some are large.
+ * Either host form counts — imported rows hold both www and the bare domain.
+ */
+const SITE_IMAGES = /^https:\/\/(www\.)?artfutureclub\.com\/images\//i;
+const isSiteImage = (abs) => SITE_IMAGES.test(abs) || abs.startsWith(`${SITE_URL}/images/`);
+const isConverted = (abs) => isStored(abs) || isSiteImage(abs);
 const ogImage = (url) => {
   const abs = absolute(url);
-  if (!isStored(abs)) return abs;
+  if (!isConverted(abs)) return abs;
   return `${SITE_URL}/api/og-image?src=${encodeURIComponent(abs)}`;
 };
 
-/* When a profile has no image at all, the card should still carry the site's
- * own picture rather than none: an empty card is the one outcome every
- * platform renders worst. This is the image index.html uses for the home page. */
+/*
+ * When a page has no picture of its own that loads, the card carries the
+ * club's own card (logo on the site's dark background) — never the home
+ * page's photograph, which made an unrelated gallery or event look as if it
+ * were pictured by it (owner, 2026-11-22). The page's name is in the card's
+ * title beside it.
+ */
+const BRAND_CARD = `${SITE_URL}/api/og-image?card=brand`;
+// Kept for the home page and older checks: index.html's own picture.
 const DEFAULT_OG_IMAGE = `${SITE_URL}/images/AdobeStock_528827486.jpg`;
 
+/*
+ * Does this picture actually load? Audit 2026-11-22: 105 of 121 articles named
+ * a share picture (og_image_url) that does not exist — /images/<name>.jpg left
+ * from the old site, or a page address — and the site answers those with its
+ * HTML shell, so every one of them shared as a blank card although each has
+ * a working cover photo. So each candidate is checked, in the page's own
+ * order, and the first real picture wins.
+ */
+async function loads(abs) {
+  if (!/^https?:\/\//i.test(abs)) return false;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 2500);
+  try {
+    let r = await fetch(abs, { method: "HEAD", signal: ctrl.signal, redirect: "follow" });
+    // A few hosts refuse HEAD; ask for the first byte instead.
+    if (r.status === 405 || r.status === 403) r = await fetch(abs, { headers: { Range: "bytes=0-0" }, signal: ctrl.signal, redirect: "follow" });
+    return (r.ok || r.status === 206) && /^image\//i.test(r.headers.get("content-type") || "");
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function pickImage(candidates, check = loads) {
+  const seen = new Set();
+  for (const c of candidates) {
+    const abs = absolute(c);
+    if (!abs || abs.startsWith("data:") || seen.has(abs)) continue;
+    seen.add(abs);
+    if (seen.size > 5) break;
+    if (await check(abs)) return abs;
+  }
+  return "";
+}
+
+/** A list of pictures as stored: strings, or objects with url / image_url. */
+const pics = (list) =>
+  (Array.isArray(list) ? list : []).map((x) => (typeof x === "string" ? x : x?.image_url || x?.url || "")).filter(Boolean);
+
 // Named exports are for verify-seo only; Vercel invokes the default export.
-export { ogImage, isStored, DEFAULT_OG_IMAGE, OG_W, OG_H };
+export { ogImage, isStored, isSiteImage, DEFAULT_OG_IMAGE, BRAND_CARD, OG_W, OG_H, pickImage, describe, ROUTES };
 
 const clamp = (text, max = 160) => {
   const flat = String(text || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -190,7 +251,7 @@ function describe(route, row, path) {
         [name, discipline && `${discipline} artist`, where && `based in ${where}`]
           .filter(Boolean)
           .join(", "),
-      image: row.avatar_url || works.find((w) => w?.image_url)?.image_url || "",
+      images: [row.avatar_url, ...pics(works)],
       type: "profile",
       canonical,
       noindex: row.status && row.status !== "approved",
@@ -246,7 +307,7 @@ function describe(route, row, path) {
     return {
       title: row.seo_title || `${name} — ${typeLabel}${where ? ` in ${where}` : ""} | ${SITE_NAME}`,
       description: row.seo_description || row.bio || "",
-      image: row.cover_image_url || row.avatar_url || "",
+      images: [row.cover_image_url, row.avatar_url, ...pics(row.space_images)],
       type: "profile",
       canonical,
       noindex: row.status && row.status !== "approved",
@@ -291,7 +352,7 @@ function describe(route, row, path) {
       title: `${row.title || "Event"}${city ? ` — ${city}` : ""} | ${SITE_NAME}`,
       description:
         row.description || [row.event_type, row.venue, city, starts].filter(Boolean).join(" · "),
-      image: row.image_url || "",
+      images: [row.image_url],
       type: "article",
       canonical,
       heading: row.title || "Event",
@@ -340,11 +401,66 @@ function describe(route, row, path) {
     };
   }
 
+  if (route.kind === "opencall") {
+    const deadline = row.deadline
+      ? new Date(`${String(row.deadline).slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+      : "";
+    const title = openCallTitle(row);
+    return {
+      title,
+      description: row.description || [row.type, row.organizer, row.location, deadline && `Deadline ${deadline}`].filter(Boolean).join(" · "),
+      images: [row.image_url],
+      type: "article",
+      canonical,
+      heading: row.title || "Open Call",
+      sub: [row.type, row.organizer, row.location].filter(Boolean).join(" · "),
+      body: row.description || "",
+      facts: [
+        deadline && ["Deadline", deadline],
+        row.location && ["Location", row.location],
+        row.prize && ["Prize / Stipend", row.prize],
+        ["Application fee", row.is_free === false ? row.fee || "Fee applies" : "Free"],
+        outsideUrl(row.external_link) && ["Apply", outsideUrl(row.external_link)],
+      ].filter(Boolean),
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: row.title,
+        description: row.description || undefined,
+        url: canonical,
+        image: row.image_url ? [absolute(row.image_url)] : undefined,
+        publisher: { "@type": "Organization", name: SITE_NAME, url: `${SITE_URL}/` },
+      },
+    };
+  }
+
+  if (route.kind === "chapter") {
+    return {
+      title: chapterTitle(row),
+      description: [row.tagline, row.about].filter(Boolean).join(" "),
+      images: [row.image],
+      type: "website",
+      canonical,
+      heading: `${row.city} Chapter`,
+      sub: [row.chapter, row.tagline].filter(Boolean).join(" · "),
+      body: row.about || "",
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: `${SITE_NAME} — ${row.city}`,
+        description: row.tagline || undefined,
+        url: canonical,
+        image: row.image ? [absolute(row.image)] : undefined,
+      },
+    };
+  }
+
   // article
   return {
     title: row.seo_title || `${row.title} — ${SITE_NAME} Editorial`,
     description: row.seo_description || row.subtitle || "",
-    image: row.og_image_url || row.cover_image_url || "",
+    // The page's own order; a missing share picture falls back to the cover.
+    images: [row.og_image_url, row.cover_image_url, ...pics(row.images), row.closing_image_url],
     type: "article",
     canonical: row.canonical_url || canonical,
     noindex: row.published === false,
@@ -370,8 +486,9 @@ function describe(route, row, path) {
 /* ---------------------------------------------------------------- markup */
 
 function headTags(seo, crumbs) {
-  const img = seo.image ? ogImage(seo.image) : DEFAULT_OG_IMAGE;
-  const transformed = isStored(absolute(seo.image || ""));
+  // seo.image is the first candidate that really loaded (pickImage), or "".
+  const img = seo.image ? ogImage(seo.image) : BRAND_CARD;
+  const transformed = !seo.image || isConverted(absolute(seo.image));
   const desc = clamp(seo.description);
   const out = [
     `<title>${esc(seo.title)}</title>`,
@@ -447,6 +564,10 @@ function crumbTrail(route, seo, path) {
       ? ["Events", "/events"]
       : route.kind === "article"
       ? ["Editorial", "/editorial"]
+      : route.kind === "opencall"
+      ? ["Open Calls", "/open-calls"]
+      : route.kind === "chapter"
+      ? ["Chapters", "/"]
       : route.venue
       ? ["Venues", "/venues"]
       : route.directory
@@ -508,7 +629,9 @@ export default async function handler(req, res) {
     // detail page either — both just get the shell.
     if (!route || !segment || segment.includes("/")) return serveShell();
 
-    const row = await fetchRecord(route.table, decodeURIComponent(segment));
+    const row = route.kind === "chapter"
+      ? CHAPTERS.find((c) => c.slug === decodeURIComponent(segment)) || null
+      : await fetchRecord(route.table, decodeURIComponent(segment));
     if (!row) {
       // Genuinely missing: say 404 so it is not indexed, but still return the
       // app so a human sees the real "not available" screen.
@@ -519,6 +642,7 @@ export default async function handler(req, res) {
     }
 
     const seo = describe(route, row, path);
+    seo.image = await pickImage(seo.images || []);
     const html = shell
       /*
        * Drop the shell's own site-wide tags so they cannot compete with the
