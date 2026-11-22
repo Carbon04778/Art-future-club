@@ -6,6 +6,16 @@ frontend + backend tests, TEST first, then live with the owner's approval.
 
 Status: **open** · **on hold** (waiting on an answer) · **in progress** · **done**
 
+## Reminders for the owner
+
+- **Open Calls is FREE to view for now** (owner, 2026-11-22: "open that to
+  free now", remind later). Made premium-only again by running
+  `supabase/migrations/031_open_calls_free.revert.sql` (TEST, then LIVE) —
+  no website change needed. Who counts as premium then: admins, active
+  subscriptions (20 on 2026-11-22, all set by hand — payments not switched
+  on), and Paid Member / Partner galleries/venues (2). Posting stayed
+  restricted the whole time.
+
 ---
 
 ## Batch A — received 2026-10-17
