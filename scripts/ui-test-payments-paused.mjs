@@ -24,7 +24,9 @@ const open = async (w) => {
   return p;
 };
 const go = async (p, path) => {
-  await p.goto(`${SITE}${path}`, { waitUntil: "networkidle2", timeout: 120000 }).catch(() => {});
+  // Not "networkidle": it never settles on a slow connection. One retry, then fail loudly.
+  const load = () => p.goto(`${SITE}${path}`, { waitUntil: "domcontentloaded", timeout: 90000 });
+  await load().catch(load);
   // Wait for the page itself, not the loading spinner, or the check proves nothing.
   await p.waitForFunction(() => document.body.innerText.trim().length > 200, { timeout: 45000 }).catch(() => {});
   await new Promise((r) => setTimeout(r, 1200));
