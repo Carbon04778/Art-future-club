@@ -736,8 +736,9 @@ no drafts (it had assumed at least one).
 - C7: new; artists have disciplines (A3) — usable for "similar".
 - C8: nothing yet. New: scheduled job, website reader, AI extraction, draft
   queue, organiser approval, recommendations, search.
-- C8 built in v12 2026-11-23, NOT live: waiting for migration 034 on TEST, then
-  LIVE, the Vercel keys, the 10-website trial, and the report email sender.
+- C8 LIVE 2026-11-23 (v11/GitHub 1bd39d0; 034 on TEST and LIVE; trial on, schedule
+  off). TEST end to end 49/49, live read-only 26/26. Still to do: first real run on
+  live (proves the Vercel keys), the 10-website trial, and the report email sender.
   verify:ai-events 170/170, SQL rehearsed locally 43/43, Chrome 26/26 with
   simulated drafts, real reading trial 11 sites (dates identical in 3 runs).
 - C9: public/favicon.png is really a JPEG (512x512), one size only.
