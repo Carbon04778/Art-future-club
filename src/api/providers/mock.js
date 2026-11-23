@@ -394,6 +394,10 @@ export const ENTITY_NAMES = [
   "Notification",
   "OpenCall",
   "ProfileSwitchRequest",
+  "AiEventDraft",
+  "AiEventSource",
+  "AiEventRun",
+  "AiEventSettings",
   "Collection",
   "ProfileArchive",
   "Subscription",
@@ -636,6 +640,25 @@ export const auth = {
     }
     persist();
     return approve ? r.from_id : null;
+  },
+  async reviewAiEvent({ draftId, action, patch = {}, note = null }) {
+    const d = table("AiEventDraft").find((x) => x.id === draftId);
+    if (!d) throw new Error("This draft no longer exists.");
+    const next = { approve: "checked", reject: "rejected", restore: "new" }[action] || d.state;
+    Object.assign(d, patch, { state: next, note });
+    persist();
+    return next;
+  },
+  async organiserReviewAiEvent({ draftId, action, note = null }) {
+    const d = table("AiEventDraft").find((x) => x.id === draftId);
+    if (!d) throw new Error("This event is not waiting for you.");
+    const next = { approve: "published", change: "changes", decline: "declined" }[action];
+    Object.assign(d, { state: next, note });
+    persist();
+    return next;
+  },
+  async runAiEventCheck() {
+    throw new Error("The AI check is not available in the demo.");
   },
   async restoreProfileArchive() {
     throw new Error("Restoring is not available in the demo.");

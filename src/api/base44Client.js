@@ -137,6 +137,10 @@ function clearCacheOnIdentityChange(auth) {
     "cancelProfileSwitch",
     "reviewProfileSwitch",
     "restoreProfileArchive",
+    // C8: AI event drafts.
+    "reviewAiEvent",
+    "organiserReviewAiEvent",
+    "runAiEventCheck",
   ];
   for (const method of DATA_CHANGING) {
     if (typeof auth[method] !== "function") continue;

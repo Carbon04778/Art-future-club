@@ -10,6 +10,8 @@ import { chapterFilterOptions, CHAPTER_NAMES } from "@/lib/chaptersData";
 import { eventPosition } from "@/lib/eventPlace";
 import { fromLocalInput } from "@/lib/datetime";
 import { loadAll } from "@/lib/loadAll";
+import EventDiscovery from "@/components/EventDiscovery";
+import { matchEvents, parseEventQuery } from "@/lib/eventSearch";
 
 const CHAPTERS = chapterFilterOptions("All");
 const EVENT_TYPES = ["All", "Exhibition", "Opening", "Talk", "Workshop", "Screening", "Performance", "Social", "Other"];
@@ -44,6 +46,9 @@ export default function EventCalendar() {
   const [typeFilter, setTypeFilter] = useState("All");
   const [user, setUser] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  // C8: plain-language search, and where "near me" is.
+  const [query, setQuery] = useState("");
+  const [near, setNear] = useState(null);
 
   useEffect(() => {
     loadEvents();
@@ -67,9 +72,11 @@ export default function EventCalendar() {
       setEvents([...upcoming, ...past]);
     });
 
+  const parsed = parseEventQuery(query);
   const filtered = events
     .filter((e) => chapter === "All" || e.chapter === chapter)
-    .filter((e) => typeFilter === "All" || e.event_type === typeFilter);
+    .filter((e) => typeFilter === "All" || e.event_type === typeFilter)
+    .filter(matchEvents(parsed, near));
 
   // group by month
   const grouped = filtered.reduce((acc, ev) => {
@@ -98,6 +105,8 @@ export default function EventCalendar() {
         <p className="mt-4 text-lg text-muted-foreground">
           <span className="text-primary">Gatherings</span>, <span className="text-accent">exhibitions</span>, and <span className="text-highlight">happenings</span> across all chapters.
         </p>
+
+        <EventDiscovery user={user} events={events} query={query} setQuery={setQuery} parsed={parsed} near={near} setNear={setNear} count={filtered.length} />
 
         {/* filters */}
         <div className="mt-10 space-y-3">
@@ -161,7 +170,7 @@ export default function EventCalendar() {
                         <p className="font-mono-caps text-[10px] text-muted-foreground">
                           {new Date(ev.start_date).toLocaleDateString("en-GB", { weekday: "long" })}
                         </p>
-                        <p className="font-mono-caps text-[10px] text-muted-foreground">{formatTime(ev.start_date)}</p>
+                        {!ev.date_only && <p className="font-mono-caps text-[10px] text-muted-foreground">{formatTime(ev.start_date)}</p>}
                       </div>
                       {/* info */}
                       <div>

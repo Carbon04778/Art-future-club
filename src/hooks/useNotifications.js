@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { STATUS, effectiveStatus, isModeratedCollectorType } from "@/lib/profileReadiness";
 import { isVenueType } from "@/lib/venueTypes";
 import { artistPath, spacePath, eventPath } from "@/lib/slugs";
+import { daysWaiting } from "@/lib/aiEvents";
 
 /**
  * Notifications derived from data that already exists.
@@ -49,6 +50,7 @@ export const NOTIFICATION_KINDS = [
   "new_work",
   "new_exhibition",
   "review_queue",
+  "event_draft",
 ];
 
 const sinceIso = () =>
@@ -343,6 +345,43 @@ export default function useNotifications(userId, options = {}) {
           text: "is waiting for review",
           at: p.created_date,
           link: "/admin",
+        });
+      }
+    }
+
+    /* ------------------------- 10. AI event drafts (C8, migration 034) */
+    /* Only an owner of a gallery or venue, or an admin, can have any. */
+    if (isAdmin || myCollectors.length) {
+      const drafts = await base44.entities.AiEventDraft
+        .filter(
+          { state: isAdmin ? { $in: ["new", "changes", "awaiting_organiser"] } : "awaiting_organiser" },
+          "-created_date", LIMIT, "id,title,state,listing_id,admin_at,created_date"
+        )
+        .catch(() => []);
+      const ownIds = new Set(myCollectors.map((c) => c.id));
+      for (const d of drafts) {
+        if (d.state !== "awaiting_organiser" || !ownIds.has(d.listing_id)) continue;
+        // A second notification after three days: the reminder.
+        const late = daysWaiting(d) >= 3;
+        push({
+          key: `eventdraft-${d.id}-${d.admin_at}${late ? "-reminder" : ""}`,
+          kind: "event_draft",
+          who: "AFC team",
+          text: late ? `reminder: "${d.title}" still needs your approval` : `prepared "${d.title}" for your approval`,
+          at: late ? new Date(new Date(d.admin_at).getTime() + 3 * 86_400_000).toISOString() : d.admin_at,
+          link: "/notifications",
+        });
+      }
+      const open = drafts.filter((d) => d.state === "new" || d.state === "changes");
+      if (isAdmin && open.length) {
+        const newest = open.reduce((m, d) => (d.created_date > m ? d.created_date : m), "");
+        push({
+          key: `aidrafts-${newest}`,
+          kind: "event_draft",
+          who: "AI Events",
+          text: `${open.length}${drafts.length >= LIMIT ? "+" : ""} event draft${open.length === 1 ? "" : "s"} to review`,
+          at: newest,
+          link: "/admin?tab=AI%20Events",
         });
       }
     }

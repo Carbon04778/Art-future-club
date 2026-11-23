@@ -14,16 +14,21 @@ import AdminArticlesPanel from "@/components/AdminArticlesPanel";
 import AdminSubscribersPanel from "@/components/AdminSubscribersPanel";
 import AdminEditListingsPanel from "@/components/AdminEditListingsPanel";
 import AdminEventsPanel from "@/components/AdminEventsPanel";
+import AdminAiEventsPanel from "@/components/AdminAiEventsPanel";
 import AdminApprovalsPanel from "@/components/AdminApprovalsPanel";
 import { useDataRevision } from "@/lib/dataRevision";
 
 // Approvals leads, and is the tab the dashboard opens on. Profiles waiting for
 // review are the only thing here that blocks somebody else — a queue nobody
 // looks at is the same as no review at all.
-const TABS = ["Approvals", "Add Listing", "Import CSV", "Edit Listings", "Events", "Members", "Editorial", "Artists", "Inquiries", "Forum", "Open Calls", "Newsletter", "Subscriptions"];
+const TABS = ["Approvals", "Add Listing", "Import CSV", "Edit Listings", "Events", "AI Events", "Members", "Editorial", "Artists", "Inquiries", "Forum", "Open Calls", "Newsletter", "Subscriptions"];
 
 export default function AdminDashboard() {
-  const [tab, setTab] = useState("Approvals");
+  // The weekly report email links straight to its tab.
+  const [tab, setTab] = useState(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return TABS.includes(t) ? t : "Approvals";
+  });
   const [artists, setArtists] = useState([]);
   const [inquiries, setInquiries] = useState([]);
   const [posts, setPosts] = useState([]);
@@ -258,6 +263,8 @@ export default function AdminDashboard() {
         {tab === "Edit Listings" && <AdminEditListingsPanel />}
 
         {tab === "Events" && <AdminEventsPanel />}
+
+        {tab === "AI Events" && <AdminAiEventsPanel />}
 
         {tab === "Members" && <AdminMembersPanel />}
 

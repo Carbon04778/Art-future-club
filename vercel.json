@@ -25,7 +25,10 @@
     {
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
@@ -36,6 +39,24 @@
           "value": "public, max-age=86400, stale-while-revalidate=604800"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/ai-events?step=start",
+      "schedule": "0 19 * * 0"
+    },
+    {
+      "path": "/api/ai-events?step=more",
+      "schedule": "0 20 * * 0"
+    },
+    {
+      "path": "/api/ai-events?step=more2",
+      "schedule": "0 21 * * 0"
+    },
+    {
+      "path": "/api/ai-events?step=last",
+      "schedule": "0 22 * * 0"
     }
   ]
 }

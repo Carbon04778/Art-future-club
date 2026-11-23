@@ -136,7 +136,8 @@ export default function EventDetail() {
 
         <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 font-mono-caps text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" /> {formatDate(event.start_date)}</span>
-          <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {formatTime(event.start_date)}</span>
+          {/* C8: a page that gave only a date shows no time, not an invented one. */}
+          {!event.date_only && <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {formatTime(event.start_date)}</span>}
           {event.venue && (
             <a
               href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([event.venue, event.address].filter(Boolean).join(', '))}`}

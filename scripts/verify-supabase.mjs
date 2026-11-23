@@ -136,6 +136,8 @@ const EXPECTED_ENTITIES = [
   "ProfileSwitchRequest", "ProfileArchive",
   // A member's named collections (B10, migration 029).
   "Collection",
+  // C8: the weekly AI check (034).
+  "AiEventDraft", "AiEventSource", "AiEventRun", "AiEventSettings",
 ];
 const missing = EXPECTED_ENTITIES.filter((e) => !entities[e]);
 const extra = Object.keys(entities).filter((e) => !EXPECTED_ENTITIES.includes(e));

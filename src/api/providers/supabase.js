@@ -97,6 +97,12 @@ const TABLES = {
    * CollectorProfile, choosing by the `kind` column.
    */
   AdminListing: "admin_listings",
+  // C8: the weekly AI check (034). Drafts change only through the two review
+  // functions below; these are read by admins (and an organiser's own drafts).
+  AiEventDraft: "ai_event_draft",
+  AiEventSource: "ai_event_source",
+  AiEventRun: "ai_event_run",
+  AiEventSettings: "ai_event_settings",
 };
 
 /* ------------------------------------------------------------ query helpers */
@@ -472,6 +478,26 @@ export const auth = {
     const { data, error } = await client().rpc("restore_profile_archive", { p_archive: archiveId });
     if (error) throw new Error(error.message);
     return data;
+  },
+
+  // C8 (034): every approval step is enforced inside the database.
+  async reviewAiEvent({ draftId, action, patch = {}, note = null }) {
+    const { data, error } = await client().rpc("ai_event_review", { p_draft: draftId, p_action: action, p_patch: patch, p_note: note });
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  async organiserReviewAiEvent({ draftId, action, note = null }) {
+    const { data, error } = await client().rpc("ai_event_organiser_review", { p_draft: draftId, p_action: action, p_note: note });
+    if (error) throw new Error(error.message);
+    return data;
+  },
+  /** Admin "Run now": works for a short while; call again until done. */
+  async runAiEventCheck() {
+    const { data } = await client().auth.getSession();
+    const res = await fetch("/api/ai-events", { method: "POST", headers: { Authorization: `Bearer ${data?.session?.access_token || ""}` } });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `The check could not run (${res.status}).`);
+    return body;
   },
 
   onAuthStateChange(callback) {

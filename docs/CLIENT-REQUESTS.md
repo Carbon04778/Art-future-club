@@ -596,6 +596,9 @@ no drafts (it had assumed at least one).
 - Part 2 — $330: C3–C7 (artwork page, collections, Featured in, Similar).
 - Part 3 — $200: C1–C2 (represented artists, follow, news, reviews).
 - Part 4 — $300: C8 (AI events), plus about $5–20/month running cost.
+  **PAID — owner, 2026-11-23.** AI: Mistral (key works, 12-site trial read-only
+  2026-11-23). Weekly report email to Julie added, under the separate email
+  automations quote (owner, 2026-11-23; price and payment not recorded).
 - Not in the quote: C9 favicon, C10 event date range, C11 exports.
 
 > 1. Gallery Profile Pages
@@ -733,6 +736,10 @@ no drafts (it had assumed at least one).
 - C7: new; artists have disciplines (A3) — usable for "similar".
 - C8: nothing yet. New: scheduled job, website reader, AI extraction, draft
   queue, organiser approval, recommendations, search.
+- C8 built in v12 2026-11-23, NOT live: waiting for migration 034 on TEST, then
+  LIVE, the Vercel keys, the 10-website trial, and the report email sender.
+  verify:ai-events 170/170, SQL rehearsed locally 43/43, Chrome 26/26 with
+  simulated drafts, real reading trial 11 sites (dates identical in 3 runs).
 - C9: public/favicon.png is really a JPEG (512x512), one size only.
 - C10: end_date is stored and shown on the event's own page, not on the
   list; the list marks past by START date. Ties in with the time-zone

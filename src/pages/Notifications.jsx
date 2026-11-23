@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
 import { formatDistanceToNow } from "date-fns";
+import OrganiserEventDrafts from "@/components/OrganiserEventDrafts";
 import useNotifications from "@/hooks/useNotifications";
 
 const ICONS = {
@@ -20,6 +21,7 @@ const ICONS = {
   new_work: <ImageIcon className="h-4 w-4 text-primary" />,
   new_exhibition: <CalendarDays className="h-4 w-4 text-accent" />,
   review_queue: <ClipboardCheck className="h-4 w-4 text-yellow-600" />,
+  event_draft: <CalendarDays className="h-4 w-4 text-yellow-600" />,
 };
 
 const LABELS = {
@@ -33,6 +35,7 @@ const LABELS = {
   new_work: "New work",
   new_exhibition: "Exhibition",
   review_queue: "Waiting for review",
+  event_draft: "Event to approve",
 };
 
 export default function Notifications() {
@@ -89,6 +92,9 @@ export default function Notifications() {
             </button>
           )}
         </div>
+
+        {/* C8: a gallery owner's event approvals. Renders nothing for others. */}
+        {user && <OrganiserEventDrafts user={user} />}
 
         {(!authChecked || loading) && (
           <div className="flex justify-center py-16">

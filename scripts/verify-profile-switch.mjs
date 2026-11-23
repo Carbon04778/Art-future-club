@@ -159,7 +159,7 @@ window.confirm = () => true;
 // ---- pages and providers
 const src = (f) => readFileSync(join(ROOT, f), "utf8");
 check("the four calls clear the data cache and refresh open pages after a success",
-  /const DATA_CHANGING = \[\s*(\/\/[^\n]*\s*)?("claimMyProfile",\s*)?"requestProfileSwitch",\s*"cancelProfileSwitch",\s*"reviewProfileSwitch",\s*"restoreProfileArchive",\s*\];[\s\S]{0,300}await auth\[method\]\(\.\.\.args\);\s*invalidateEntityCache\(\);\s*bumpDataRevision\(\);/.test(src("src/api/base44Client.js")));
+  /const DATA_CHANGING = \[\s*(\/\/[^\n]*\s*)?("claimMyProfile",\s*)?"requestProfileSwitch",\s*"cancelProfileSwitch",\s*"reviewProfileSwitch",\s*"restoreProfileArchive",[^\]]*\];[\s\S]{0,300}await auth\[method\]\(\.\.\.args\);\s*invalidateEntityCache\(\);\s*bumpDataRevision\(\);/.test(src("src/api/base44Client.js")));
 check("artist editor hosts the panel", /<ProfileSwitchPanel userId=\{user\.id\} currentType="Artist"/.test(src("src/pages/ArtistProfileEdit.jsx")));
 check("collector editor hosts the panel", /<ProfileSwitchPanel userId=\{user\.id\} currentType=\{form\.type\}/.test(src("src/pages/CollectorProfilePage.jsx")));
 check("gallery/venue page hosts it for the real owner only", /\{isActualOwner && \([\s\S]{0,200}<ProfileSwitchPanel userId=\{user\.id\} currentType=\{profile\.type\}/.test(src("src/pages/GalleryProfile.jsx")));
