@@ -126,8 +126,9 @@ try {
     const grid = await p.evaluateHandle(() => document.querySelector(".group")?.closest(".grid"));
     const shot = `about-${tag}.png`;
     await grid.screenshot({ path: R.shotPath(shot) });
-    R.ok(`About Us (${tag})`, "7 team photos, every one loads", imgs.length === 7 && imgs.every((i) => i.ok), imgs.filter((i) => !i.ok).map((i) => i.alt).join(", ") || `${imgs.length} photos`, shot);
+    R.ok(`About Us (${tag})`, "8 team photos, every one loads", imgs.length === 8 && imgs.every((i) => i.ok), imgs.filter((i) => !i.ok).map((i) => i.alt).join(", ") || `${imgs.length} photos`, shot);
     R.ok(`About Us (${tag})`, "Erynne Byrd-Quigtar — Editorial Editor — Seattle", /Erynne Byrd-Quigtar/.test(t) && imgs.some((i) => i.alt === "Erynne Byrd-Quigtar" && i.ok));
+    R.ok(`About Us (${tag})`, "Heidi Mak — Editorial Editor — Hong Kong", /Editorial Editor ?Heidi Mak ?Hong Kong/.test(t) && imgs.some((i) => i.alt === "Heidi Mak" && i.ok));
     R.ok(`About Us (${tag})`, "Christie Melville shows the new photo", imgs.some((i) => i.alt === "Christie Melville" && i.w === 901), `${imgs.find((i) => i.alt === "Christie Melville")?.w}px wide (new 901, old 1024)`);
     R.ok(`About Us (${tag})`, "fits the screen (no sideways scroll)", (await sideScroll(p)) <= 0);
     await p.close();

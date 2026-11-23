@@ -48,9 +48,10 @@ check("'Local Pulse' only shows when a chapter has one", [src("src/components/Ci
 // ---- About Us
 const about = src("src/pages/AboutUs.jsx");
 const team = [...about.matchAll(/img: "(\/images\/team\/[^"]+)"/g)].map((m) => m[1]);
-check("About Us: 7 team members", team.length === 7, `${team.length}`);
+check("About Us: 8 team members", team.length === 8, `${team.length}`);
 for (const img of team) check(`About Us photo is in the project: ${img}`, existsSync(join(ROOT, "public", img)));
 check("About Us: Erynne Byrd-Quigtar, Editorial Editor, Seattle", /name: "Erynne Byrd-Quigtar", role: "Editorial Editor", city: "Seattle"/.test(about));
+check("About Us: Heidi Mak, Editorial Editor, Hong Kong", /name: "Heidi Mak", role: "Editorial Editor", city: "Hong Kong"/.test(about));
 
 console.log(`verify:chapters — ${pass} passed, ${fails.length} failed`);
 if (fails.length) { for (const f of fails) console.log("  ✗", f); process.exit(1); }
