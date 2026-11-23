@@ -181,11 +181,84 @@ try {
   R.ok("Public page", "published event opens, with no invented time", /E2E Show One/.test(t) && !/12:00|20:00|13:00/.test(t), "", "event.png");
   await pg.screenshot({ path: R.shotPath("event.png") });
   await pg.close();
+
+  /* ---- gallery Upcoming: claimed and unclaimed */
+  const own10 = (await must(`collector_profile?id=eq.${free.listing_id}&select=slug,display_name`))[0];
+  pg = await open(ac, `/gallery/${own10.slug}`, 1366); await sleep(2500);
+  t = await text(pg);
+  R.ok("Gallery page", "unclaimed gallery: approved event under Upcoming", /Upcoming/.test(t) && /Against the Wind/.test(t) && pub.organizer_name === own10.display_name, pub.organizer_name);
+  await pg.close();
+  const ownE = (await must(`collector_profile?id=eq.${listing.id}&select=slug,status`))[0];
+  pg = await open(ac, `/gallery/${ownE.slug}`, 1366); await sleep(2500);
+  R.ok("Gallery page", "claimed gallery: approved event under Upcoming", /E2E Show One/.test(await text(pg)), ownE.status);
+  await pg.close();
+
+  /* ---- add many websites at once */
+  pg = await open(ac, "/admin?tab=AI%20Events", 390);
+  await pg.waitForSelector(AB, { timeout: 60000 }); await sleep(3000);
+  await tabc(pg, "^Websites"); await sleep(800);
+  let many = null, city = "";
+  for (city of ["Seattle", "Taipei", "Bangkok", "Milano"]) {
+    await pg.select('[data-testid="add-many"] select', city); await sleep(300);
+    await tabc(pg, "^Find websites"); await sleep(5000);
+    many = await pg.evaluate(() => [...document.querySelectorAll('[data-testid="add-many"] button')].map((x) => /^Add (\d+) websites/.exec(x.textContent)?.[1]).find(Boolean));
+    if (many) break;
+  }
+  const n0 = await count("ai_event_source");
+  await (await pg.$('[data-testid="add-many"]')).screenshot({ path: R.shotPath("add-many.png") });
+  await tabc(pg, "^Add \\d+ websites");
+  await pg.waitForFunction(() => /\d+ websites added/.test(document.body.textContent), { timeout: 120000 }).catch(() => {});
+  const src2 = await must("ai_event_source?select=url,city,listing_id&order=created_date.desc&limit=1000");
+  const keyOf = (u) => u.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/+$/, "").toLowerCase();
+  R.ok("Add many (phone)", `${city}: shows the number, adds exactly that many`, Number(many) > 0 && src2.length === n0 + Number(many), `${many}; ${n0} → ${src2.length}`, "add-many.png");
+  R.ok("Add many (phone)", "each linked to its listing, no website added twice", src2.slice(0, Number(many)).every((x) => x.listing_id) && new Set(src2.slice(0, Number(many)).map((x) => keyOf(x.url))).size === Number(many));
+  R.ok("Add many (phone)", "fits the screen", (await pg.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 0);
+  await pg.close();
+
+  /* ---- C10: the date fields, saved from the real forms */
+  const put = (x, label, v) => x.evaluate((l, val) => { const i = [...document.querySelectorAll(`form [aria-label="${l}"]`)].pop(); const P = i.tagName === "SELECT" ? HTMLSelectElement : HTMLInputElement; Object.getOwnPropertyDescriptor(P.prototype, "value").set.call(i, val); i.dispatchEvent(new Event(i.tagName === "SELECT" ? "change" : "input", { bubbles: true })); }, label, v);
+  pg = await open(ac, "/events", 1366); await sleep(2500);
+  await pg.evaluate(() => [...document.querySelectorAll("button")].find((x) => /Add Event/.test(x.textContent)).click()); await sleep(800);
+  await pg.evaluate(() => { const i = document.querySelector("form input[required]"); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(i, "E2E Show Dates"); i.dispatchEvent(new Event("input", { bubbles: true })); });
+  await put(pg, "Time zone", "Asia/Hong_Kong"); await sleep(200);
+  await put(pg, "Start", "2027-12-08T18:30"); await sleep(200);
+  await put(pg, "End", "2027-12-07T20:00"); await sleep(200);
+  await pg.evaluate(() => { const fm = [...document.querySelectorAll("form")].pop(); fm.noValidate = true; fm.requestSubmit(); }); await sleep(2500);
+  R.ok("Dates form", "end before start is refused and says so", /end date is before/.test(await text(pg)) && !(await must("event?title=eq.E2E%20Show%20Dates&select=id")).length);
+  await put(pg, "End", "2027-12-15T20:00"); await sleep(300);
+  await pg.evaluate(() => [...document.querySelectorAll("form")].pop().requestSubmit()); await sleep(7000);
+  let dv = (await must("event?title=eq.E2E%20Show%20Dates&select=*"))[0];
+  R.ok("Dates form", "Add Event saves Hong Kong time and zone", dv?.start_date?.startsWith("2027-12-08T10:30") && dv.end_date.startsWith("2027-12-15T12:00") && dv.timezone === "Asia/Hong_Kong" && dv.date_only === false, JSON.stringify(dv && [dv.start_date, dv.end_date, dv.timezone]));
+  await pg.close();
+  for (const [zone, tag] of [["Asia/Hong_Kong", "Hong Kong visitor"], ["America/Los_Angeles", "Los Angeles visitor"]]) {
+    pg = await ac.newPage(); await pg.emulateTimezone(zone);
+    await pg.goto(`${SITE}/events/${dv.slug}`, { waitUntil: "domcontentloaded" }); await sleep(4500);
+    t = await text(pg);
+    R.ok("Dates shown", `${tag} sees 8–15 December 2027, 18:30 Hong Kong time`, /8–15 December 2027/.test(t) && /18:30 \(Hong Kong time\)/.test(t) && /Upcoming/.test(t), (/Dates(.{0,60})/.exec(t) || [])[1]);
+    await pg.close();
+  }
+  pg = await open(ac, "/admin?tab=Events", 1366); await sleep(4000);
+  const editDates = async () => { await pg.evaluate(() => { const li = [...document.querySelectorAll("li")].find((x) => x.textContent.includes("E2E Show Dates") && x.querySelector("button")); [...li.querySelectorAll("button")].find((x) => /^Edit$/.test(x.textContent.trim())).click(); }); await sleep(1000); };
+  await editDates();
+  await pg.evaluate(() => [...document.querySelectorAll("form button[type=submit]")].find((x) => /Save changes/.test(x.textContent)).click()); await sleep(6000);
+  let dv2 = (await must(`event?id=eq.${dv.id}&select=*`))[0];
+  R.ok("Dates form", "opening and saving without a change moves nothing", dv2.start_date === dv.start_date && dv2.end_date === dv.end_date && dv2.timezone === dv.timezone);
+  await editDates();
+  await pg.evaluate(() => document.querySelector('form input[type="checkbox"]').click()); await sleep(500);
+  await pg.evaluate(() => [...document.querySelectorAll("form button[type=submit]")].find((x) => /Save changes/.test(x.textContent)).click()); await sleep(6000);
+  dv2 = (await must(`event?id=eq.${dv.id}&select=*`))[0];
+  R.ok("Dates form", "'No specific time' keeps the dates and drops the time", dv2.date_only === true && dv2.start_date.startsWith("2027-12-08T12:00") && dv2.end_date.startsWith("2027-12-15T12:00") && dv2.timezone === null, JSON.stringify([dv2.start_date, dv2.end_date]));
+  await pg.close();
+  pg = await open(ac, `/events/${dv.slug}`, 390);
+  t = await text(pg);
+  R.ok("Dates shown", "dates only: range shown, no time", /8–15 December 2027/.test(t) && !/18:30|12:00/.test(t));
+  await pg.close();
   await ac.close();
   R.ok("History", "each decision recorded with who did it", (await must(`ai_event_log?draft_id=eq.${o2.id}&select=action,actor`)).every((x) => x.actor) && (await must(`ai_event_log?draft_id=eq.${o2.id}&select=action`)).length >= 4);
 
   /* ---- schedule */
   await must("ai_event_settings?id=eq.true", { ...as(admin), method: "PATCH", body: JSON.stringify({ schedule_on: true }) });
+  // Includes the websites Add many brought in.
   await must("ai_event_source?active=is.true", { method: "PATCH", body: JSON.stringify({ active: false }) });
   await must("ai_event_source?name=eq.Square%20Street%20Gallery", { method: "PATCH", body: JSON.stringify({ active: true }) });
   R.ok("Schedule", "a later call does not start a new week by itself", (await callApi({ method: "GET", url: "/api/ai-events?step=more", headers: cron })).body.idle === true);
