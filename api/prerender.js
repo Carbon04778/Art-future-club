@@ -35,6 +35,7 @@
  * untouched shell, which is exactly the behaviour before this file existed.
  */
 
+import { formatRange, isoForSeo } from "../src/lib/eventDates.js";
 import { CHAPTERS } from "../src/lib/chaptersData.js";
 import { openCallTitle, chapterTitle } from "../src/lib/shareTitles.js";
 
@@ -343,11 +344,7 @@ function describe(route, row, path) {
 
   if (route.kind === "event") {
     const city = row.chapter || "";
-    const starts = row.start_date
-      ? new Date(row.start_date).toLocaleDateString("en-GB", {
-          day: "numeric", month: "long", year: "numeric",
-        })
-      : "";
+    const starts = formatRange(row);
     return {
       title: `${row.title || "Event"}${city ? ` — ${city}` : ""} | ${SITE_NAME}`,
       description:
@@ -371,8 +368,8 @@ function describe(route, row, path) {
         description: row.description || undefined,
         image: row.image_url ? [absolute(row.image_url)] : undefined,
         url: canonical,
-        startDate: row.start_date || undefined,
-        endDate: row.end_date || row.start_date || undefined,
+        startDate: isoForSeo(row, row.start_date),
+        endDate: isoForSeo(row, row.end_date || row.start_date),
         eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
         eventStatus: "https://schema.org/EventScheduled",
         location:

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { toLocalInput, fromLocalInput } from "@/lib/datetime";
+import EventWhenFields from "@/components/EventWhenFields";
+import { eventStatus, formatRange, whenFromEvent, whenToEvent } from "@/lib/eventDates";
 import FocalPointPicker from "@/components/FocalPointPicker";
 import { base44 } from "@/api/base44Client";
 import { Loader2, Search, Trash2, Pencil, Check, X, AlertTriangle } from "lucide-react";
@@ -110,8 +111,9 @@ export default function AdminEventsPanel() {
   const rows = events
     .filter((e) => {
       if (filter === "Needs a chapter") return !e.chapter || e.chapter === "Other";
-      if (filter === "Upcoming") return new Date(e.start_date) >= new Date();
-      if (filter === "Past") return new Date(e.start_date) < new Date();
+      if (filter === "Upcoming") return eventStatus(e) === "upcoming";
+      if (filter === "Ongoing") return eventStatus(e) === "ongoing";
+      if (filter === "Past") return eventStatus(e) === "past";
       return true;
     })
     .filter((e) =>
@@ -150,7 +152,7 @@ export default function AdminEventsPanel() {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {["All", "Needs a chapter", "Upcoming", "Past"].map((f) => (
+        {["All", "Needs a chapter", "Upcoming", "Ongoing", "Past"].map((f) => (
           <button
             key={f}
             type="button"
@@ -189,11 +191,7 @@ export default function AdminEventsPanel() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-body text-sm">{ev.title || "Untitled"}</p>
                   <p className="truncate font-mono-caps text-[10px] text-muted-foreground">
-                    {ev.start_date
-                      ? new Date(ev.start_date).toLocaleDateString("en-GB", {
-                          day: "numeric", month: "short", year: "numeric",
-                        })
-                      : "No date"}
+                    {formatRange(ev, { month: "short" }) || "No date"}
                     {ev.venue ? ` · ${ev.venue}` : ""}
                     {" · "}
                     <span className={!ev.chapter || ev.chapter === "Other" ? "text-yellow-600" : ""}>
@@ -260,7 +258,6 @@ export default function AdminEventsPanel() {
 
 /** Inline editor for one event. */
 function EditEventForm({ ev, busy, onCancel, onSave }) {
-  // datetime-local needs "YYYY-MM-DDTHH:mm", so trim the stored ISO string.
 
   const [form, setForm] = useState({
     title: ev.title || "",
@@ -268,8 +265,6 @@ function EditEventForm({ ev, busy, onCancel, onSave }) {
     event_type: ev.event_type || "Exhibition",
     venue: ev.venue || "",
     address: ev.address || "",
-    start_date: toLocalInput(ev.start_date),
-    end_date: toLocalInput(ev.end_date),
     external_link: ev.external_link || "",
     description: ev.description || "",
     image_url: ev.image_url || "",
@@ -283,6 +278,9 @@ function EditEventForm({ ev, busy, onCancel, onSave }) {
    * Replacing the image is optional; the focal point can be adjusted without
    * choosing a new file.
    */
+  // C10: dates, times, time zone, or dates only.
+  const [when, setWhen] = useState(() => whenFromEvent(ev));
+  const [whenError, setWhenError] = useState("");
   const [imageFile, setImageFile] = useState(null);
   const imagePreview = React.useMemo(
     () => (imageFile ? URL.createObjectURL(imageFile) : ""),
@@ -295,6 +293,8 @@ function EditEventForm({ ev, busy, onCancel, onSave }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    let dates;
+    try { dates = whenToEvent(when); setWhenError(""); } catch (x) { setWhenError(x.message); return; }
     let image_url = form.image_url;
     if (imageFile) {
       try {
@@ -311,11 +311,10 @@ function EditEventForm({ ev, busy, onCancel, onSave }) {
       // spreading it last overwrote the file that had just been uploaded.
       image_url,
       title: form.title.trim(),
-      // Converted from the viewer's own timezone. Slicing the ISO string put
-      // a UTC time into a local input, so a 6pm event reopened as 10am and
-      // moved again on every save.
-      start_date: fromLocalInput(form.start_date) || ev.start_date,
-      end_date: fromLocalInput(form.end_date),
+      // Converted from the event's time zone, or the viewer's if it has none.
+      // Slicing the ISO string put a UTC time into a local input, so a 6pm
+      // event reopened as 10am and moved again on every save.
+      ...dates,
     });
   };
 
@@ -344,14 +343,9 @@ function EditEventForm({ ev, busy, onCancel, onSave }) {
           </select>
         </div>
 
-        <div>
-          <label className="font-mono-caps text-[10px] text-muted-foreground">Starts</label>
-          <input type="datetime-local" className={`${field} mt-1`} value={form.start_date} onChange={(e) => set("start_date", e.target.value)} required />
-        </div>
-
-        <div>
-          <label className="font-mono-caps text-[10px] text-muted-foreground">Ends</label>
-          <input type="datetime-local" className={`${field} mt-1`} value={form.end_date} onChange={(e) => set("end_date", e.target.value)} />
+        <div className="space-y-3 md:col-span-2">
+          <EventWhenFields value={when} onChange={setWhen} inputClass={field} labelClass="font-mono-caps text-[10px] text-muted-foreground" />
+          {whenError && <p className="text-sm text-destructive" role="alert">{whenError}</p>}
         </div>
 
         <div>

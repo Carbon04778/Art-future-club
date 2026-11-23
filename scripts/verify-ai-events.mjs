@@ -8,7 +8,7 @@
 import { readFileSync } from "node:fs";
 import * as A from "../src/lib/aiEvents.js";
 import * as S from "../src/lib/eventSearch.js";
-import { readSite, safeFetch, sendReport, startRun, stepRun } from "../api/_lib/aiEventsJob.js";
+import { askAi, readSite, safeFetch, sendReport, startRun, stepRun } from "../api/_lib/aiEventsJob.js";
 import handler from "../api/ai-events.js";
 
 let pass = 0;
@@ -59,6 +59,41 @@ for (const [s, w] of [
   ["4/06 - 9/07/2026", "2026-06-04>2026-07-09"], ["16 - 22 Nov 2026", null], ["until 30 Nov 2026", null], ["22 Oct - 16 Nov", null],
   ["31.02.2026", null], ["5 December 2026 - ongoing", null], ["Current and Upcoming", null], ["Tel 2522 1234", null], ["30 Nov 2026 - 1 Nov 2026", null], ["May Chen", null],
 ]) check(`reads "${s.replace(/\n/g, " ")}"`, rd(s) === w, String(rd(s)));
+for (const [x, o, w] of [
+  ["10.24 - 12.06.2026", {}, "2026-10-24>2026-12-06"], ["11.7 - 12.13. 2026", {}, "2026-11-07>2026-12-13"], ["10.31 - 12.27. 2026", {}, "2026-10-31>2026-12-27"],
+  ["2026.12.01 \u2013 2027.04.05", {}, "2026-12-01>2027-04-05"], ["2026-12-01", {}, "2026-12-01>null"],
+  ["10.5 - 12.6.2026", { order: "mdy" }, "2026-10-05>2026-12-06"], ["10.5 - 12.6.2026", { order: "dmy" }, "2026-05-10>2026-06-12"], ["10.5 - 12.6.2026", { order: "both" }, null],
+]) check(`reads "${x}" ${JSON.stringify(o)}`, rd(x, o) === w, String(rd(x, o)));
+check("order seen on the page", A.numericOrder("11.7 - 12.13. 2026") === "mdy" && A.numericOrder("08.03.2026-21.02.2027") === "dmy" && A.numericOrder("1.2") === null && A.numericOrder("21.2 and 2.21") === "both");
+{
+  const T3 = ["Alpha", "Beta", "Gamma"], D3 = [["2026-12-01", "2026-12-20"], ["2027-01-05", "2027-01-25"], ["2027-02-03", "2027-02-23"]];
+  const line = (d) => d.map((x) => x.split("-").reverse().join(".")).join(" - ");
+  const above = T3.map((t3, i) => `${line(D3[i])}\n${t3}`).join("\n"), below = T3.map((t3, i) => `${t3}\n${line(D3[i])}`).join("\n");
+  const evs = T3.map((t3, i) => ({ ...base0(), title: t3, start_date: D3[i][0], end_date: D3[i][1], date_text: line(D3[i]) }));
+  check("layout: dates above titles", A.pageLayout(evs, above, "Hong Kong") === "before");
+  check("layout: dates below titles", A.pageLayout(evs, below, "Hong Kong") === "after");
+  const run3 = (pg, list) => list.map((e) => A.checkEvent(e, pg, { today, source: { name: "G", city: "Hong Kong" }, pageUrl: "https://g.com/", others: T3, layout: A.pageLayout(list, pg, "Hong Kong") }));
+  for (const [n, pg] of [["above", above], ["below", below]]) {
+    check(`dates ${n}: each show keeps its own`, run3(pg, evs).every((x, i) => x.start_date === D3[i][0] && x.end_date === D3[i][1] && !x.flags.some((f) => f.field === "start_date")));
+    const mixed = evs.map((e, i) => (i === 1 ? { ...e, start_date: D3[2][0], end_date: D3[2][1], date_text: line(D3[2]) } : e));
+    const z = run3(pg, mixed);
+    check(`dates ${n}: one AI mix-up is put right and flagged`, z[1].start_date === D3[1][0] && z[1].flags.some((f) => f.field === "start_date"));
+    const gap = evs.map((e, i) => (i === 1 ? { ...e, start_date: null, end_date: null, date_text: null } : e));
+    check(`dates ${n}: one AI gap is filled`, run3(pg, gap)[1].start_date === D3[1][0]);
+  }
+  const blank = evs.map((e) => ({ ...e, start_date: null, end_date: null, date_text: null }));
+  check("layout unknown: a neighbour's date is never taken", run3(above, blank).every((x, i) => x.start_date === null || x.start_date === D3[i][0]));
+}
+check("order not shown anywhere: kept but marked", A.readDates("10.5.2027 - 12.6.2027").assumed === true && !A.readDates("10.5.2027 - 22.6.2027").assumed);
+{
+  const ck = (pg, x) => A.checkEvent({ ...base0(), title: "Show", ...x }, pg, { today, source: { name: "G", city: "Hong Kong" }, pageUrl: "https://g.com/" });
+  let z = ck("Show\n10.12.2027 - 11.12.2027", { start_date: "2027-12-10", end_date: "2027-12-11", date_text: "10.12.2027 - 11.12.2027" });
+  check("a date that reads two ways is flagged", z.flags.some((f) => /two ways/.test(f.message)));
+  z = ck("Other\n11.7 - 12.13. 2026\nShow\nOpen\n10.12 - 12.5.2027", { start_date: "2027-12-10", end_date: "2027-05-12", date_text: "10.12 - 12.5.2027" });
+  check("AI may not swap day and month against the page", z.start_date !== "2027-12-10", z.start_date);
+  z = ck("Show\n08.03.2026-21.02.2027", { start_date: "2026-03-08", end_date: "2027-02-21", date_text: "08.03.2026-21.02.2027" });
+  check("a clear range has no date flag", z.start_date === "2026-03-08" && !z.flags.some((f) => f.field === "start_date"));
+}
 check("05/06/2026 refused where the US order is possible", rd("05/06/2026", { usOrder: true }) === null && rd("25/06/2026", { usOrder: true }) === "2026-06-25>null");
 const listPage = "One\n01.12.2026-02.12.2026\nTwo\nThree\n05.12.2026-06.12.2026";
 check("a title without a date does not take the next one's", A.readDates(A.afterTitle(listPage, "Two", ["One", "Three"])[0] || "") === null && A.readDates(A.afterTitle(listPage, "Three", ["One", "Two"])[0]).start === "2026-12-05");
@@ -157,6 +192,14 @@ check("robots respected", (await rs({ "https://g.com/robots.txt": [200, "User-ag
 check("blocked site reported", (await rs({ "https://g.com/": [403, ""] })).status === "blocked");
 check("page needing a browser reported", (await rs({ "https://g.com/": [200, "<div id=app></div>"], "https://g.com/exhibitions": [200, ""] })).status === "empty");
 check("AI failure is reported, not thrown", (await readSite(src, { key: "k", today, get: getter(), ai: async () => { throw new Error("AI service error 401"); }, pause: 0 })).status === "error");
+{
+  let n = 0;
+  const busy = async () => (++n < 3 ? new Response("{}", { status: 429, headers: { "retry-after": "0.01" } }) : new Response(JSON.stringify({ usage: {}, choices: [{ finish_reason: "stop", message: { content: "{\"events\":[]}" } }] })));
+  check("AI says too fast: waits and carries on", (await askAi("k", "n", "u", "t", today, busy)).events.length === 0 && n === 3);
+  let k = 0;
+  let e1 = null; try { await askAi("k", "n", "u", "t", today, async () => { k++; return new Response("{}", { status: 401 }); }); } catch (e) { e1 = e; }
+  check("wrong key: stops at once, not retried", k === 1 && /401/.test(e1.message));
+}
 let asked = 0;
 const forgets = async () => (asked++ === 0 ? { events: [], cost: 0.001 } : ai());
 check("AI overlooked the page: asked once more", (await readSite(src, { key: "k", today, get: getter(), ai: forgets, pause: 0 })).events.length === 1);
@@ -168,23 +211,24 @@ check("a dropped connection is tried again", (await readSite(src, { key: "k", to
 
 /* ---- the run, on a small in-memory database */
 function memDb() {
-  const T = { ai_event_run: [], ai_event_source: [], ai_event_draft: [], event: [], ai_event_settings: [{ id: true, trial_mode: true, schedule_on: true, report_emails: ["j@x.com"] }] };
+  const T = { collector_profile: [], ai_event_run: [], ai_event_source: [], ai_event_draft: [], event: [], ai_event_settings: [{ id: true, trial_mode: true, schedule_on: true, report_emails: ["j@x.com"] }] };
   let n = 0;
   const q = (s) => {
     const [tb, qs = ""] = s.split("?");
     const p = new URLSearchParams(qs);
     let rows = T[tb];
     for (const [k, v] of p) { const m = /^(eq|is)\.(.*)$/.exec(v); if (m) rows = rows.filter((x) => String(x[k]) === m[2]); }
+    if (/locked_until/.test(p.get("or") || "")) rows = rows.filter((x) => !x.locked_until || x.locked_until < new Date().toISOString());
     if (Number(p.get("offset")) > 0) rows = [];
     return rows;
   };
   return { T, writes: [], get: async (s) => structuredClone(q(s)), insert: async (tb, row) => { const x = { id: `${tb}${++n}`, ...row }; if (tb === "ai_event_run") Object.assign(x, { status: "running", started_at: new Date().toISOString(), results: [], cost_usd: 0 }); if (tb === "ai_event_draft") x.state = "new"; T[tb].push(x); return structuredClone(x); }, update: async (s, row) => { const rows = q(s); rows.forEach((x) => Object.assign(x, row)); return structuredClone(rows); } };
 }
 let db = memDb();
-for (let i = 0; i < 9; i++) db.T.ai_event_source.push({ id: `s${i}`, name: `G${i}`, url: "https://g.com/", active: i !== 8, listing_id: null });
+for (let i = 0; i < 9; i++) db.T.ai_event_source.push({ id: `s${i}`, name: `G${i}`, url: `https://g${i}.com/`, active: i !== 8, listing_id: null });
 const one = ev();
 let reads = 0;
-const reader = async (s) => { reads++; return s.id === "s3" ? { status: "blocked", detail: "blocked (403)", events: [], cost: 0 } : { status: "ok", detail: "", hash: "h", events: [one], cost: 0.001 }; };
+const reader = async (s) => { reads++; return s.id === "s3" ? { status: "blocked", detail: "blocked (403)", events: [], cost: 0 } : { status: "ok", detail: "", hash: "h", events: [{ ...one, title: `Show at ${s.id}`, source_url: `${s.url}x` }], cost: 0.001 }; };
 const mails = [];
 const cfg = { key: "k", reader, today, deadline: Date.now() + 5000, resendKey: "r", from: "AFC <a@b.com>", siteUrl: "https://x.com", mail: async (u, o) => { mails.push(o); return new Response("{}"); } };
 await startRun(db, "schedule");
@@ -260,7 +304,57 @@ check("short names do not match inside words", S.recommendEvents([{ ...E[1], tit
 
 /* ---- wiring */
 const s = (f) => readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
-check("four weekly calls scheduled", JSON.parse(s("vercel.json")).crons.length === 4);
+check("eight weekly calls scheduled, first starts, last ends", (() => { const c = JSON.parse(s("vercel.json")).crons; return c.length === 8 && /step=start/.test(c[0].path) && /step=last/.test(c[7].path); })());
+
+/* ---- shared websites, other cities, twins, the lock */
+check("same website, however written", A.siteKey("https://www.massimodecarlo.com/") === A.siteKey("http://massimodecarlo.com") && A.siteKey("https://a.com/hk") !== A.siteKey("https://a.com/london") && A.siteKey("junk") === "");
+check("social pages are not gallery websites", A.isSocial("https://www.instagram.com/x") && A.isSocial("https://linktr.ee/x") && !A.isSocial("https://gagosian.com/"));
+check("listing fits its city", A.listingFits("Hong Kong", "Hong Kong") && !A.listingFits("Hong Kong", "London") && A.listingFits("Hong Kong, Belgium", "Hong Kong") && A.listingFits("Hong Kong, Belgium", "Other") && !A.listingFits("", "London"));
+const HK = { id: "hk", display_name: "MDC", based_in: "Hong Kong" }, MI = { id: "mi", display_name: "MDC (Milan)", based_in: "Milano" };
+const pd = (chapter, src, ls, x = {}) => A.placeDraft({ chapter, venue: src.name, organiser: src.name, evidence: { city: chapter }, flags: [{ field: "venue", message: "Venue taken from the gallery's listing, not the page." }], ...x }, src, ls);
+let q1 = pd("Hong Kong", { listing_id: "mi", name: "MDC (Milan)" }, [MI, HK]);
+check("Hong Kong show read through Milan goes to Hong Kong", q1.listing_id === "hk" && q1.organiser === "MDC" && q1.venue === "MDC" && q1.flags.every((f) => f.soft));
+q1 = pd("London", { listing_id: "mi", name: "MDC (Milan)" }, [MI, HK]);
+check("London show: linked to neither, flagged, name without the city", q1.listing_id === null && q1.organiser === "MDC" && q1.venue === "MDC" && q1.flags.some((f) => f.field === "listing"));
+q1 = pd("London", { listing_id: "hk", name: "MDC" }, [{ ...HK, user_id: "u" }]);
+check("London show of a claimed gallery: its owner still approves", q1.listing_id === "hk" && q1.flags.some((f) => /owner/.test(f.message)));
+q1 = pd("Other", { listing_id: "av", name: "AV" }, [{ id: "av", display_name: "AV", based_in: "Hong Kong, Belgium" }]);
+check("gallery with two places keeps its listing", q1.listing_id === "av" && !q1.flags.some((f) => f.field === "listing"));
+check("no city: stays with its own listing", pd(null, { listing_id: "hk", name: "MDC" }, [HK]).listing_id === "hk");
+check("website added by hand has no listing", pd("London", { listing_id: null, name: "X" }, []).listing_id === null);
+check("a venue from a fitting listing alone is ready to review", A.draftSection({ state: "new", flags: [{ field: "venue", soft: true }] }) === "ready");
+const day2 = (x = {}, o = {}) => A.checkEvent({ ...base, ...oneDay, ...x }, "Day\n5 December 2026\nOpening 6-8pm, Central, Hong Kong", { ...opt, ...o });
+check("no city doubt when the page supports it, whatever the AI says", !day2({ uncertain: ["city", "venue"] }).flags.some((f) => f.field === "city"));
+check("city far from the event is flagged", A.checkEvent({ ...base, ...oneDay, city: "London" }, "Day\n5 December 2026\n" + "words here. ".repeat(80) + "London", { ...opt, source: { name: "G", city: "Hong Kong" } }).flags.some((f) => f.field === "city"));
+check("same show on another website is noted", A.classify(d0, [], [], "Gee", [dr()]).twin && !A.classify(d0, [], [], "Gee", [dr({ start_date: "2026-01-01" })]).twin);
+{
+  const d2 = memDb();
+  d2.T.collector_profile.push({ ...HK, website: "https://www.mdc.com/" }, { ...MI, website: "https://mdc.com" });
+  d2.T.ai_event_source.push({ id: "a", name: "MDC", url: "https://www.mdc.com/", active: true, listing_id: "hk" }, { id: "b", name: "MDC (Milan)", url: "https://mdc.com", active: true, listing_id: "mi" });
+  let n = 0;
+  const rd2 = async () => { n++; return { status: "ok", detail: "", hash: "h", cost: 0.001, events: [{ ...one, title: "Milan show", chapter: "Milano", source_url: "https://mdc.com/m" }, { ...one, title: "London show", chapter: "London", source_url: "https://mdc.com/l" }] }; };
+  await startRun(d2, "manual");
+  await stepRun(d2, { ...cfg, reader: rd2 });
+  const by = (t) => d2.T.ai_event_draft.find((x) => x.title === t);
+  check("shared website is read once", n === 1 && d2.T.ai_event_run[0].results.find((x) => x.source_id === "b").status === "shared");
+  check("each show once, with the right listing", d2.T.ai_event_draft.length === 2 && by("Milan show").listing_id === "mi" && by("London show").listing_id === null);
+  d2.T.ai_event_source[0].active = false;
+  await startRun(d2, "manual");
+  await stepRun(d2, { ...cfg, reader: rd2 });
+  check("read later through the other listing: still no repeats", d2.T.ai_event_draft.length === 2 && n === 2);
+  const d3 = memDb();
+  for (let i = 0; i < 6; i++) d3.T.ai_event_source.push({ id: `x${i}`, name: `X${i}`, url: `https://x${i}.com`, active: true, listing_id: null });
+  let m3 = 0;
+  const slow = async (z) => { m3++; await new Promise((r) => setTimeout(r, 30)); return { status: "ok", detail: "", hash: "h", events: [{ ...one, title: `Slow ${z.id}` }], cost: 0 }; };
+  await startRun(d3, "manual");
+  const both = await Promise.all([stepRun(d3, { ...cfg, reader: slow }), stepRun(d3, { ...cfg, reader: slow })]);
+  check("two checks at once: one works, one waits, nothing lost", m3 === 6 && both.filter((x) => x.busy).length === 1 && both.filter((x) => x.done).length === 1 && d3.T.ai_event_run[0].results.length === 6 && d3.T.ai_event_draft.length === 6);
+  const d4 = memDb();
+  d4.T.ai_event_source.push({ id: "y", name: "Y", url: "https://y.com", active: true });
+  await startRun(d4, "manual");
+  d4.T.ai_event_run[0].locked_until = "2020-01-01T00:00:00Z";
+  check("a dead check's lock frees itself", (await stepRun(d4, { ...cfg, reader: slow })).done === true);
+}
 check("the AI key is never in browser code", !/MISTRAL|SERVICE_ROLE/.test(s("src/api/providers/supabase.js") + s("src/components/AdminAiEventsPanel.jsx") + s("src/lib/aiEvents.js")));
 check("job never writes public events", !/(insert|update)\(\s*[`"']event[?"'`]/.test(s("api/_lib/aiEventsJob.js")));
 check("migration starts with trial on and schedule off", /trial_mode\s+boolean not null default true/.test(s("supabase/migrations/034_ai_events.sql")) && /schedule_on\s+boolean not null default false/.test(s("supabase/migrations/034_ai_events.sql")));

@@ -44,7 +44,7 @@ export default async function handler(req, res) {
       key: env.MISTRAL_API_KEY, resendKey: env.RESEND_API_KEY, from: env.REPORT_FROM_EMAIL,
       siteUrl: (env.VITE_SITE_URL || "https://www.artfutureclub.com").replace(/\/+$/, ""),
       // Admin calls return quickly and are repeated; the schedule works longer.
-      deadline: Date.now() + (cron ? 200_000 : 20_000),
+      deadline: Date.now() + (cron ? 190_000 : 20_000),
     };
     if (cron) {
       const [s] = await db.get("ai_event_settings?select=*");
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
         await startRun(db, "schedule");
       }
       const p = await stepRun(db, cfg);
-      if (!p.done && step === "last") {
+      if (!p.done && !p.busy && step === "last") {
         const [run] = await db.update("ai_event_run?status=eq.running", { status: "failed", finished_at: new Date().toISOString() });
         if (run) await sendReport(db, run, cfg);
       }

@@ -1,3 +1,4 @@
+import { formatRange, isoForSeo } from "@/lib/eventDates";
 import { useEffect } from "react";
 import { applySeo, absoluteUrl, breadcrumbs, SITE_NAME } from "@/lib/seo";
 import { artistPath, eventPath } from "@/lib/slugs";
@@ -144,13 +145,7 @@ export function useEventSeo(event) {
     const city = event.chapter || "";
     const title = `${event.title || "Event"}${city ? ` — ${city}` : ""} | ${SITE_NAME}`;
 
-    const starts = event.start_date
-      ? new Date(event.start_date).toLocaleDateString("en-GB", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
-      : "";
+    const starts = formatRange(event);
 
     const description =
       event.description ||
@@ -178,10 +173,10 @@ export function useEventSeo(event) {
         description: event.description || undefined,
         image: image ? [absoluteUrl(image)] : undefined,
         url: absoluteUrl(eventPath(event)),
-        startDate: event.start_date || undefined,
+        startDate: isoForSeo(event, event.start_date),
         // A missing endDate is read as a single instant, so falling back to the
         // start keeps a one-day show showing the right date.
-        endDate: event.end_date || event.start_date || undefined,
+        endDate: isoForSeo(event, event.end_date || event.start_date),
         /*
          * Both of these are REQUIRED for an Event rich result, and omitting
          * either costs the rich result entirely. Every event here is a real

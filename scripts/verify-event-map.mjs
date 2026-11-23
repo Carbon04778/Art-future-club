@@ -81,7 +81,7 @@ check("an event saved before positions existed gets one on its next save", eq(aw
 // ---- the three forms
 const cal = src("src/pages/EventCalendar.jsx");
 check("event form: placed when created", /const position = await eventPosition\(form\);[\s\S]{0,200}\.\.\.position/.test(cal));
-check("event form: the organiser's own time, and no end date is allowed", /start_date: fromLocalInput\(form\.start_date\),\s*end_date: fromLocalInput\(form\.end_date\)/.test(cal));
+check("event form: the organiser's own time, and no end date is allowed", /const dates = whenToEvent\(when\);/.test(cal) && /\.\.\.dates,/.test(cal));
 check("event form: a refused save says so", /catch \(err\) \{\s*setError\(/.test(cal) && /role="alert">\{error\}/.test(cal));
 check("admin Events tab: placed again when venue/address change", /eventPosition\(\{ \.\.\.ev, \.\.\.patch \}, ev\)/.test(src("src/components/AdminEventsPanel.jsx")));
 check("gallery exhibition: the gallery's own pin, unless elsewhere", /eventPosition\(payload, isEdit \? exhibition : null, elsewhere \? null : profile\)/.test(src("src/components/gallery/ExhibitionsSection.jsx")));

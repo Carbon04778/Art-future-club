@@ -1,4 +1,5 @@
 import { CHAPTER_NAMES } from "./chaptersData.js";
+import { eventEnd, eventStatus } from "./eventDates.js";
 
 /**
  * Plain-language event search (C8): "painting workshops near me this weekend".
@@ -59,15 +60,11 @@ const km = (a, b) => {
 /** Is the event happening at any moment of [from, to)? A long exhibition counts. */
 export function during(ev, from, to) {
   const s = new Date(ev.start_date);
-  const last = ev.end_date ? new Date(ev.end_date) : s;
+  const last = eventEnd(ev) || s;
   return s < to && last >= from;
 }
 /** Still to come, or on now. */
-export const isOpen = (ev, now = new Date()) => {
-  const last = new Date(ev.end_date || ev.start_date);
-  // A date-only event lasts until the end of its last day.
-  return (ev.date_only ? last.getTime() + 43_200_000 : last.getTime()) >= now.getTime();
-};
+export const isOpen = (ev, now = new Date()) => eventStatus(ev, now) !== "past";
 
 /** A filter for Array.filter. `near`: { chapter } or { lat, lng }. */
 export function matchEvents(p, near = null, now = new Date()) {

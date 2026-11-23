@@ -5,7 +5,7 @@
  */
 import { createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
-import { EVENT_TYPES, checkEvent, classify, eventPageLinks, isPrivateIp, mergeDetail, pageText, plain, reportEmail, robotsAllows, shareImage } from "../../src/lib/aiEvents.js";
+import { EVENT_TYPES, checkEvent, classify, eventPageLinks, hostOf, isPrivateIp, mergeDetail, pageLayout, pageText, placeDraft, plain, reportEmail, robotsAllows, shareImage, siteKey } from "../../src/lib/aiEvents.js";
 
 export const UA = "ArtFutureClub-Events/1.0 (+https://www.artfutureclub.com)";
 const MODEL = "mistral-small-latest";
@@ -91,9 +91,19 @@ description_text: one continuous passage of 100 to 600 characters that describes
 uncertain: names of fields whose value you gave but are not sure of. Do not list fields that are null.
 booking_url: only a link to book, RSVP or buy tickets for this event. detail_url: the link to this event's own page. Copy links exactly from the [brackets].`;
 
+/**
+ * Mistral allows only so many calls a second. Calls take turns, a little
+ * apart; after "too fast" everyone waits longer. (81 sites, 2026-11-23: ten
+ * failed this way without it.)
+ */
+let turn = Promise.resolve(), gap = 450, notBefore = 0;
+const takeTurn = () => (turn = turn.then(async () => { await wait(Math.max(0, notBefore - Date.now())); notBefore = Math.max(notBefore, Date.now() + gap); }));
+const slowDown = (ms) => { gap = Math.min(2000, gap + 250); notBefore = Math.max(notBefore, Date.now() + ms); };
+
 export async function askAi(key, name, url, text, today, fetchImpl = fetch) {
   let last = "";
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 6; i++) {
+    await takeTurn();
     const r = await fetchImpl("https://api.mistral.ai/v1/chat/completions", {
       method: "POST", signal: AbortSignal.timeout(60000),
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -108,7 +118,9 @@ export async function askAi(key, name, url, text, today, fetchImpl = fetch) {
     }
     last = `AI service error ${r.status}`;
     if (r.status !== 429 && r.status < 500) break;
-    await wait(3000 * (i + 1));
+    const ask = Number(r.headers.get("retry-after")) * 1000;
+    const ms = Math.min(30000, ask > 0 ? ask : 2000 * 2 ** i);
+    if (r.status === 429) slowDown(ms); else await wait(ms);
   }
   throw new Error(last);
 }
@@ -163,7 +175,7 @@ export async function readSite(source, { key, today, get = safeFetch, ai = askAi
     const events = [];
     let details = 0, short = false;
     // Dated shows get their own page read before undated ones.
-    const checked = a.events.slice(0, 12).map((raw) => checkEvent(raw, text, { today, source, pageUrl: page.url, others: a.events.map((x) => x.title) })).filter(Boolean)
+    const checked = a.events.slice(0, 12).map((raw) => checkEvent(raw, text, { today, source, pageUrl: page.url, others: a.events.map((x) => x.title), layout: pageLayout(a.events, text, source.city) })).filter(Boolean)
       .sort((x, y) => Number(!x.start_date) - Number(!y.start_date));
     for (let c of checked) {
       if (c.source_url !== page.url) {
@@ -180,7 +192,7 @@ export async function readSite(source, { key, today, get = safeFetch, ai = askAi
               cost += b.cost;
               const like = b.events.filter((x) => overlap(x.title, c.title));
               const same = b.events.find((x) => norm2(x.title) === norm2(c.title)) || (like.length === 1 ? like[0] : null);
-              if (same) c = { ...mergeDetail(c, checkEvent(same, dt, { today, source, pageUrl: p.url })), image_url: c.image_url };
+              if (same) c = { ...mergeDetail(c, checkEvent(same, dt, { today, source, pageUrl: p.url, others: b.events.map((x) => x.title), layout: pageLayout(b.events, dt, source.city) })), image_url: c.image_url };
             }
           } catch (e) { cost += e.cost || 0; c.flags = [...c.flags, { field: "details", message: "The event's own page could not be read." }]; }
         }
@@ -205,20 +217,26 @@ export async function startRun(db, trigger) {
     if (Date.now() - new Date(running[0].started_at) < 20 * 3600e3) return { run: running[0], started: false };
     await db.update(`ai_event_run?id=eq.${running[0].id}`, { status: "failed", finished_at: new Date().toISOString() });
   }
-  const src = await all(db, "ai_event_source?active=is.true&select=id&order=name,id");
+  // Longest unchecked first, so a week that runs out of time is fair.
+  const src = await all(db, "ai_event_source?active=is.true&select=id&order=last_checked.asc.nullsfirst,name,id");
   const run = await db.insert("ai_event_run", { trigger, source_ids: src.map((s) => s.id) });
   return { run, started: true };
 }
 
-async function saveSite(db, run, source, r, events) {
-  const drafts = await all(db, `ai_event_draft?source_id=eq.${source.id}&select=id,state,match_key,start_date,end_date,event_id&order=id`);
+/** Saves what one site gave. `pool` is every earlier draft, of every site. */
+async function saveSite(db, run, source, r, events, pool, listings) {
   let found = 0;
-  for (const c of r.events) {
-    const k = classify(c, drafts, events, source.name);
+  const host = hostOf(source.url);
+  for (const raw of r.events) {
+    const c = placeDraft(raw, source, listings);
+    // The same website may have been read through another listing before.
+    const here = (d) => d.source_id === source.id || (host && hostOf(d.source_url) === host);
+    const k = classify(c, pool.filter(here), events, source.name, pool.filter((d) => !here(d)));
     if (k.action === "skip") continue;
-    const row = { ...c, source_id: source.id, run_id: run.id, listing_id: source.listing_id, match_key: k.key, duplicate_of: k.duplicate_of || null, update_of: k.update_of || null };
+    if (k.twin) c.flags = [...c.flags, { field: "duplicate", message: `The same show was also found on ${hostOf(k.twin.source_url)}.` }];
+    const row = { ...c, source_id: source.id, run_id: run.id, match_key: k.key, duplicate_of: k.duplicate_of || null, update_of: k.update_of || null };
     const saved = await db.insert("ai_event_draft", row);
-    drafts.push(saved);
+    pool.push(saved);
     found++;
   }
   return found;
@@ -229,14 +247,30 @@ async function saveSite(db, run, source, r, events) {
  * call again: it continues where it stopped. Returns progress.
  */
 export async function stepRun(db, cfg) {
-  const { key, deadline, concurrency = 4, reader = readSite, today = new Date().toISOString().slice(0, 10) } = cfg;
+  const { key, deadline, concurrency = 6, reader = readSite, today = new Date().toISOString().slice(0, 10) } = cfg;
   let run = (await db.get("ai_event_run?status=eq.running&select=*"))[0];
   if (!run) return { done: true, checked: 0, total: 0 };
+  // Only one worker at a time (035). The lock frees itself if a call dies.
+  const free = new Date().toISOString();
+  const until = new Date(Math.max(deadline, Date.now()) + 90_000).toISOString();
+  const [mine] = await db.update(`ai_event_run?id=eq.${run.id}&status=eq.running&or=(locked_until.is.null,locked_until.lt.${free})`, { locked_until: until });
+  if (!mine) return { done: false, busy: true, checked: (run.results || []).length, total: run.source_ids.length };
+  run = mine;
   const total = run.source_ids.length;
   const doneIds = new Set((run.results || []).map((x) => x.source_id));
   const todo = run.source_ids.filter((i) => !doneIds.has(i));
   const since = new Date(Date.now() - 86400e3 * 400).toISOString();
   const events = todo.length ? await all(db, `event?start_date=gte.${since}&select=id,title,venue,organizer_name,start_date,end_date&order=id`) : [];
+  const [sources, pool, listings] = todo.length ? await Promise.all([
+    all(db, "ai_event_source?select=*&order=name,id"),
+    all(db, "ai_event_draft?select=id,source_id,state,match_key,start_date,end_date,event_id,source_url&order=id"),
+    all(db, "collector_profile?website=not.is.null&select=id,display_name,based_in,website,user_id&order=id"),
+  ]) : [[], [], []];
+  const byId = new Map(sources.map((s) => [s.id, s]));
+  const firstOf = new Map();
+  for (const id of run.source_ids) { const k = siteKey(byId.get(id)?.url); if (k && !firstOf.has(k)) firstOf.set(k, id); }
+  const bySite = new Map();
+  for (const l of listings) { const k = siteKey(l.website); if (k) bySite.set(k, [...(bySite.get(k) || []), l]); }
   let chain = Promise.resolve();
   const record = (res) => (chain = chain.then(async () => {
     run.results = [...(run.results || []), res];
@@ -248,22 +282,40 @@ export async function stepRun(db, cfg) {
     // A slow site can take about a minute, so stop taking new ones in time.
     while (i < todo.length && Date.now() < deadline) {
       const id = todo[i++];
-      const source = (await db.get(`ai_event_source?id=eq.${id}&select=*`))[0];
+      const source = byId.get(id);
       if (!source) { await record({ source_id: id, name: "(removed)", status: "unchanged", detail: "removed", found: 0, cost: 0 }); continue; }
+      // Two listings, one website: it is read once, and each show is given
+      // to the listing in its city.
+      const first = firstOf.get(siteKey(source.url));
+      if (first && first !== id) {
+        const name = byId.get(first)?.name;
+        await db.update(`ai_event_source?id=eq.${id}`, { last_checked: new Date().toISOString(), last_status: "shared", last_detail: `same website as ${name}` });
+        await record({ source_id: id, name: source.name, status: "shared", detail: `same website as ${name}`, found: 0, cost: 0 });
+        continue;
+      }
       const r = await reader(source, { key, today });
       let found = 0, status = r.status, detail = r.detail;
-      try { found = await saveSite(db, run, source, r, events); } catch (e) { status = "error"; detail = `could not save: ${String(e.message).slice(0, 100)}`; }
+      try { found = await saveSite(db, run, source, r, events, pool, listingsOf(source, bySite)); } catch (e) { status = "error"; detail = `could not save: ${String(e.message).slice(0, 100)}`; }
       await db.update(`ai_event_source?id=eq.${id}`, { last_checked: new Date().toISOString(), last_status: status, last_detail: detail || null, ...(status === "ok" && !r.partial ? { last_hash: r.hash } : {}) });
       await record({ source_id: id, name: source.name, status, detail, found, cost: r.cost });
     }
   };
   await Promise.all(Array.from({ length: concurrency }, worker));
   await chain;
-  if (run.results.length < total) return { done: false, checked: run.results.length, total };
-  const [finished] = await db.update(`ai_event_run?id=eq.${run.id}&status=eq.running`, { status: "done", finished_at: new Date().toISOString() });
+  if (run.results.length < total) {
+    await db.update(`ai_event_run?id=eq.${run.id}&locked_until=eq.${encodeURIComponent(run.locked_until)}`, { locked_until: null });
+    return { done: false, checked: run.results.length, total };
+  }
+  const [finished] = await db.update(`ai_event_run?id=eq.${run.id}&status=eq.running`, { status: "done", locked_until: null, finished_at: new Date().toISOString() });
   // Two callers can finish together; only the one that flipped it reports.
   if (finished) await sendReport(db, finished, cfg);
   return { done: true, checked: total, total };
+}
+
+/** Every listing of this website, the source's own first. */
+function listingsOf(source, bySite) {
+  const same = bySite.get(siteKey(source.url)) || [];
+  return same.slice().sort((a, b) => Number(b.id === source.listing_id) - Number(a.id === source.listing_id));
 }
 
 export async function sendReport(db, run, { resendKey, from, siteUrl, mail = fetch }) {

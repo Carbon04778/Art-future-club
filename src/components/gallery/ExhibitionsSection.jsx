@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { eventPath } from "@/lib/slugs";
-import { toLocalInput, fromLocalInput } from "@/lib/datetime";
+import EventWhenFields from "@/components/EventWhenFields";
+import { eventStatus, formatPart, formatRange, whenFromEvent, whenToEvent } from "@/lib/eventDates";
+import { CHAPTER_ZONES } from "@/lib/aiEvents";
 import { LIMITS_ACTIVE } from "@/lib/featureLimits";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
@@ -50,10 +52,7 @@ export default function ExhibitionsSection({ profile, isOwner, events, onReload 
   // An exhibition that opened last month but runs until December belongs
   // under "Upcoming", not "Past" — it is on now. Splitting on start_date put
   // every currently-running show in the past section.
-  const isCurrent = (e) => {
-    const ends = e.end_date ? new Date(e.end_date) : new Date(e.start_date);
-    return ends >= new Date();
-  };
+  const isCurrent = (e) => eventStatus(e) !== "past";
   const upcoming = events.filter(isCurrent).sort(byDate);
   const past = events.filter((e) => !isCurrent(e)).sort((a, b) => byDate(b, a));
 
@@ -128,11 +127,12 @@ function ExhibitionGroup({ title, events, faded, isOwner, onEdit, onDelete, dele
             className={`py-6 grid grid-cols-1 gap-4 md:grid-cols-[120px_1fr_auto] items-start ${faded ? "opacity-60" : ""}`}
           >
             <div>
-              <p className="font-heading text-2xl tracking-[-0.02em]">{new Date(ev.start_date).getDate()}</p>
-              <p className="font-mono-caps text-[10px] text-muted-foreground">{new Date(ev.start_date).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}</p>
+              <p className="font-heading text-2xl tracking-[-0.02em]">{formatPart(ev, { day: "numeric" })}</p>
+              <p className="font-mono-caps text-[10px] text-muted-foreground">{formatPart(ev, { month: "short", year: "numeric" })}</p>
             </div>
             <Link to={eventPath(ev)} className="group">
               <span className="font-mono-caps text-[10px] text-primary">{ev.event_type}</span>
+              <span className="ml-2 font-mono-caps text-[10px] text-muted-foreground">{eventStatus(ev) === "ongoing" ? "On now · " : ""}{formatRange(ev, { month: "short" })}</span>
               <h3 className="mt-1 font-heading text-xl tracking-[-0.01em] group-hover:text-primary transition-colors">{ev.title}</h3>
               {ev.description && <p className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-lg line-clamp-2">{ev.description}</p>}
               {ev.venue && <p className="mt-2 flex items-center gap-1 font-mono-caps text-[10px] text-muted-foreground"><MapPin className="h-3 w-3" /> {ev.venue}{ev.address ? `, ${ev.address}` : ""}</p>}
@@ -198,8 +198,6 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
     title: exhibition?.title || "",
     description: exhibition?.description || "",
     event_type: exhibition?.event_type || "Exhibition",
-    start_date: toLocalInput(exhibition?.start_date),
-    end_date: toLocalInput(exhibition?.end_date),
     address: exhibition?.address || "",
     external_link: exhibition?.external_link || "",
     image_url: exhibition?.image_url || "",
@@ -217,6 +215,8 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
       ) ||
       "Other",
   });
+  // C10: times are meant in the gallery's own city.
+  const [when, setWhen] = useState(() => (exhibition ? whenFromEvent(exhibition) : { date_only: false, timezone: CHAPTER_ZONES[form.chapter] || "", start: "", end: "" }));
   const [file, setFile] = useState(null);
   // Preview the chosen file so the focal point can be set before uploading.
   const filePreview = React.useMemo(
@@ -231,7 +231,9 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
 
   const submit = async (e) => {
     e.preventDefault();
-    const start = new Date(form.start_date);
+    let dates;
+    try { dates = whenToEvent(when); } catch (x) { setError(x.message); return; }
+    const start = new Date(dates.start_date);
     if (LIMITS_ACTIVE && !isNaN(start) && !isEdit) {
       // The one-per-month limit applies to NEW exhibitions only — editing an
       // existing one would otherwise collide with itself.
@@ -248,8 +250,7 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
     const payload = {
       ...form,
       image_url,
-      start_date: fromLocalInput(form.start_date),
-      end_date: fromLocalInput(form.end_date),
+      ...dates,
       // Was hardcoded to "Other", so every exhibition was invisible on the
       // chapter pages. Defaults to the gallery's own chapter and can be
       // overridden per exhibition — a gallery may show elsewhere.
@@ -316,16 +317,7 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
             <label className="font-mono-caps text-[11px] text-muted-foreground">Description</label>
             <textarea className={`${input} mt-2 resize-none`} rows={3} value={form.description} onChange={(e) => set("description", e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="font-mono-caps text-[11px] text-muted-foreground">Start Date & Time *</label>
-              <input type="datetime-local" className={`${input} mt-2`} value={form.start_date} onChange={(e) => set("start_date", e.target.value)} required />
-            </div>
-            <div>
-              <label className="font-mono-caps text-[11px] text-muted-foreground">End Date & Time</label>
-              <input type="datetime-local" className={`${input} mt-2`} value={form.end_date} onChange={(e) => set("end_date", e.target.value)} />
-            </div>
-          </div>
+          <EventWhenFields value={when} onChange={setWhen} inputClass={input} />
           <div>
             <label className="font-mono-caps text-[11px] text-muted-foreground">Address</label>
             <input className={`${input} mt-2`} value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="Street, City" />

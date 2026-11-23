@@ -56,7 +56,7 @@ try {
   R.ok("Setup", "throwaway gallery and owner made on TEST", !!listing.id && !!org);
 
   /* ---- websites */
-  const names = ["10 Chancery Lane Gallery", "Axel Vervoordt Gallery", "Gagosian", "MASSIMODECARLO", "Square Street Gallery", "CHAT Centre for Heritage, Arts and Textile", "Jockey Club Creative Arts Centre", "Aabee Bleue Project", "10 A.M. Gallery", "Galerie Andres Thalmann", "Luca Tommasi Arte Contemporanea"];
+  const names = ["10 Chancery Lane Gallery", "Axel Vervoordt Gallery", "Gagosian", "MASSIMODECARLO", "MASSIMODECARLO (Milan)", "Square Street Gallery", "CHAT Centre for Heritage, Arts and Textile", "Jockey Club Creative Arts Centre", "Aabee Bleue Project", "10 A.M. Gallery", "Galerie Andres Thalmann", "Luca Tommasi Arte Contemporanea"];
   const all = await must("collector_profile?select=id,display_name,based_in,website&website=not.is.null&limit=1000");
   const pick = names.map((n) => all.find((l) => l.display_name === n)).filter(Boolean);
   const add = await rest("ai_event_source", { ...as(admin), method: "POST", body: JSON.stringify(pick.map((l) => ({ listing_id: l.id, name: l.display_name, url: l.website, city: l.based_in }))) });
@@ -78,6 +78,11 @@ try {
   R.ok("Run", "real check finishes", p.body.done && run.status === "done" && run.results.length === pick.length, `${steps} steps, ${drafts.length} drafts, $${Number(run.cost_usd).toFixed(4)}`);
   R.ok("Run", "each website checked once", new Set(run.results.map((x) => x.source_id)).size === run.results.length);
   for (const x of run.results) console.log("  ", x.name, x.status, x.detail, x.found);
+  const mdc = drafts.filter((d) => /massimodecarlo/.test(d.source_url));
+  R.ok("Shared website", "read once; each show one draft", run.results.filter((x) => /MASSIMO/.test(x.name) && x.status === "shared").length === 1 && new Set(mdc.map((d) => d.title)).size === mdc.length, mdc.map((d) => d.title).join(", "));
+  const hkId = pick.find((l) => l.display_name === "MASSIMODECARLO").id;
+  R.ok("Shared website", "Hong Kong show linked to the Hong Kong listing; London show to none, and flagged", mdc.find((d) => d.title === "Giorgio Griffa")?.listing_id === hkId && mdc.find((d) => d.title === "The Studio")?.listing_id === null && mdc.find((d) => d.title === "The Studio").flags.some((f) => f.field === "listing"));
+  R.ok("Lock", "lock released at the end", !run.locked_until);
   R.ok("Run", "blocked and not-allowed sites reported", run.results.find((x) => x.name === "Gagosian")?.status === "blocked" && run.results.find((x) => /Jockey/.test(x.name))?.status === "robots");
   R.ok("Run", "report email: says it is not set up, nothing sent", !run.report_sent_at && /not set up/.test(run.report_error || ""), run.report_error);
   R.ok("Run", "nothing published", (await count("event")) === before.event);
@@ -169,7 +174,7 @@ try {
   R.ok("Admin", "approving again sends it back to the organiser", (await must(`ai_event_draft?id=eq.${o2.id}&select=state`))[0].state === "awaiting_organiser" && /Waiting for the organiser/.test(await text(pg)));
   await tabc(pg, "^History"); await sleep(1000);
   t = await text(pg);
-  R.ok("Admin", "history lists both checks", (t.match(/of 11 checked/g) || []).length === 2, String((t.match(/of 11 checked/g) || []).length));
+  R.ok("Admin", "history lists both checks", t.split(`of ${pick.length} checked`).length === 3, String((t.match(/of 11 checked/g) || []).length));
   await pg.close();
   pg = await open(ac, `/events/${e1.slug}`, 390);
   t = await text(pg);

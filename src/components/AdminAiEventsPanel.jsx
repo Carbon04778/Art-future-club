@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useDataRevision } from "@/lib/dataRevision";
 import { loadAll } from "@/lib/loadAll";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
-import { CHAPTER_ZONES, EVENT_TYPES, dateRange, daysWaiting, draftSection } from "@/lib/aiEvents";
+import { CHAPTER_ZONES, EVENT_TYPES, dateRange, daysWaiting, draftSection, isSocial, listingFits, siteKey } from "@/lib/aiEvents";
 
 /**
  * Admin → AI Events (C8): review what the weekly check found, choose which
@@ -17,7 +17,7 @@ const SECTIONS = [
 ];
 const btn = "border border-border px-3 py-1.5 font-mono-caps text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50";
 const box = "w-full border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
-const STATUS = { ok: "Read", unchanged: "No change", robots: "Not allowed by the site", blocked: "Blocked", empty: "Needs a browser", error: "Problem" };
+const STATUS = { ok: "Read", unchanged: "No change", shared: "Shared website", robots: "Not allowed by the site", blocked: "Blocked", empty: "Needs a browser", error: "Problem" };
 const STATE = { checked: "Checked (trial)", published: "Published", rejected: "Rejected", declined: "Organiser declined" };
 const when = (d) => (d ? new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "never");
 
@@ -70,7 +70,9 @@ export default function AdminAiEventsPanel() {
         const p = await base44.auth.runAiEventCheck();
         setProgress(p);
         if (p.done) break;
-        stuck = p.checked === last ? stuck + 1 : 0;
+        // Another check (the schedule) is working on it: wait for it.
+        if (p.busy) await new Promise((r) => setTimeout(r, 6000));
+        stuck = p.checked === last && !p.busy ? stuck + 1 : 0;
         last = p.checked;
         if (stuck > 5) throw new Error("The check is not moving. Press Run now to continue.");
       }
@@ -113,7 +115,7 @@ export default function AdminAiEventsPanel() {
         ))}
       </div>
 
-      {section === "websites" ? <Websites sources={sources} reload={load} say={say} setError={setError} />
+      {section === "websites" ? <Websites sources={sources} reload={load} say={say} setError={setError} hold={setEditing} />
         : section === "settings" ? settings ? <Settings key={settings.updated_date} settings={settings} reload={load} say={say} setError={setError} /> : <p className="py-8 text-sm text-muted-foreground">Settings are not set up yet.</p>
         : (
           <>
@@ -121,7 +123,7 @@ export default function AdminAiEventsPanel() {
             {rows.length === 0 ? <p className="py-10 text-center text-sm text-muted-foreground">{section === "history" ? "No decisions yet." : "Nothing here."}</p> : (
               <ul className="mt-5 divide-y divide-border border-t border-border">
                 {rows.map((d) => (
-                  <DraftRow key={d.id} d={d} busy={busy === d.id} editing={editing === d.id} setEditing={setEditing} act={act} dup={d.duplicate_of} trial={settings?.trial_mode !== false} />
+                  <DraftRow key={d.id} d={d} from={sources.find((s) => s.id === d.source_id)} busy={busy === d.id} editing={editing === d.id} setEditing={setEditing} act={act} dup={d.duplicate_of} trial={settings?.trial_mode !== false} />
                 ))}
               </ul>
             )}
@@ -131,7 +133,7 @@ export default function AdminAiEventsPanel() {
   );
 }
 
-function DraftRow({ d, busy, editing, setEditing, act, dup, trial }) {
+function DraftRow({ d, from, busy, editing, setEditing, act, dup, trial }) {
   const [other, setOther] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -150,12 +152,13 @@ function DraftRow({ d, busy, editing, setEditing, act, dup, trial }) {
         {STATE[d.state] ? ` · ${STATE[d.state]}` : ""}
         {late ? " · No reply from the organiser" : d.state === "awaiting_organiser" ? ` · waiting ${daysWaiting(d)} day${daysWaiting(d) === 1 ? "" : "s"}` : ""}
       </p>
+      {from && <p className="mt-1 font-mono-caps text-[10px] text-muted-foreground">Found on: {from.name}</p>}
       {d.note && <p className="mt-2 text-sm text-yellow-600">Note: {d.note}</p>}
       {d.update_of && open && <p className="mt-2 text-sm text-yellow-600">Approving will update the existing event{other ? ` “${other.title}”` : ""}.</p>}
       {open && (d.flags || []).length > 0 && (
         <ul className="mt-2 space-y-1">
           {d.flags.map((f, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-yellow-600"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{String(f.field || "").replace(/_/g, " ")}: {f.message}</span></li>
+            <li key={i} className={`flex items-start gap-2 text-sm ${f.soft ? "text-muted-foreground" : "text-yellow-600"}`}>{!f.soft && <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />}<span>{String(f.field || "").replace(/_/g, " ")}: {f.message}</span></li>
           ))}
         </ul>
       )}
@@ -205,7 +208,63 @@ function EditDraft({ d, busy, save }) {
   );
 }
 
-function Websites({ sources, reload, say, setError }) {
+/** Add every listing with a website in one city, after showing how many. */
+function AddMany({ sources, reload, say, setError, hold }) {
+  const [chapter, setChapter] = useState("");
+  const [list, setList] = useState(null);
+  const [progress, setProgress] = useState(null);
+  const find = async () => {
+    setError(""); setList(null);
+    try {
+      const rows = await loadAll(base44.entities.CollectorProfile, { where: { status: "approved" }, sort: "display_name", columns: "id,display_name,based_in,website,type" });
+      const haveId = new Set(sources.map((s) => s.listing_id)), haveSite = new Set(sources.map((s) => siteKey(s.url)));
+      const seen = new Set();
+      setList(rows.filter((r) => {
+        const k = siteKey(r.website);
+        if (!/^https?:\/\//i.test(r.website || "") || !k || isSocial(r.website) || haveId.has(r.id) || haveSite.has(k) || seen.has(k)) return false;
+        if (["Collector", "Curator", "Advisor", "Art Store", "Framer", "Printer"].includes(r.type)) return false;
+        if (!listingFits(r.based_in, chapter)) return false;
+        seen.add(k);
+        return true;
+      }));
+    } catch (e) { setError(String(e?.message || e)); }
+  };
+  const add = async () => {
+    setError(""); hold("adding");
+    let n = 0, failed = 0;
+    const todo = [...list];
+    setProgress({ n, total: list.length });
+    const worker = async () => {
+      for (let r = todo.shift(); r; r = todo.shift()) {
+        try { await base44.entities.AiEventSource.create({ listing_id: r.id, name: r.display_name, url: r.website.trim(), city: r.based_in || null }); n++; } catch { failed++; }
+        setProgress({ n, total: list.length });
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    setProgress(null); setList(null); hold(null);
+    await reload();
+    say(`${n} websites added.${failed ? ` ${failed} could not be added.` : ""}`);
+  };
+  return (
+    <div className="border border-border p-4" data-testid="add-many">
+      <p className="text-sm">Add many at once</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <select aria-label="City" className={`${box} max-w-xs`} value={chapter} onChange={(e) => { setChapter(e.target.value); setList(null); }}>
+          <option value="">Choose a city…</option>
+          {CHAPTER_OPTIONS.filter((c) => c !== "Other").map((c) => <option key={c}>{c}</option>)}
+        </select>
+        <button type="button" className={btn} disabled={!chapter || !!progress} onClick={find}>Find websites</button>
+        {list && !progress && (list.length
+          ? <button type="button" className={`${btn} border-primary text-primary`} onClick={add}>Add {list.length} websites</button>
+          : <span className="text-sm text-muted-foreground">None left to add in {chapter}.</span>)}
+        {progress && <span className="text-sm text-muted-foreground" role="status">Adding {progress.n} of {progress.total}…</span>}
+      </div>
+      {list?.length > 0 && !progress && <p className="mt-2 max-h-32 overflow-y-auto text-xs text-muted-foreground">{list.map((r) => r.display_name).join(" · ")}</p>}
+    </div>
+  );
+}
+
+function Websites({ sources, reload, say, setError, hold }) {
   const [q, setQ] = useState("");
   const [found, setFound] = useState([]);
   const [manual, setManual] = useState({ name: "", url: "", city: "" });
@@ -225,6 +284,7 @@ function Websites({ sources, reload, say, setError }) {
   };
   return (
     <div className="mt-6 space-y-6">
+      <AddMany sources={sources} reload={reload} say={say} setError={setError} hold={hold} />
       <form onSubmit={search} className="flex flex-wrap gap-2">
         <input className={`${box} max-w-sm`} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a listing by name or city" aria-label="Find a listing" />
         <button type="submit" disabled={busy} className={btn}>Search listings</button>
@@ -275,7 +335,7 @@ function Runs({ runs }) {
       <ul className="mt-2 divide-y divide-border border-y border-border">
         {runs.map((r) => {
           const res = r.results || [];
-          const bad = res.filter((x) => !["ok", "unchanged"].includes(x.status));
+          const bad = res.filter((x) => !["ok", "unchanged", "shared"].includes(x.status));
           return (
             <li key={r.id} className="py-3 text-sm">
               <details>

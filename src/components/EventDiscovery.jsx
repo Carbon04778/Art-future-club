@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { eventPath } from "@/lib/slugs";
 import { chapterFor } from "@/lib/aiEvents";
 import { describeQuery, recommendEvents } from "@/lib/eventSearch";
+import { formatRange } from "@/lib/eventDates";
 
 /** Plain-language search and "For you" on the Events page (C8). */
 export default function EventDiscovery({ user, events, query, setQuery, parsed, near, setNear, count }) {
@@ -93,8 +94,7 @@ export default function EventDiscovery({ user, events, query, setQuery, parsed, 
               <Link key={event.id} to={eventPath(event)} className="min-w-0 border border-border p-5 transition-colors hover:border-primary">
                 <p className="break-words font-heading text-xl">{event.title}</p>
                 <p className="mt-1 font-mono-caps text-[10px] text-muted-foreground [overflow-wrap:anywhere]">
-                  {new Date(event.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                  {event.end_date ? ` – ${new Date(event.end_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}
+                  {formatRange(event, { month: "short" })}
                   {event.venue ? ` · ${event.venue}` : ""}
                 </p>
                 <p className="mt-3 text-xs text-muted-foreground">{why.join(" · ")}</p>

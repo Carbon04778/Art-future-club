@@ -8,7 +8,9 @@ import SlimFooter from "@/components/SlimFooter";
 import { motion } from "framer-motion";
 import { chapterFilterOptions, CHAPTER_NAMES } from "@/lib/chaptersData";
 import { eventPosition } from "@/lib/eventPlace";
-import { fromLocalInput } from "@/lib/datetime";
+import EventWhenFields from "@/components/EventWhenFields";
+import { eventEnd, eventStart, eventStatus, formatPart, formatRange, formatTimes, monthKey, STATUS_LABEL, whenToEvent } from "@/lib/eventDates";
+import { CHAPTER_ZONES } from "@/lib/aiEvents";
 import { loadAll } from "@/lib/loadAll";
 import EventDiscovery from "@/components/EventDiscovery";
 import { matchEvents, parseEventQuery } from "@/lib/eventSearch";
@@ -26,16 +28,6 @@ const TYPE_COLORS = {
   Social: "bg-orange-100 text-orange-700",
   Other: "bg-muted text-muted-foreground",
 };
-
-function formatDate(dateStr) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-}
-
-function formatTime(dateStr) {
-  const d = new Date(dateStr);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
 
 export default function EventCalendar() {
   const navigate = useNavigate();
@@ -61,15 +53,17 @@ export default function EventCalendar() {
       // Upcoming: soonest first, so the next thing to attend leads.
       // Past: MOST RECENT first — the query returns ascending, which put the
       // oldest event at the top of the past section.
+      // C10: a show that is running stays with the current events until its
+      // last day is over. Running shows lead, the ones ending soonest first.
       const now = new Date();
       const byDate = (a, b) => new Date(a.start_date) - new Date(b.start_date);
-      const upcoming = evs
-        .filter((e) => new Date(e.start_date) >= now)
-        .sort(byDate);
-      const past = evs
-        .filter((e) => new Date(e.start_date) < now)
-        .sort((a, b) => byDate(b, a));
-      setEvents([...upcoming, ...past]);
+      const lastDay = (e) => eventEnd(e) || eventStart(e) || 0;
+      const of = { upcoming: [], ongoing: [], past: [] };
+      for (const e of evs) of[eventStatus(e, now)].push(e);
+      of.ongoing.sort((a, b) => lastDay(a) - lastDay(b));
+      of.upcoming.sort(byDate);
+      of.past.sort((a, b) => byDate(b, a));
+      setEvents([...of.ongoing, ...of.upcoming, ...of.past]);
     });
 
   const parsed = parseEventQuery(query);
@@ -80,7 +74,9 @@ export default function EventCalendar() {
 
   // group by month
   const grouped = filtered.reduce((acc, ev) => {
-    const key = new Date(ev.start_date).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    const status = eventStatus(ev);
+    // "Past" keeps this month's finished events apart from its upcoming ones.
+    const key = status === "ongoing" ? "On now" : status === "past" ? `Past · ${monthKey(ev)}` : monthKey(ev);
     if (!acc[key]) acc[key] = [];
     acc[key].push(ev);
     return acc;
@@ -151,7 +147,9 @@ export default function EventCalendar() {
               <p className="font-mono-caps text-[11px] text-muted-foreground border-b border-border pb-3 mb-8">{month}</p>
               <div className="space-y-0 divide-y divide-border">
                 {evs.map((ev, i) => {
-                  const isPast = new Date(ev.start_date) < new Date();
+                  const status = eventStatus(ev);
+                  const isPast = status === "past";
+                  const times = formatTimes(ev);
                   return (
                     <motion.div
                       key={ev.id}
@@ -165,16 +163,17 @@ export default function EventCalendar() {
                       {/* date */}
                       <div>
                         <p className="font-heading text-3xl font-medium tracking-[-0.02em]">
-                          {new Date(ev.start_date).getDate()}
+                          {formatPart(ev, { day: "numeric" })}
                         </p>
                         <p className="font-mono-caps text-[10px] text-muted-foreground">
-                          {new Date(ev.start_date).toLocaleDateString("en-GB", { weekday: "long" })}
+                          {status === "ongoing" || isPast ? formatPart(ev, { month: "short", year: "numeric" }) : formatPart(ev, { weekday: "long" })}
                         </p>
-                        {!ev.date_only && <p className="font-mono-caps text-[10px] text-muted-foreground">{formatTime(ev.start_date)}</p>}
+                        {times && <p className="font-mono-caps text-[10px] text-muted-foreground">{times}</p>}
                       </div>
                       {/* info */}
                       <div>
-                        <div className="flex items-center gap-3 mb-2">
+                        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span data-status={status} className={`border px-2 py-0.5 font-mono-caps text-[10px] ${status === "ongoing" ? "border-green-600 text-green-600" : "border-border text-muted-foreground"}`}>{STATUS_LABEL[status]}</span>
                           <span className={`font-mono-caps text-[10px] px-2 py-0.5 ${TYPE_COLORS[ev.event_type] || TYPE_COLORS.Other}`}>
                             {ev.event_type}
                           </span>
@@ -188,6 +187,7 @@ export default function EventCalendar() {
                           )}
                         </div>
                         <h3 className="font-heading text-2xl tracking-[-0.01em] group-hover:text-primary transition-colors">{ev.title}</h3>
+                        <p className="mt-1 font-mono-caps text-[11px] text-foreground/80" data-range>{formatRange(ev)}</p>
                         {ev.venue && (
                           <p className="mt-1 flex items-start gap-1 font-mono-caps text-[11px] text-muted-foreground">
                             {/* An address with a pasted link in it has no spaces to wrap
@@ -261,9 +261,10 @@ export default function EventCalendar() {
 function AddEventModal({ user, onClose, onCreated }) {
   const [form, setForm] = useState({
     title: "", description: "", event_type: "Exhibition", chapter: "London",
-    venue: "", address: "", start_date: "", end_date: "", external_link: "",
+    venue: "", address: "", external_link: "",
     is_free: true, ticket_price: "", image_url: "",
   });
+  const [when, setWhen] = useState({ date_only: false, timezone: CHAPTER_ZONES.London, start: "", end: "" });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -275,6 +276,7 @@ function AddEventModal({ user, onClose, onCreated }) {
     setError("");
     // A refused save used to leave the button spinning with nothing said.
     try {
+      const dates = whenToEvent(when);
       let image_url = form.image_url;
       if (file) {
         const res = await base44.integrations.Core.UploadFile({ file });
@@ -289,8 +291,7 @@ function AddEventModal({ user, onClose, onCreated }) {
         // "2026-11-01T18:00" was stored as 18:00 UTC — 2am the next day for
         // a Hong Kong organiser — and an empty end date ("") was refused by
         // the database, so an event without one could not be posted.
-        start_date: fromLocalInput(form.start_date),
-        end_date: fromLocalInput(form.end_date),
+        ...dates,
         image_url,
         organizer_id: user.id,
         organizer_name: user.full_name || "AFC Member",
@@ -327,23 +328,14 @@ function AddEventModal({ user, onClose, onCreated }) {
             </div>
             <div>
               <label className="font-mono-caps text-[11px] text-muted-foreground">Chapter</label>
-              <select className={`${selectCls} mt-2`} value={form.chapter} onChange={(e) => set("chapter", e.target.value)}>
+              <select className={`${selectCls} mt-2`} value={form.chapter} onChange={(e) => { set("chapter", e.target.value); setWhen((w) => ({ ...w, timezone: CHAPTER_ZONES[e.target.value] || "" })); }}>
                 {/* Was London, Tokyo, Berlin, Seoul, Mexico City — mostly cities
                     with no chapter, and no Hong Kong. Now the real chapters. */}
                 {[...CHAPTER_NAMES, "Online", "Other"].map((c) => <option key={c}>{c}</option>)}
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="font-mono-caps text-[11px] text-muted-foreground">Start Date & Time *</label>
-              <input type="datetime-local" className={`${input} mt-2`} value={form.start_date} onChange={(e) => set("start_date", e.target.value)} required />
-            </div>
-            <div>
-              <label className="font-mono-caps text-[11px] text-muted-foreground">End Date & Time</label>
-              <input type="datetime-local" className={`${input} mt-2`} value={form.end_date} onChange={(e) => set("end_date", e.target.value)} />
-            </div>
-          </div>
+          <EventWhenFields value={when} onChange={setWhen} inputClass={input} />
           <div>
             <label className="font-mono-caps text-[11px] text-muted-foreground">Venue</label>
             <input className={`${input} mt-2`} value={form.venue} onChange={(e) => set("venue", e.target.value)} placeholder="Gallery / venue name" />

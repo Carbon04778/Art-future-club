@@ -31,7 +31,7 @@ check("the OLD slice was wrong in this timezone",
 // Every form uses the helper.
 for (const f of ["components/AdminEventsPanel","components/gallery/ExhibitionsSection","components/ArticleForm"]) {
   const src = readFileSync(`src/${f}.jsx`,"utf8");
-  check(`${f.split("/").pop()} uses the helper`, /toLocalInput|fromLocalInput/.test(src));
+  check(`${f.split("/").pop()} uses the helper`, /toLocalInput|fromLocalInput|whenToEvent\(when\)/.test(src));
   check(`${f.split("/").pop()} no longer slices`, !/slice\(0, 16\)/.test(src));
 }
 

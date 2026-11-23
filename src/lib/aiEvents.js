@@ -31,6 +31,69 @@ export function chapterFor(place) {
 /** True when a listing names one place only ("Hong Kong"), not "Hong Kong, Belgium". */
 export const singlePlace = (s) => !!String(s || "").trim() && !/[,/&;|]| and /i.test(String(s));
 
+/** One website, however its address is written: "massimodecarlo.com". */
+export function siteKey(url) {
+  try {
+    const u = new URL(String(url).trim());
+    return u.host.toLowerCase().replace(/^www\./, "") + u.pathname.replace(/\/+$/, "").toLowerCase();
+  } catch { return ""; }
+}
+export const hostOf = (url) => siteKey(url).split("/")[0];
+
+/** Places that are not a gallery's own website: never read as one. */
+export const isSocial = (url) => /(^|\.)(instagram|facebook|linktr|twitter|x|tiktok|youtube|linkedin|artsy|wa|weixin|google)\.(com|ee|me|qq|net)$/.test(hostOf(url)) || /^(maps|sites)\.google\./.test(hostOf(url));
+
+/** Is a show in `chapter` at this listing's place? */
+export function listingFits(basedIn, chapter) {
+  const s = String(basedIn || "").trim();
+  if (!s || !chapter) return false;
+  if (singlePlace(s)) return (chapterFor(s) || "Other") === chapter;
+  const inParts = s.split(/[,/&;|]| and /i).map((x) => chapterFor(x) || "Other");
+  return inParts.includes(chapter);
+}
+const bareName = (n) => String(n || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+
+/**
+ * Which listing a show belongs to, when several listings share one website or
+ * the show is in another city. Returns the draft with listing_id, organiser
+ * and venue set to match, and a flag when it belongs to none.
+ * `listings`: every listing with this website, { id, display_name, based_in, user_id }.
+ */
+export function placeDraft(c, source, listings = []) {
+  const own = listings.find((l) => l.id === source.listing_id) || null;
+  const others = listings.filter((l) => l !== own);
+  const flags = c.flags.filter((f) => f.field !== "listing");
+  let pick = null;
+  if (!source.listing_id) pick = null;
+  else if (!c.chapter) pick = own;
+  else {
+    const fit = others.filter((l) => listingFits(l.based_in, c.chapter));
+    const exact = fit.filter((l) => singlePlace(l.based_in));
+    if (own && listingFits(own.based_in, c.chapter)) pick = own;
+    else if (own && !String(own.based_in || "").trim()) pick = own;
+    else if (exact.length === 1) pick = exact[0];
+    else if (fit.length === 1) pick = fit[0];
+    else {
+      // No listing in that city. An owner of the website still has their say.
+      pick = [own, ...others].find((l) => l?.user_id) || null;
+      flags.push({ field: "listing", message: pick
+        ? `The show is in another city than the listing (${pick.display_name}, ${pick.based_in}). Its owner will be asked to approve.`
+        : `No listing of this gallery is in ${c.chapter === "Other" ? c.evidence?.city || "that city" : c.chapter}, so it is not linked to one.` });
+    }
+  }
+  const fits = pick && listingFits(pick.based_in, c.chapter);
+  const name = pick ? pick.display_name : bareName(source.name);
+  const fromListing = flags.find((f) => f.field === "venue" && /listing/.test(f.message));
+  return {
+    ...c,
+    listing_id: pick ? pick.id : null,
+    organiser: name || c.organiser,
+    venue: fromListing ? (fits ? pick.display_name : name) : c.venue,
+    // At the gallery's own place this is expected, not a doubt.
+    flags: flags.map((f) => (f === fromListing && fits ? { ...f, soft: true } : f)),
+  };
+}
+
 /* ------------------------------------------------------------ page reading */
 
 const NAMED = { nbsp: " ", amp: "&", ndash: "–", mdash: "—", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”", quot: '"', apos: "'", eacute: "é", uuml: "ü", ouml: "ö", auml: "ä", lt: "<", gt: ">" };
@@ -166,11 +229,28 @@ const iso = (y, m, d) => { const x = String(y) + "-" + String(m).padStart(2, "0"
  * none or it could be read two ways. Numeric dates are day first; 05/06/2026
  * style is refused where US month-first order is possible (usOrder).
  */
-export function readDates(text, { usOrder = false } = {}) {
+/**
+ * Does this text write numeric dates day first ("21.02") or month first
+ * ("12.13")? Only a part over 12 can tell. "both" and null mean: unclear.
+ */
+export function numericOrder(text) {
+  let dmy = false, mdy = false;
+  for (const m of String(text || "").matchAll(/(?<![\d./])(\d{1,2})[./](\d{1,2})(?![\d:])/g)) {
+    const a = +m[1], b = +m[2];
+    if (a > 12 && a <= 31 && b >= 1 && b <= 12) dmy = true;
+    if (b > 12 && b <= 31 && a >= 1 && a <= 12) mdy = true;
+  }
+  return dmy && mdy ? "both" : dmy ? "dmy" : mdy ? "mdy" : null;
+}
+/** A numeric date that reads as two different days, e.g. "10.5" or "05/06/2026". */
+export const twoWays = (text) => [...String(text || "").matchAll(/(?<![\d./])(\d{1,2})[./](\d{1,2})(?:[./\s]+\d{4})?(?![\d:])/g)].some((m) => +m[1] <= 12 && +m[2] <= 12 && +m[1] !== +m[2] && +m[1] > 0 && +m[2] > 0);
+
+export function readDates(text, { usOrder = false, order = null } = {}) {
   const t = String(text || "");
   const re = new RegExp([
     "(?<cy>\\d{4})\\s*年\\s*(?<cm>\\d{1,2})\\s*月\\s*(?<cd>\\d{1,2})\\s*日",
-    "(?<![\\d./])(?<nd>\\d{1,2})(?<sep>[./])(?<nm>\\d{1,2})(?:\\k<sep>(?<ny>\\d{4}))?(?![\\d./]\\d|\\d)",
+    "(?<![\\d./-])(?<iy>(?:19|20)\\d{2})[./-](?<im>\\d{1,2})[./-](?<id>\\d{1,2})(?!\\d)",
+    "(?<![\\d./])(?<nd>\\d{1,2})(?<sep>[./])(?<nm>\\d{1,2})(?:\\k<sep>\\s*(?<ny>\\d{4}))?(?![\\d./]\\d|\\d)",
     "(?<![\\d:])(?<d>\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?<m>" + MON + ")\\b\\.?,?(?:\\s*(?<y>\\d{4}))?",
     "\\b(?<m2>" + MON + ")\\b\\.?\\s+(?<d2>\\d{1,2})(?:st|nd|rd|th)?\\b(?!:)(?:,?\\s*(?<y2>\\d{4}))?",
   ].join("|"), "giu");
@@ -178,7 +258,8 @@ export function readDates(text, { usOrder = false } = {}) {
   for (const x of t.matchAll(re)) {
     const g = x.groups;
     const h = g.cy ? { y: +g.cy, m: +g.cm, d: +g.cd }
-      : g.nd ? { y: g.ny ? +g.ny : null, m: +g.nm, d: +g.nd, num: g.sep === "/" }
+      : g.iy ? { y: +g.iy, m: +g.im, d: +g.id }
+      : g.nd ? { y: g.ny ? +g.ny : null, m: +g.nm, d: +g.nd, num: true, slash: g.sep === "/" }
         : g.d ? { y: g.y ? +g.y : null, m: monthNo(g.m.toLowerCase()), d: +g.d }
           : { y: g.y2 ? +g.y2 : null, m: monthNo(g.m2.toLowerCase()), d: +g.d2 };
     hits.push({ ...h, at: x.index, end: x.index + x[0].length });
@@ -193,19 +274,26 @@ export function readDates(text, { usOrder = false } = {}) {
   // "16 - 22 Nov 2026": the first day has no month of its own.
   if (!b && /\d\s*(?:-|–|—|to)\s*$/i.test(t.slice(Math.max(0, a.at - 6), a.at))) return null;
   if (/(?:until|till|through|up to|bis|fino al)\s*$/i.test(t.slice(Math.max(0, a.at - 10), a.at))) return null; // an end, not a start
-  if (usOrder && [a, b].some((h) => h?.num && h.d <= 12 && h.m <= 12)) return null;
+  const nums = [a, b].filter((h) => h?.num);
+  const unclear = nums.some((h) => h.d <= 12 && h.m <= 12 && h.d !== h.m);
+  // The same range shows the order ("11.7 - 12.13"), or else the page does.
+  const own = numericOrder(t.slice(a.at, (b || a).end));
+  const way = own === "both" ? null : own || (order === "dmy" || order === "mdy" ? order : null);
+  if (unclear && ((!way && order === "both") || (!way && usOrder && nums.some((h) => h.slash)))) return null;
+  if (way === "mdy") for (const h of nums) [h.d, h.m] = [h.m, h.d];
   if (a.y == null && b?.y != null) a.y = b.m < a.m || (b.m === a.m && b.d < a.d) ? b.y - 1 : b.y;
   if (a.y == null || (b && b.y == null)) return null;
   const start = iso(a.y, a.m, a.d), end = b ? iso(b.y, b.m, b.d) : null;
   if (!start || (b && (!end || end < start))) return null;
-  return { start, end, quote: t.slice(a.at, (b || a).end).trim() };
+  // Day first is only an assumption when nothing on the page shows the order.
+  return { start, end, quote: t.slice(a.at, (b || a).end).trim(), assumed: unclear && !way };
 }
 
 /** Page words only, so "A - B" and "A" + line break + "B" compare equal. */
 const words = (s) => norm(s).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
-/** The text right after a title on the page, up to the next event's title. */
-export function afterTitle(text, title, others = [], reach = 160) {
+/** Every mention of a title on the page: the text after it, and before it, up to the neighbouring titles. */
+function aroundTitle(text, title, others = [], reach = 160) {
   const lines = plain(text).replace(/[‘’]/g, "'");
   const find = (s, from = 0) => {
     const w = words(s).split(" ").filter(Boolean).map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
@@ -218,10 +306,48 @@ export function afterTitle(text, title, others = [], reach = 160) {
   const out = [];
   for (let p = find(title); p && out.length < 8; p = find(title, p.end)) {
     let stop = p.end + reach;
-    for (const o of [...others, title]) { const q = find(o, p.end); if (q && q.at < stop) stop = q.at; }
-    out.push(lines.slice(p.end, stop));
+    let from = Math.max(0, p.at - reach);
+    for (const o of [...others, title]) {
+      const q = find(o, p.end);
+      if (q && q.at < stop) stop = q.at;
+      for (let r = find(o, from); r && r.end <= p.at; r = find(o, r.end)) from = r.end;
+    }
+    out.push({ after: lines.slice(p.end, stop), before: lines.slice(from, p.at) });
   }
   return out;
+}
+export const afterTitle = (text, title, others, reach) => aroundTitle(text, title, others, reach).map((x) => x.after);
+
+/** The date standing last in a text: the one directly above a title. */
+function lastDate(text, o) {
+  const rows = String(text).split("\n").filter((r) => r.trim());
+  for (let n = 1; n <= Math.min(5, rows.length); n++) {
+    const r = readDates(rows.slice(-n).join("\n"), o);
+    if (r) return r;
+  }
+  return null;
+}
+const one = (list) => { const l = list.filter(Boolean); return l.length && l.every((x) => x.start === l[0].start && x.end === l[0].end) ? l[0] : null; };
+function besideTitle(text, title, others, o) {
+  const a = aroundTitle(text, title, others.filter((x) => words(x) !== words(title)));
+  return { after: one(a.map((x) => readDates(x.after, o))), before: one(a.map((x) => lastDate(x.before, o))) };
+}
+
+/**
+ * Do this page's dates stand after their titles or before them? Decided by
+ * which side agrees with what was read for the page's events as a whole.
+ */
+export function pageLayout(events, text, city = "") {
+  const o = { usOrder: ["New York", "Los Angeles", "Seattle"].includes(chapterFor(city)) || !city, order: numericOrder(plain(text)) };
+  const titles = events.map((e) => e.title);
+  let after = 0, before = 0;
+  for (const e of events) {
+    if (!e.start_date) continue;
+    const b = besideTitle(text, e.title, titles, o);
+    if (b.after?.start === e.start_date) after++;
+    if (b.before?.start === e.start_date) before++;
+  }
+  return after > before ? "after" : before > after ? "before" : null;
 }
 
 /** "18:30", "6.30pm" or "6-8pm" in the quoted text supports the time. */
@@ -241,7 +367,7 @@ export function timeInText(time, text) {
  * become a draft (title not on the page, or already over), otherwise the
  * draft fields, with every unsupported detail removed and flagged.
  */
-export function checkEvent(e, text, { today, source = {}, pageUrl, others = [] }) {
+export function checkEvent(e, text, { today, source = {}, pageUrl, others = [], layout = null }) {
   const page = norm(text);
   const flags = [];
   const flag = (field, message) => flags.push({ field, message });
@@ -253,18 +379,30 @@ export function checkEvent(e, text, { today, source = {}, pageUrl, others = [] }
   // "Current and Upcoming" is on the page but is not a date.
   // Words elsewhere on the page may belong to a neighbouring event.
   const near = (q) => has(q) && !!words(q) && closeTo(pageWords, words(title), words(q));
+  const pageOrder = numericOrder(plain(text));
+  // The AI must not swap day and month against the page's own order.
+  const orderOk = (date, quote) => {
+    if (!twoWays(quote) || (pageOrder !== "dmy" && pageOrder !== "mdy")) return true;
+    const [, m, d] = date.split("-").map(Number);
+    const pairs = [...String(quote).matchAll(/(?<![\d./])(\d{1,2})[./](\d{1,2})(?![\d:])/g)].map((x) => [+x[1], +x[2]]);
+    if (/[a-z]{3}/i.test(quote) || !pairs.length || /\d{4}[./-]\d/.test(quote)) return true;
+    return pairs.some(([x, y]) => (pageOrder === "dmy" ? x === d && y === m : x === m && y === d));
+  };
   const dt = near(e.date_text) && /\d/.test(e.date_text) ? e.date_text : null;
-  let start = e.start_date && dt && dateInText(e.start_date, dt, e.end_date) ? e.start_date : null;
-  let end = e.end_date && dt && dateInText(e.end_date, dt, start) ? e.end_date : null;
+  let start = e.start_date && dt && dateInText(e.start_date, dt, e.end_date) && orderOk(e.start_date, dt) ? e.start_date : null;
+  let end = e.end_date && dt && dateInText(e.end_date, dt, start) && orderOk(e.end_date, dt) ? e.end_date : null;
   // What stands right beside the title, read by code, beats the AI's reading.
   const usOrder = ["New York", "Los Angeles", "Seattle"].includes(chapterFor(source.city)) || !source.city;
-  const beside = afterTitle(text, title, others.filter((o) => words(o) !== words(title))).map((x) => readDates(x, { usOrder })).filter(Boolean);
-  const agreed = beside.length && beside.every((x) => x.start === beside[0].start && x.end === beside[0].end) ? beside[0] : null;
+  const order = pageOrder;
+  const beside = besideTitle(text, title, others, { usOrder, order });
+  // Layout unclear: only trust a date when nothing on the other side competes.
+  const agreed = layout ? beside[layout] : beside.before ? null : beside.after;
   let quoted = dt;
   if (agreed) {
     if (start && (start !== agreed.start || (end || null) !== agreed.end)) flag("start_date", `The AI read ${start}${end ? ` to ${end}` : ""}, but beside the title the page says ${agreed.quote}.`);
     start = agreed.start; end = agreed.end; quoted = agreed.quote;
   }
+  if (agreed ? agreed.assumed : start && dt && order !== "dmy" && order !== "mdy" && twoWays(dt)) flag("start_date", `"${quoted}" could be read two ways (day or month first). Please check.`);
   if (!agreed && e.start_date && !start) flag("start_date", "The AI read a start date the page does not clearly show.");
   else if (!start) flag("start_date", "No clear start date on the page.");
   if (!agreed && e.end_date && !end) flag("end_date", "The AI read an end date the page does not clearly show.");
@@ -300,7 +438,10 @@ export function checkEvent(e, text, { today, source = {}, pageUrl, others = [] }
   const booking = links.has(e.booking_url) ? e.booking_url : null;
   const detail = links.has(e.detail_url) && sameSiteSafe(e.detail_url, pageUrl) ? e.detail_url : null;
   const description = supportedText(e.description_text, page, title);
-  for (const u of e.uncertain || []) if (["title", "start_date", "end_date", "city", "venue"].includes(u) && !flags.some((f) => f.field === u)) flag(u, "The AI was not sure about this.");
+  // The city is checked here instead of asking the AI whether it is sure: it
+  // must stand beside the event, be in its address, or be the listing's city.
+  if (city && chapter && chapter !== "Other" && !near(city) && !chapterFor(address) && !listingFits(source.city, chapter)) flag("city", `${city} is on the page, but not beside this event.`);
+  for (const u of e.uncertain || []) if (u === "title" || (["start_date", "end_date"].includes(u) && !agreed && !flags.some((f) => f.field === u))) flag(u, "The AI was not sure about this.");
 
   return {
     title, description, start_date: start, end_date: end, start_time: startTime, end_time: endTime,
@@ -346,6 +487,8 @@ export function mergeDetail(base, more) {
   if (guessed && moreSure) { out.chapter = more.chapter; out.timezone = more.timezone; out.flags = out.flags.filter((f) => f.field !== "chapter"); }
   if (more.venue && !more.flags.some((f) => f.field === "venue") && out.flags.some((f) => f.field === "venue")) { out.venue = more.venue; out.flags = out.flags.filter((f) => f.field !== "venue"); }
   if (!runs && more.start_time && !out.evidence.time_text) out.evidence.time_text = more.evidence.time_text;
+  // The event's own page names the same city: no doubt left.
+  if (more.chapter && more.chapter === out.chapter && !more.flags.some((f) => f.field === "city")) out.flags = out.flags.filter((f) => f.field !== "city");
   // Flags about details the event's own page has now supplied.
   out.flags = out.flags.filter((f) => !(["start_date", "end_date", "start_time"].includes(f.field) && out[f.field] && !base[f.field]));
   return out;
@@ -357,7 +500,7 @@ export const matchKey = (title) => norm(title).replace(/[^\p{L}\p{N}]+/gu, " ").
  * What to do with a checked event: { action: "skip" | "draft" | "update", ... }.
  * `drafts`: earlier drafts of the same source. `events`: live events.
  */
-export function classify(c, drafts, events, sourceName = "") {
+export function classify(c, drafts, events, sourceName = "", elsewhere = []) {
   const key = matchKey(c.title);
   const mine = drafts.filter((d) => d.match_key === key);
   const sameDates = (d) => (d.start_date || null) === (c.start_date || null) && (d.end_date || null) === (c.end_date || null);
@@ -379,14 +522,16 @@ export function classify(c, drafts, events, sourceName = "") {
     const overlap = !c.start_date || (es <= (c.end_date || c.start_date) && ee >= c.start_date);
     return overlap && (near || (k === key && day(e.start_date) === c.start_date));
   });
-  return { action: "draft", key, duplicate_of: dup?.id || null };
+  // The same show found on another website and still waiting.
+  const twin = elsewhere.find((d) => d.match_key === key && key.length >= 8 && c.start_date && sameDates(d) && ["new", "changes", "checked", "awaiting_organiser", "published"].includes(d.state));
+  return { action: "draft", key, duplicate_of: dup?.id || null, twin: twin || null };
 }
 
 /** Which Admin section a draft belongs in. */
 export function draftSection(d, now = Date.now()) {
   if (d.state === "new" || d.state === "changes") {
     if (d.duplicate_of) return "duplicates";
-    if (d.state === "changes" || d.update_of || (d.flags || []).length) return "checking";
+    if (d.state === "changes" || d.update_of || (d.flags || []).some((f) => !f.soft)) return "checking";
     return "ready";
   }
   if (d.state === "awaiting_organiser") return "organiser";
@@ -409,7 +554,7 @@ export function reportEmail({ run, drafts, siteUrl, trial, totalSources }) {
   const by = (s) => open.filter((d) => draftSection(d) === s);
   const ready = by("ready"), check = by("checking"), dups = by("duplicates");
   const results = run.results || [];
-  const problems = results.filter((r) => !["ok", "unchanged"].includes(r.status));
+  const problems = results.filter((r) => !["ok", "unchanged", "shared"].includes(r.status));
   const n = open.length;
   const subject = run.status === "failed" ? "The weekly event check did not finish · Art Future Club"
     : `${n} new event${n === 1 ? "" : "s"} to review · Art Future Club`;
@@ -422,7 +567,7 @@ ${trial ? '<p style="background:#fff4d6;padding:10px 12px;margin:0 0 14px">Trial
 <p>${run.status === "failed" ? "This week's event check stopped before it finished. What it found so far is below." : "This week's event check is finished."}</p>
 <p><b>${results.length}</b>${totalSources && totalSources !== results.length ? ` of ${totalSources}` : ""} websites checked · <b>${n}</b> new · <b>${check.length}</b> need checking · <b>${dups.length}</b> possible duplicates</p>
 ${block("Ready to review", list(ready))}
-${block("Needs checking", list(check, (d) => (d.note ? "change requested" : d.update_of ? "details changed on the website" : (d.flags || []).map((f) => f.field.replace(/_/g, " ")).filter((x, i, a) => a.indexOf(x) === i).join(", "))))}
+${block("Needs checking", list(check, (d) => (d.note ? "change requested" : d.update_of ? "details changed on the website" : (d.flags || []).filter((f) => !f.soft).map((f) => f.field.replace(/_/g, " ")).filter((x, i, a) => a.indexOf(x) === i).join(", "))))}
 ${block("Possible duplicates", list(dups))}
 ${block("Couldn't check", problems.slice(0, 15).map((r) => `<li>${esc(r.name)} · ${esc(r.detail || r.status)}</li>`).join("") + (problems.length > 15 ? `<li>and ${problems.length - 15} more</li>` : ""))}
 <p style="margin:26px 0"><a href="${esc(siteUrl)}/admin?tab=AI%20Events" style="background:#1b1b1f;color:#fff;padding:12px 22px;text-decoration:none">Review events</a></p>

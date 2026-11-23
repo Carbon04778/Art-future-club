@@ -6,6 +6,7 @@ import { ArrowLeft, MapPin, Clock, ExternalLink, Calendar, Loader2 } from 'lucid
 import SlimFooter from '@/components/SlimFooter';
 import { findBySlugOrId, shouldRedirectToSlug, eventPath } from '@/lib/slugs';
 import { useEventSeo } from '@/hooks/useEntitySeo';
+import { eventStatus, formatRange, formatTimes, STATUS_LABEL } from '@/lib/eventDates';
 
 const TYPE_COLORS = {
   Exhibition: 'bg-primary/10 text-primary',
@@ -17,17 +18,6 @@ const TYPE_COLORS = {
   Social: 'bg-orange-100 text-orange-700',
   Other: 'bg-muted text-muted-foreground',
 };
-
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  });
-}
-function formatTime(dateStr) {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
 
 export default function EventDetail() {
   const { id } = useParams();
@@ -97,7 +87,8 @@ export default function EventDetail() {
     );
   }
 
-  const isPast = event.start_date && new Date(event.start_date) < new Date();
+  const status = eventStatus(event);
+  const times = formatTimes(event);
 
   return (
     <>
@@ -120,9 +111,7 @@ export default function EventDetail() {
           {event.chapter && (
             <span className="font-mono-caps text-[10px] text-muted-foreground">{event.chapter}</span>
           )}
-          {isPast && (
-            <span className="font-mono-caps text-[10px] text-muted-foreground/70">Past event</span>
-          )}
+          <span className={`border px-2 py-0.5 font-mono-caps text-[10px] ${status === 'ongoing' ? 'border-green-600 text-green-600' : 'border-border text-muted-foreground'}`}>{STATUS_LABEL[status]}</span>
           {event.is_free ? (
             <span className="font-mono-caps text-[10px] text-green-600">Free</span>
           ) : (
@@ -135,9 +124,9 @@ export default function EventDetail() {
         </h1>
 
         <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 font-mono-caps text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" /> {formatDate(event.start_date)}</span>
+          <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" /> {formatRange(event)}</span>
           {/* C8: a page that gave only a date shows no time, not an invented one. */}
-          {!event.date_only && <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {formatTime(event.start_date)}</span>}
+          {times && <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {times}</span>}
           {event.venue && (
             <a
               href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([event.venue, event.address].filter(Boolean).join(', '))}`}
@@ -204,12 +193,11 @@ export default function EventDetail() {
                 <p className="mt-1 text-base">{event.organizer_name}</p>
               </div>
             )}
-            {event.end_date && (
-              <div>
-                <p className="font-mono-caps text-[10px] text-muted-foreground">Ends</p>
-                <p className="mt-1 text-base">{formatDate(event.end_date)} · {formatTime(event.end_date)}</p>
-              </div>
-            )}
+            <div>
+              <p className="font-mono-caps text-[10px] text-muted-foreground">Dates</p>
+              <p className="mt-1 text-base">{formatRange(event)}</p>
+              {times && <p className="text-sm text-muted-foreground">{times}</p>}
+            </div>
             {event.external_link && (
               <a
                 href={event.external_link}
