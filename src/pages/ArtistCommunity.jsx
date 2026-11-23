@@ -7,6 +7,7 @@ import { Image } from "@/components/ui/image";
 import { ArrowUpRight, Plus, MessageSquare } from "lucide-react";
 import ForumPostModal from "@/components/ForumPostModal";
 import SlimFooter from "@/components/SlimFooter";
+import { PAYMENTS_ENABLED } from "@/lib/featureLimits";
 import { chapterFilterOptions } from "@/lib/chaptersData";
 
 const CATEGORY_COLORS = {
@@ -190,7 +191,7 @@ export default function ArtistCommunity() {
                 { to: "/gallery-map", label: "Gallery Map" },
                 { to: "/events", label: "Event Calendar" },
                 { to: "/collector-profile", label: "Collector Profile" },
-                { to: "/upgrade", label: "Upgrade ↑" },
+                ...(PAYMENTS_ENABLED ? [{ to: "/upgrade", label: "Upgrade ↑" }] : []),
               ].map(({ to, label }) => (
                 <Link key={to} to={to} className="block font-mono-caps text-[11px] text-muted-foreground hover:text-primary transition-colors">
                   → {label}

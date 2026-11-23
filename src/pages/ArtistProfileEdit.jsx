@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { atLimit, FREE_ARTWORK_LIMIT } from "@/lib/featureLimits";
+import { atLimit, FREE_ARTWORK_LIMIT, PAYMENTS_ENABLED } from "@/lib/featureLimits";
 import WordLimitedTextarea from "@/components/WordLimitedTextarea";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -282,12 +282,12 @@ export default function ArtistProfileEdit() {
           <span className="font-mono-caps text-[11px] text-foreground">Artist Profile</span>
           <div className="flex flex-wrap items-center gap-4">
             {/* Full width on the smallest screens so it is impossible to miss. */}
-            <Link
+            {PAYMENTS_ENABLED && <Link
               to="/upgrade"
               className="order-first w-full text-center sm:order-none sm:w-auto font-mono-caps text-[11px] text-primary border border-primary/50 px-3 py-1.5 hover:bg-primary hover:text-primary-foreground transition-colors"
             >
               Upgrade ↑
-            </Link>
+            </Link>}
           {profileId && <PortfolioPDFExport profile={{ ...form, id: profileId }} />}
           {profileId && <Link to={`/artists/${profileId}`} className="font-mono-caps text-[11px] text-primary">View Profile →</Link>}
           <button

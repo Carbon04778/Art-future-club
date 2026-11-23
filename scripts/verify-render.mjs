@@ -14,6 +14,7 @@
  */
 import { JSDOM } from "jsdom";
 import { BACKEND } from "../src/api/base44Client.js";
+import { PAYMENTS_ENABLED } from "../src/lib/featureLimits.js";
 
 // Guard: this test seeds demo sessions and uses demo ids like "artist_lin".
 // Against a real database those are rejected as malformed uuids and the
@@ -131,6 +132,15 @@ async function renderUntilSettled(root, container, { cap = 4000, quiet = 220 } =
 }
 
 const results = [];
+// Payments paused (2026-11-23): no page may link to a payment page, and the
+// payment pages themselves must send visitors to the home page.
+const PAY_LINK = /href="\/(upgrade|membership-policy)"/;
+const payProblems = [];
+const checkPayments = (route, html) => {
+  if (PAYMENTS_ENABLED) return;
+  if (PAY_LINK.test(html)) payProblems.push(`${route}: links to ${html.match(PAY_LINK)[0]}`);
+  if (/^\/(upgrade|membership-policy)$/.test(route) && window.location.pathname !== "/") payProblems.push(`${route}: did not go to the home page (at ${window.location.pathname})`);
+};
 
 for (const route of ROUTES) {
   window.history.pushState({}, "", route);
@@ -153,6 +163,7 @@ for (const route of ROUTES) {
     newErrors.push(`renders ${text.length} chars — far larger than expected, likely duplicated content`);
   }
   results.push({ route, chars: text.length, errors: newErrors });
+  checkPayments(route, container.innerHTML);
 
   root.unmount();
 }
@@ -188,6 +199,7 @@ for (const route of AUTHED) {
     chars: text.length,
     errors: errors.slice(before),
   });
+  checkPayments(`${route} [signed in]`, container.innerHTML);
   root.unmount();
 }
 
@@ -274,6 +286,14 @@ console.log(`    admin sees Admin link         : ${adminSeesAdmin ? "yes  (corre
 if (memberSeesAdmin || !adminSeesAdmin) {
   errors.push("Admin link gating is wrong");
   results.push({ route: "ADMIN LINK GATING", chars: 0, errors: ["gating incorrect"] });
+}
+
+console.log("\n  PAYMENTS PAUSED (no Upgrade / Membership links on any page)");
+if (PAYMENTS_ENABLED) console.log("    payments are ON — check skipped");
+else if (!payProblems.length) console.log(`    no payment links on any of ${results.length} renders; /upgrade and /membership-policy go home (correct)`);
+else {
+  payProblems.forEach((p) => console.log(`    ${p}  <-- BUG`));
+  results.push({ route: "PAYMENTS PAUSED", chars: 0, errors: payProblems });
 }
 
 let failed = 0;

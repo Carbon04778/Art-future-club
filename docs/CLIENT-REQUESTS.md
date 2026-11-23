@@ -8,6 +8,10 @@ Status: **open** · **on hold** (waiting on an answer) · **in progress** · **d
 
 ## Reminders for the owner
 
+- **Payments are PAUSED** (owner, 2026-11-23: "remove every places that ask
+  for payemnt for now save all in files till futher notice"). Hidden by one
+  switch, `PAYMENTS_ENABLED` in `src/lib/featureLimits.js`; everything hidden
+  and how to bring it back is in `docs/PAYMENTS-PAUSED.md`.
 - **Open Calls is FREE to view for now** (owner, 2026-11-22: "open that to
   free now", remind later). Made premium-only again by running
   `supabase/migrations/031_open_calls_free.revert.sql` (TEST, then LIVE) —

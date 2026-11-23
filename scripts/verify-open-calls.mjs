@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
+import { PAYMENTS_ENABLED } from "../src/lib/featureLimits.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const dom = new JSDOM("<!doctype html><html><body><div id='root'></div></body></html>", { url: "http://localhost/open-calls", pretendToBeVisual: true });
@@ -65,7 +66,7 @@ async function page(access, user) {
 {
   const p = await page({ can_view: false, can_post: false }, null);
   check("signed out: 'Upgrade to view'", p.locked && /upgrade to view/i.test(p.text));
-  check("signed out: an Upgrade button to /upgrade", p.upgradeHref === "/upgrade");
+  check(`signed out: ${PAYMENTS_ENABLED ? "an" : "no (payments paused)"} Upgrade button`, (p.upgradeHref === "/upgrade") === PAYMENTS_ENABLED);
   check("signed out: offered sign-in too", p.signIn);
   check("signed out: no list shown", !p.list);
   check("signed out: the list is never even requested", listCalls === 0, `${listCalls} requests`);
@@ -75,7 +76,7 @@ async function page(access, user) {
 // ---- signed in, not premium
 {
   const p = await page({ can_view: false, can_post: false }, { id: "u", role: "user" });
-  check("member, not premium: 'Upgrade to view'", p.locked && p.upgradeHref === "/upgrade");
+  check("member, not premium: 'Upgrade to view'", p.locked && (p.upgradeHref === "/upgrade") === PAYMENTS_ENABLED);
   check("member, not premium: no sign-in link (already signed in)", !p.signIn);
   check("member, not premium: no list, never requested", !p.list && listCalls === 0);
   check("member, not premium: no Post button", !p.post);
@@ -276,7 +277,8 @@ const admin = src("src/pages/AdminDashboard.jsx");
 check("Admin Open Calls tab: View, Edit, New and a confirm before Delete", /admin-open-call-edit/.test(admin) && /admin-open-call-new/.test(admin) && /openCallPath\(c\)/.test(admin) && /window\.confirm\(`Delete/.test(admin));
 const rls = src("supabase/migrations/002_rls.sql");
 check("database: the poster or an admin may edit (002 opencall_update_own)", /create policy opencall_update_own[\s\S]*?using \(posted_by_id = auth\.uid\(\) or public\.is_admin\(\)\)/.test(rls));
-check("page no longer uses the switched-off paywall flag", !/isLocked|featureLimits/.test(page_));
+// (featureLimits is imported now, but only for PAYMENTS_ENABLED to hide the Upgrade button.)
+check("page no longer uses the switched-off paywall flag", !/isLocked|LIMITS_ENABLED|LIMITS_ACTIVE/.test(page_));
 check("page asks the database who may see and post", /openCallAccess\(\)/.test(page_));
 const provider = src("src/api/providers/supabase.js");
 check("a call with no deadline sends null, not \"\" (the database refused \"\")", /deadline: form.deadline || null/.test(page_));

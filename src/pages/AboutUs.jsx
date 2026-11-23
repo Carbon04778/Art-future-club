@@ -1,5 +1,6 @@
 import React from "react";
 import ManifestoFooter from "@/components/ManifestoFooter";
+import { PAYMENTS_ENABLED } from "@/lib/featureLimits";
 
 export default function AboutUs() {
   return (
@@ -32,12 +33,14 @@ export default function AboutUs() {
             </p>
           </div>
 
+          {PAYMENTS_ENABLED && (
           <div>
             <h2 className="font-heading text-2xl font-medium text-foreground mb-4">Membership</h2>
             <p>
               AFC offers tiered membership plans that give artists and collectors deeper access to the network — from premium portfolio features and featured listings to gallery partnership opportunities. We believe in sustainable models that genuinely support creative practitioners.
             </p>
           </div>
+          )}
 
           <div>
             <h2 className="font-heading text-2xl font-medium text-foreground mb-2">Our Team</h2>

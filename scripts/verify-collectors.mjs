@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
+import { PAYMENTS_ENABLED } from "../src/lib/featureLimits.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const dom = new JSDOM("<!doctype html><html><head></head><body><div id='root'></div></body></html>", { url: "http://localhost/collectors", pretendToBeVisual: true });
@@ -170,7 +171,7 @@ async function renderAt(path, access) {
 }
 {
   const root = await renderAt("/collectors", { allowed: false });
-  check("not allowed: 'for collectors and premium members' with Upgrade, no list", !!c.querySelector('[data-testid="collectors-locked"]') && !!c.querySelector('a[href="/upgrade"]') && !/Jane/.test(c.textContent));
+  check(`not allowed: 'for collectors and premium members', ${PAYMENTS_ENABLED ? "with" : "no (payments paused)"} Upgrade button, no list`, !!c.querySelector('[data-testid="collectors-locked"]') && !!c.querySelector('a[href="/upgrade"]') === PAYMENTS_ENABLED && !/Jane/.test(c.textContent));
   check("…and never indexed by search engines", document.querySelector('meta[name="robots"]')?.getAttribute("content")?.includes("noindex"));
   root.unmount();
 }

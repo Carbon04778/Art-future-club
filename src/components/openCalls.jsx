@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { X, Loader2, Lock } from "lucide-react";
+import { PAYMENTS_ENABLED } from "@/lib/featureLimits";
 import { parseISO, endOfDay, isPast, differenceInCalendarDays, format } from "date-fns";
 
 /**
@@ -51,7 +52,7 @@ export function UpgradeToView({ signedIn }) {
         Open calls — residencies, grants, fellowships and calls for submissions — are for premium members.
       </p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-        <Link to="/upgrade" className="bg-primary px-6 py-3 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">Upgrade Membership ↑</Link>
+        {PAYMENTS_ENABLED && <Link to="/upgrade" className="bg-primary px-6 py-3 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">Upgrade Membership ↑</Link>}
         {!signedIn && (
           <Link to="/login" className="font-mono-caps text-[11px] text-muted-foreground underline hover:text-foreground">Already a member? Sign in</Link>
         )}

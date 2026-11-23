@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { eventPath } from "@/lib/slugs";
 import { toLocalInput, fromLocalInput } from "@/lib/datetime";
-import { LIMITS_ENABLED } from "@/lib/featureLimits";
+import { LIMITS_ACTIVE } from "@/lib/featureLimits";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
 import { Plus, X, Loader2, MapPin, ExternalLink, Pencil, Trash2 } from "lucide-react";
@@ -232,7 +232,7 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
   const submit = async (e) => {
     e.preventDefault();
     const start = new Date(form.start_date);
-    if (LIMITS_ENABLED && !isNaN(start) && !isEdit) {
+    if (LIMITS_ACTIVE && !isNaN(start) && !isEdit) {
       // The one-per-month limit applies to NEW exhibitions only — editing an
       // existing one would otherwise collide with itself.
       const ym = `${start.getFullYear()}-${start.getMonth()}`;
@@ -378,7 +378,7 @@ function AddExhibitionModal({ profile, events, exhibition, onClose, onCreated })
               This exhibition will be published to the public Events page.
               {/* The monthly cap is not mentioned while limits are off — it
                   would describe a restriction that no longer applies. */}
-              {LIMITS_ENABLED && " Free plans: 1 exhibition per month."}
+              {LIMITS_ACTIVE && " Free plans: 1 exhibition per month."}
             </p>
           )}
           <div className="flex flex-wrap items-center gap-4 pt-2">

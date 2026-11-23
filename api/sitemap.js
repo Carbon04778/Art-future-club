@@ -22,6 +22,8 @@
  * returns "not available" — which is how a site earns a crawl-error report.
  */
 
+import { PAYMENTS_ENABLED } from "../src/lib/featureLimits.js";
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
 // www, not the apex — the apex 308-redirects to it. See src/lib/seo.js.
@@ -58,7 +60,8 @@ const STATIC_PAGES = [
   ["/terms", 0.2, "yearly"],
   ["/privacy", 0.2, "yearly"],
   ["/cookies", 0.2, "yearly"],
-  ["/membership-policy", 0.2, "yearly"],
+  // Hidden while payments are paused (src/lib/featureLimits.js).
+  ...(PAYMENTS_ENABLED ? [["/membership-policy", 0.2, "yearly"]] : []),
 ];
 
 const esc = (s) =>

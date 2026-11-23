@@ -13,6 +13,32 @@
  */
 export const LIMITS_ENABLED = false;
 
+/**
+ * Is anything on the site asking for payment?
+ *
+ * OFF — owner, 2026-11-23: "remove every places that ask for payment for now
+ * save all in files till further notice". Nothing was deleted. While this is
+ * false:
+ *   - /upgrade and /membership-policy send visitors to the home page,
+ *   - the "Membership" / "Membership Policy" footer links, the Community
+ *     sidebar and profile-editor "Upgrade ↑" links are hidden,
+ *   - every "Upgrade Membership" button (Collectors, Open Calls, free-limit
+ *     pop-ups) is hidden,
+ *   - the free-plan limits stay off even if LIMITS_ENABLED is set to true,
+ *     because a limit with no way to upgrade would simply block people,
+ *   - the "Membership" paragraph on About Us is hidden,
+ *   - /membership-policy is left out of the sitemap.
+ * Stripe, existing subscriptions, premium badges and the admin
+ * Subscriptions tab are untouched.
+ *
+ * TO BRING PAYMENTS BACK: set this to true. Full list in
+ * docs/PAYMENTS-PAUSED.md.
+ */
+export const PAYMENTS_ENABLED = false;
+
+/** Free-plan limits apply only when both switches are on. */
+export const LIMITS_ACTIVE = LIMITS_ENABLED && PAYMENTS_ENABLED;
+
 /** Portfolio works a free artist may add. */
 export const FREE_ARTWORK_LIMIT = 4;
 
@@ -25,7 +51,7 @@ export const FREE_GALLERY_WORK_LIMIT = 4;
  * Always false while limits are disabled, so callers do not each need to
  * remember to check the switch.
  */
-export const atLimit = (count, limit) => LIMITS_ENABLED && count >= limit;
+export const atLimit = (count, limit) => LIMITS_ACTIVE && count >= limit;
 
 /**
  * Should paid-only content be locked?
@@ -33,7 +59,7 @@ export const atLimit = (count, limit) => LIMITS_ENABLED && count >= limit;
  * Open call links are the main case. While limits are off, everything is
  * open to everyone.
  */
-export const isLocked = (isPaidMember) => LIMITS_ENABLED && !isPaidMember;
+export const isLocked = (isPaidMember) => LIMITS_ACTIVE && !isPaidMember;
 
 /**
  * Is "Continue with Google" offered on the sign-in and join pages?

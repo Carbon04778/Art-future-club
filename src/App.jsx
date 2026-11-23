@@ -53,6 +53,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import Layout from '@/components/Layout';
 import LFrameCursor from '@/components/LFrameCursor';
 import { Navigate } from 'react-router-dom';
+import { PAYMENTS_ENABLED } from '@/lib/featureLimits';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -102,7 +103,8 @@ const AuthenticatedApp = () => {
         <Route path="/chapter/:slug" element={<CityChapterDetail />} />
         <Route path="/artists" element={<ArtistsDirectory />} />
         <Route path="/artists/:id" element={<ArtistProfileView />} />
-        <Route path="/upgrade" element={<Upgrade />} />
+        {/* Payment pages go to the home page while payments are paused (featureLimits.js). */}
+        <Route path="/upgrade" element={PAYMENTS_ENABLED ? <Upgrade /> : <Navigate to="/" replace />} />
         <Route path="/gallery" element={<GalleryShowcase />} />
         <Route path="/gallery/:id" element={<GalleryProfile />} />
         <Route path="/events" element={<EventCalendar />} />
@@ -126,7 +128,7 @@ const AuthenticatedApp = () => {
         <Route path="/terms" element={<TermsAndConditions />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/cookies" element={<CookiePolicy />} />
-        <Route path="/membership-policy" element={<MembershipPolicy />} />
+        <Route path="/membership-policy" element={PAYMENTS_ENABLED ? <MembershipPolicy /> : <Navigate to="/" replace />} />
         <Route path="/partnership" element={<Partnership />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>

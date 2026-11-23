@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import SocialLinks from '@/components/SocialLinks';
+import { PAYMENTS_ENABLED } from "@/lib/featureLimits";
 import { CHAPTER_NAMES } from '@/lib/chaptersData';
 
 // The chapter names, three to a line.
@@ -84,7 +85,7 @@ export default function ManifestoFooter() {
               { to: "/editorial", label: "Editorial" },
               { to: "/map", label: "Artist Map" },
               { to: "/community", label: "Community" },
-              { to: "/upgrade", label: "Membership" },
+              ...(PAYMENTS_ENABLED ? [{ to: "/upgrade", label: "Membership" }] : []),
               { to: "/partnership", label: "Partnership & Patronage" },
             ].map(({ to, label }) => (
               <li key={to}><Link to={to} className="text-sm text-foreground/70 hover:text-primary transition-colors">{label}</Link></li>
@@ -108,7 +109,7 @@ export default function ManifestoFooter() {
             { to: "/terms", label: "Terms & Conditions" },
             { to: "/privacy", label: "Privacy Policy" },
             { to: "/cookies", label: "Cookie Policy" },
-            { to: "/membership-policy", label: "Membership Policy" },
+            ...(PAYMENTS_ENABLED ? [{ to: "/membership-policy", label: "Membership Policy" }] : []),
           ].map(({ to, label }) => (
             <Link key={to} to={to} className="font-mono-caps text-[10px] text-foreground/40 hover:text-primary transition-colors">
               {label}

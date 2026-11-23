@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Loader2, Lock } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { applySeo, SITE_NAME } from "@/lib/seo";
+import { PAYMENTS_ENABLED } from "@/lib/featureLimits";
 
 /**
  * Collectors are for collectors and premium members only (B10 — Julie:
@@ -48,7 +49,7 @@ export default function CollectorsGate({ title = "Collectors", children }) {
           AFC keeps its collectors private. Their profiles and collections are visible to other collectors and to premium members.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-          <Link to="/upgrade" className="bg-primary px-6 py-3 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">Upgrade Membership ↑</Link>
+          {PAYMENTS_ENABLED && <Link to="/upgrade" className="bg-primary px-6 py-3 font-mono-caps text-[11px] text-primary-foreground hover:opacity-80">Upgrade Membership ↑</Link>}
           {!state.user && <Link to="/login" className="font-mono-caps text-[11px] text-muted-foreground underline hover:text-foreground">Already a member? Sign in</Link>}
         </div>
       </div>

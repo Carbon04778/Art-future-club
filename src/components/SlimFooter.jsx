@@ -2,6 +2,7 @@ import React from 'react';
 import { openConsentPreferences } from "@/components/ConsentBanner";
 import { Link } from 'react-router-dom';
 import SocialLinks from '@/components/SocialLinks';
+import { PAYMENTS_ENABLED } from "@/lib/featureLimits";
 
 const NAV_LINKS = [
   { to: "/artists", label: "Artists" },
@@ -12,7 +13,8 @@ const NAV_LINKS = [
   { to: "/editorial", label: "Editorial" },
   { to: "/map", label: "Artist Map" },
   { to: "/community", label: "Community" },
-  { to: "/upgrade", label: "Membership" },
+  // Payment pages are hidden while payments are paused (featureLimits.js).
+  ...(PAYMENTS_ENABLED ? [{ to: "/upgrade", label: "Membership" }] : []),
   { to: "/partnership", label: "Partnership" },
   { to: "/about", label: "About" },
 ];
@@ -21,7 +23,7 @@ const LEGAL_LINKS = [
   { to: "/terms", label: "Terms" },
   { to: "/privacy", label: "Privacy" },
   { to: "/cookies", label: "Cookies" },
-  { to: "/membership-policy", label: "Membership Policy" },
+  ...(PAYMENTS_ENABLED ? [{ to: "/membership-policy", label: "Membership Policy" }] : []),
 ];
 
 export default function SlimFooter() {
