@@ -736,6 +736,9 @@ no drafts (it had assumed at least one).
 - C7: new; artists have disciplines (A3) — usable for "similar".
 - C8: nothing yet. New: scheduled job, website reader, AI extraction, draft
   queue, organiser approval, recommendations, search.
+- C8 + C10 fixes LIVE 2026-11-23 (v11/GitHub 01ee32c; 035 on TEST and LIVE): TEST
+  end to end 64/64, live dates 13/13, AI screens 26/26. C10 (not in the quote) included
+  by the owner (2026-11-23); pricing not recorded. Old events keep no time zone.
 - C8 LIVE 2026-11-23 (v11/GitHub 1bd39d0; 034 on TEST and LIVE; trial on, schedule
   off). TEST end to end 49/49, live read-only 26/26. Still to do: first real run on
   live (proves the Vercel keys), the 10-website trial, and the report email sender.
