@@ -809,3 +809,7 @@ oldest and the member-owned one, phone fits, Cancel, 505 → 505 listings
 > (2026-11-24, via the owner) can she be able to add photos to the edit secon of the event so she do not have to go back and edit and add
 
 - D6: photo in the AI draft's Edit form, with positioning; published with the event. Migration 036.
+
+- D7 (owner, 2026-11-24, for the email automations quote): email members who have
+  not submitted their profile for review, about every 15 days. Proposed: stop when
+  they submit, unsubscribe, or after 3 emails. Not built; not yet agreed with Julie.
