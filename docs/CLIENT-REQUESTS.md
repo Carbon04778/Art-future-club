@@ -786,3 +786,26 @@ downloads, preview against the real 505 listings finds duplicates incl. the
 oldest and the member-owned one, phone fits, Cancel, 505 → 505 listings
 (nothing saved). Earlier live checks still pass: Events 13/13, Chapters
 38/38, drafts 4/4, event map 7/7, Editorial 16/16.
+
+## Batch D — received 2026-11-24 (her words), after the AI events went live in trial
+
+> if a gallery has not claimed them my approval is enough
+> 10 is a good test to start. I can see this will take some getting used to. the first 100 galleries on the site by alphebetical order have already been checked by me for correct information. so 10 -20 to start using those woudl be great
+> yes to all of these please: For you: a report after each check, and alerts when something needs your attention
+> • For galleries: an email when an event needs their approval, with a reminder
+> • For members: suggested events, messages and inquiries sent to their inbox
+> the events page looks great thanks for the update.
+> some of the images however are not loading or taking a long time to load
+> for the suggested for you section, is it possible to have the image in the suggestion as well?
+> I will test the approvals section today
+
+- D1: approval rule CONFIRMED (unclaimed: admin alone). Already how it works.
+- D2: trial with 10–20 of the first 100 galleries alphabetically — to add on live.
+- D3: email automations: she said yes to the list. The message she answered had
+  no price (owner removed the quote line). $300 not yet told to her — send before starting.
+- D4: Events page images slow / not loading — to investigate.
+- D5: image in the "For you" suggestions — to build.
+
+> (2026-11-24, via the owner) can she be able to add photos to the edit secon of the event so she do not have to go back and edit and add
+
+- D6: photo in the AI draft's Edit form, with positioning; published with the event. Migration 036.

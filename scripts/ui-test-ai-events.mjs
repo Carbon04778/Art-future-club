@@ -32,6 +32,7 @@ const open = async (path, width, fake = true) => {
   await p.setRequestInterception(true);
   p.on("request", (q) => {
     const m = /\/rest\/v1\/(rpc\/)?(ai_event_\w+)/.exec(q.url());
+    if (fake && /\/storage\/v1\/object\//.test(q.url()) && ["POST", "OPTIONS"].includes(q.method())) return undefined;
     if (!m || !fake) return q.continue();
     const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*", "access-control-expose-headers": "*" };
     if (q.method() === "OPTIONS") return q.respond({ status: 200, headers: cors });
@@ -98,6 +99,27 @@ try {
   }
   p = await open("/admin?tab=AI%20Events", 1366);
   await p.waitForSelector('[data-testid="ai-events"]'); await sleep(2500);
+  // D6: a photo, chosen while editing. The upload is answered in this browser.
+  await p.setRequestInterception(true);
+  let uploads = 0;
+  p.on("request", (q) => {
+    if (!/\/storage\/v1\/object\//.test(q.url()) || q.isInterceptResolutionHandled()) return;
+    const h = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*" };
+    if (q.method() === "POST") uploads++;
+    if (["POST", "OPTIONS"].includes(q.method())) q.respond({ status: 200, headers: h, contentType: "application/json", body: '{"Key":"uploads/x.webp","Id":"1"}' }, 10);
+  });
+  writes.length = 0;
+  await click(p, "^Edit$"); await sleep(800);
+  const inp = await p.$('[data-photo-field] input[type="file"]');
+  await inp.uploadFile(join(ROOT, "public/images/team/heidi-mak.webp")); await sleep(2500);
+  await (await p.$("[data-photo-field]")).screenshot({ path: R.shotPath("photo.png") });
+  R.ok("Photo", "chosen photo is previewed with positioning", await p.evaluate(() => [...document.querySelectorAll("[data-photo-field] img")].some((i) => i.naturalWidth > 0)), "", "photo.png");
+  await p.evaluate(() => document.querySelector('[data-testid="ai-events"] form button[type="submit"]').click()); await sleep(6000);
+  R.ok("Photo", "saved with the draft, uploaded once", uploads === 1 && writes.length === 1 && /"photo_url":"https:[^"]+"/.test(writes[0]) && /"photo_focal_x":50/.test(writes[0]), `${uploads} upload; ${(/"photo_url":"[^"]*"/.exec(writes[0] || "") || [])[0] || ""}`);
+  await click(p, "^Edit$"); await sleep(800);
+  writes.length = 0;
+  await p.evaluate(() => document.querySelector('[data-testid="ai-events"] form button[type="submit"]').click()); await sleep(3000);
+  R.ok("Photo", "saving without touching the photo sends no photo change", writes.length === 1 && !/photo_url/.test(writes[0]));
   writes.length = 0;
   await click(p, "^Approve"); await sleep(1500);
   R.ok("Approve", "sends exactly one approve for that draft, and says nothing was published", writes.length === 1 && /ai_event_review/.test(writes[0]) && /"p_draft":"d1"/.test(writes[0]) && /Nothing was published/.test(await text(p)), writes.join(" | "));

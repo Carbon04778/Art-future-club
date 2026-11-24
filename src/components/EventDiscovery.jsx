@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search, X, MapPin } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import ThumbImage from "@/components/ThumbImage";
 import { eventPath } from "@/lib/slugs";
 import { chapterFor } from "@/lib/aiEvents";
 import { describeQuery, recommendEvents } from "@/lib/eventSearch";
@@ -91,13 +92,20 @@ export default function EventDiscovery({ user, events, query, setQuery, parsed, 
           <p className="font-mono-caps text-[11px] text-primary">For you</p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {picks.map(({ event, why }) => (
-              <Link key={event.id} to={eventPath(event)} className="min-w-0 border border-border p-5 transition-colors hover:border-primary">
+              <Link key={event.id} to={eventPath(event)} className="flex min-w-0 gap-4 border border-border p-4 transition-colors hover:border-primary">
+                {event.image_url && (
+                  <div className="h-24 w-24 shrink-0 overflow-hidden bg-muted" data-pick-image>
+                    <ThumbImage src={event.image_url} alt="" width={192} className="h-full w-full" style={{ objectPosition: `${event.image_focal_x ?? 50}% ${event.image_focal_y ?? 50}%` }} />
+                  </div>
+                )}
+                <div className="min-w-0">
                 <p className="break-words font-heading text-xl">{event.title}</p>
                 <p className="mt-1 font-mono-caps text-[10px] text-muted-foreground [overflow-wrap:anywhere]">
                   {formatRange(event, { month: "short" })}
                   {event.venue ? ` · ${event.venue}` : ""}
                 </p>
                 <p className="mt-3 text-xs text-muted-foreground">{why.join(" · ")}</p>
+                </div>
               </Link>
             ))}
           </div>

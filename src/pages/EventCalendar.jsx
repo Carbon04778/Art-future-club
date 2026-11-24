@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { eventPath } from "@/lib/slugs";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Image } from "@/components/ui/image";
+import ThumbImage from "@/components/ThumbImage";
 import { MapPin, ExternalLink, Plus, X, Loader2 } from "lucide-react";
 import SlimFooter from "@/components/SlimFooter";
 import { motion } from "framer-motion";
@@ -212,11 +212,11 @@ export default function EventCalendar() {
                       <div className="flex flex-col items-end gap-3">
                         {ev.image_url && (
                           <div className="h-24 w-24 overflow-hidden shrink-0" data-artwork>
-                            <Image
+                            <ThumbImage
                               src={ev.image_url}
                               alt={ev.title}
-                              fittingType="fill"
-                              className="h-full w-full object-cover"
+                              width={192}
+                              className="h-full w-full"
                               // Same focal point the header uses, so the
                               // thumbnail and the event page show the same
                               // part of the picture.

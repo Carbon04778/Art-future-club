@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import ThumbImage from "@/components/ThumbImage";
 import { useDataRevision } from "@/lib/dataRevision";
 import { dateRange } from "@/lib/aiEvents";
 
@@ -50,6 +51,7 @@ export default function OrganiserEventDrafts({ user }) {
       <ul className="mt-4 divide-y divide-border">
         {rows.map((d) => (
           <li key={d.id} className="py-4">
+            {d.photo_url && <div className="mb-3 aspect-video max-w-sm overflow-hidden bg-muted"><ThumbImage src={d.photo_url} alt="" width={640} className="h-full w-full" style={{ objectPosition: `${d.photo_focal_x ?? 50}% ${d.photo_focal_y ?? 50}%` }} /></div>}
             <p className="break-words font-heading text-xl">{d.title}</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {dateRange(d)}{d.start_time ? ` · ${d.start_time.slice(0, 5)}${d.end_time ? `–${d.end_time.slice(0, 5)}` : ""}` : ""} · {[d.venue, d.address, d.chapter].filter(Boolean).join(", ")}

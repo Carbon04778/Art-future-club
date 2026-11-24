@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ExternalLink, Loader2, Play } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import FocalPointPicker from "@/components/FocalPointPicker";
+import ThumbImage from "@/components/ThumbImage";
 import { useDataRevision } from "@/lib/dataRevision";
 import { loadAll } from "@/lib/loadAll";
 import { CHAPTER_OPTIONS } from "@/lib/chaptersData";
@@ -146,6 +148,7 @@ function DraftRow({ d, from, busy, editing, setEditing, act, dup, trial }) {
   const late = d.state === "awaiting_organiser" && daysWaiting(d) >= 7;
   return (
     <li className="py-5">
+      {d.photo_url && <div className="mb-3 h-24 w-40 overflow-hidden bg-muted" data-draft-photo><ThumbImage src={d.photo_url} alt="" width={320} className="h-full w-full" style={{ objectPosition: `${d.photo_focal_x ?? 50}% ${d.photo_focal_y ?? 50}%` }} /></div>}
       <p className="break-words font-heading text-xl">{d.title}</p>
       <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
         {dateRange(d)}{d.start_time ? ` · ${String(d.start_time).slice(0, 5)}` : ""} · {[d.venue, d.address, d.chapter].filter(Boolean).join(", ") || "location missing"} · {d.event_type}
@@ -189,11 +192,35 @@ function DraftRow({ d, from, busy, editing, setEditing, act, dup, trial }) {
 
 function EditDraft({ d, busy, save }) {
   const [f, setF] = useState(() => Object.fromEntries(["title", "description", "event_type", "start_date", "end_date", "start_time", "end_time", "timezone", "venue", "address", "chapter", "organiser", "booking_url"].map((k) => [k, /_time$/.test(k) ? String(d[k] || "").slice(0, 5) : d[k] || ""])));
+  // D6: the event's photo, chosen here and published with it.
+  const [photo, setPhoto] = useState({ url: d.photo_url || "", x: d.photo_focal_x ?? 50, y: d.photo_focal_y ?? 50 });
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const preview = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (uploading) return;
+    setPhotoError("");
+    let url = photo.url;
+    if (file) {
+      setUploading(true);
+      try { url = (await base44.integrations.Core.UploadFile({ file })).file_url; }
+      catch (x) { setPhotoError(`The photo could not be uploaded, so nothing was saved: ${x?.message || x}`); setUploading(false); return; }
+      // Kept, so saving again after an error does not upload it twice.
+      setPhoto((o) => ({ ...o, url })); setFile(null);
+      setUploading(false);
+    }
+    // Only when there is something to say about a photo.
+    const touched = url !== (d.photo_url || "") || (url && (photo.x !== (d.photo_focal_x ?? 50) || photo.y !== (d.photo_focal_y ?? 50)));
+    save({ ...f, ...(touched ? { photo_url: url, photo_focal_x: photo.x, photo_focal_y: photo.y } : {}) });
+  };
   const set = (k, v) => setF((x) => ({ ...x, [k]: v, ...(k === "chapter" && CHAPTER_ZONES[v] ? { timezone: CHAPTER_ZONES[v] } : {}) }));
   const label = (k, text, child) => <label key={k} className="block font-mono-caps text-[10px] text-muted-foreground">{text}<div className="mt-1">{child}</div></label>;
   const input = (k, text, type = "text") => label(k, text, <input type={type} className={box} value={f[k]} onChange={(e) => set(k, e.target.value)} />);
   return (
-    <form className="mt-4 grid gap-3 border border-border p-4 md:grid-cols-2" onSubmit={(e) => { e.preventDefault(); save(f); }}>
+    <form className="mt-4 grid gap-3 border border-border p-4 md:grid-cols-2" onSubmit={submit}>
       {input("title", "Title")}
       {label("event_type", "Type", <select className={box} value={f.event_type} onChange={(e) => set("event_type", e.target.value)}>{EVENT_TYPES.map((t) => <option key={t}>{t}</option>)}</select>)}
       {input("start_date", "Starts", "date")}{input("end_date", "Ends", "date")}
@@ -202,8 +229,19 @@ function EditDraft({ d, busy, save }) {
       {label("timezone", "Time zone", <select className={box} value={f.timezone} onChange={(e) => set("timezone", e.target.value)}><option value="">—</option>{[...new Set([...Object.values(CHAPTER_ZONES), "UTC"])].map((z) => <option key={z}>{z}</option>)}</select>)}
       {input("venue", "Venue")}{input("address", "Address")}{input("organiser", "Organiser")}{input("booking_url", "Booking link", "url")}
       <div className="md:col-span-2">{label("description", "Description", <textarea rows={4} className={box} value={f.description} onChange={(e) => set("description", e.target.value)} />)}</div>
+      <div className="md:col-span-2" data-photo-field>
+        {label("photo", "Photo (shown on the event page)", <input type="file" accept="image/*" aria-label="Photo" className={`${box} file:mr-3 file:border-0 file:bg-muted file:px-2 file:py-1 file:font-mono-caps file:text-[10px]`} onChange={(e) => { const x = e.target.files?.[0]; if (x) { setFile(x); setPhoto((o) => ({ ...o, x: 50, y: 50 })); } }} />)}
+        <p className="mt-1 text-xs text-muted-foreground">Please use a photo the club is allowed to publish.</p>
+        {(preview || photo.url) && (
+          <>
+            <div className="max-w-lg"><FocalPointPicker src={preview || photo.url} aspect={16 / 9} x={photo.x} y={photo.y} onChange={(x, y) => setPhoto((o) => ({ ...o, x, y }))} /></div>
+            <button type="button" className={`${btn} mt-2`} onClick={() => { setFile(null); setPhoto({ url: "", x: 50, y: 50 }); }}>Remove photo</button>
+          </>
+        )}
+        {photoError && <p className="mt-2 text-sm text-destructive" role="alert">{photoError}</p>}
+      </div>
       <p className="text-xs text-muted-foreground md:col-span-2 [overflow-wrap:anywhere]">Source (kept): {d.source_url}</p>
-      <div><button type="submit" disabled={busy} className={`${btn} border-primary text-primary`}>Save changes</button></div>
+      <div><button type="submit" disabled={busy || uploading} className={`${btn} border-primary text-primary`}>{uploading ? "Uploading photo…" : "Save changes"}</button></div>
     </form>
   );
 }

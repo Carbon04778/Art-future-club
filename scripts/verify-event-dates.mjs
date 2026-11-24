@@ -70,6 +70,30 @@ for (const f of ["src/pages/EventCalendar.jsx", "src/components/AdminEventsPanel
 for (const f of ["src/pages/EventCalendar.jsx", "src/pages/EventDetail.jsx"]) check(`${f}: range and status shown`, /formatRange\(/.test(s(f)) && /STATUS_LABEL\[status\]/.test(s(f)) && !/new Date\((ev|e|event)\.start_date\) < /.test(s(f)));
 
 if (!process.env.AFC_DATES_CHILD) {
+  // ---- D4: small pictures
+  const { thumb } = await import("../src/lib/thumb.js");
+  process.env.VITE_SUPABASE_URL = "https://abc.supabase.co";
+  const img = await import("../api/img.js");
+  const sharp = (await import("sharp")).default;
+  const U = "https://abc.supabase.co/storage/v1/object/public/uploads/a b.webp";
+  check("thumb: next size up, address encoded", thumb(U, 192, true) === "/api/img?w=320&src=" + encodeURIComponent(U));
+  check("thumb: other pictures and dev untouched", thumb("/images/x.webp", 192, true) === "/images/x.webp" && thumb("https://evil.com/x.png", 192, true) === "https://evil.com/x.png" && thumb(U, 192, false) === U && thumb(null, 192, true) === null);
+  const call = async (query) => { const r = { h: {}, setHeader(k, v) { this.h[k] = v; }, status(c) { this.c = c; return this; }, send(b) { this.b = b; } }; await img.default({ query }, r); return r; };
+  const real = globalThis.fetch;
+  const big = await sharp({ create: { width: 2000, height: 1500, channels: 3, background: "#c33" } }).jpeg().toBuffer();
+  let asked = 0;
+  globalThis.fetch = async () => { asked++; return new Response(big, { headers: { "content-type": "image/jpeg" } }); };
+  let r = await call({ src: U, w: "320" });
+  check("img: 320px webp, kept a year", r.c === 200 && (await sharp(r.b).metadata()).width === 320 && r.h["Content-Type"] === "image/webp" && /immutable/.test(r.h["Cache-Control"]), String(r.c));
+  asked = 0;
+  for (const q of [{ src: "https://evil.com/x.png", w: "320" }, { src: "https://abc.supabase.co/rest/v1/profiles", w: "320" }, { src: "https://abc.supabase.co/storage/v1/object/public/../x", w: "320" }, { src: U, w: "321" }, { src: U }]) check("img: refused " + JSON.stringify(q).slice(0, 60), (await call(q)).c === 400);
+  check("img: refused ones are never fetched", asked === 0);
+  globalThis.fetch = async () => new Response("<html>", { headers: { "content-type": "text/html" } });
+  r = await call({ src: U, w: "320" });
+  check("img: a page is not a picture, and the error is not cached", r.c === 415 && r.h["Cache-Control"] === "no-store");
+  globalThis.fetch = real;
+  check("events page and For you use small pictures", /<ThumbImage/.test(s("src/pages/EventCalendar.jsx")) && /data-pick-image/.test(s("src/components/EventDiscovery.jsx")));
+
   // Again as a visitor in each of these places.
   for (const TZ of ["Asia/Hong_Kong", "America/Los_Angeles", "Pacific/Auckland", "Africa/Lagos", "UTC"]) {
     const r = spawnSync("npx vite-node --mode test scripts/verify-event-dates.mjs", { shell: true, env: { ...process.env, TZ, AFC_DATES_CHILD: "1" }, encoding: "utf8" });
