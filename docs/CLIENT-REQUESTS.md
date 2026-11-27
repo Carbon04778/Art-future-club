@@ -813,3 +813,21 @@ oldest and the member-owned one, phone fits, Cancel, 505 → 505 listings
 - D7 (owner, 2026-11-24, for the email automations quote): email members who have
   not submitted their profile for review, about every 15 days. Proposed: stop when
   they submit, unsubscribe, or after 3 emails. Not built; not yet agreed with Julie.
+
+## Batch E — newsletter, from the owner, received 2026-11-27 (their words)
+
+> 1. the newsletter options and sections much show in all importal pages users and new people vist the most and
+> 2. they should be able to sign up for newsletter even when when they have not sign up for the website it self
+> (follow-up) the pages and the sections on all where they should appear and then add them to the newsletter
+
+Found first (2026-11-27): every visitor signup FAILED on live and TEST ("new row
+violates row-level security policy") — the site asked for the saved row back,
+which only admins may read. Checked on live with throwaway addresses, removed.
+The 410 subscribers on live were all added 2026-11-27, ~10 s apart, so by a
+signed-in admin (assumed, not confirmed). The admin list showed only 500.
+
+- E2: signup without an account — fixed (insert without reading back; a repeat
+  address says "already on the list"; a hidden field turns away simple bots).
+- E1: placed on: every page's footer (30 pages), the home page, About Us, top of
+  Events ("Get new events by email"), top of Open Calls, articles (kept).
+  Each signup records where it came from. Admin list shows everyone.

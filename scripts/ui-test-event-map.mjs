@@ -86,7 +86,7 @@ if (!LIVE) {
     const localStart = "2027-03-10T18:00";
     await fill('form input[type="datetime-local"]', localStart);
     await p.screenshot({ path: R.shotPath("3-post-event.png") });
-    await p.evaluate(() => document.querySelector("form").requestSubmit());
+    await p.evaluate(() => [...document.querySelectorAll("form")].find((f) => !f.matches("[data-newsletter]")).requestSubmit());
     for (let i = 0; i < 20 && !made; i++) { await sleep(1000); made = (await rest("GET", `event?select=*&title=eq.${encodeURIComponent(title)}`)).data[0]; }
     R.ok("Posting", "an event with NO end date posts (it used to be refused)", !!made && made.end_date === null, made ? `end_date ${made.end_date}` : "not saved", "3-post-event.png");
     R.ok("Posting", `it is placed on the venue's own pin (${venue.display_name})`, made && Number(made.geo_lat) === Number(venue.geo_lat) && Number(made.geo_lng) === Number(venue.geo_lng), made ? `${made.geo_lat},${made.geo_lng}` : "");

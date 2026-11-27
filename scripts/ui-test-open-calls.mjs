@@ -147,7 +147,7 @@ if (LIVE) {
     const req = await v.p.$$("form input[required]");
     await req[0].type(title); await req[1].type("B9 Test Gallery");
     await v.p.screenshot({ path: R.shotPath("4-partner-posting.png") });
-    await v.p.evaluate(() => document.querySelector("form").requestSubmit());
+    await v.p.evaluate(() => [...document.querySelectorAll("form")].find((f) => !f.matches("[data-newsletter]")).requestSubmit());
     let posted;
     for (let i = 0; i < 15 && !posted; i++) { await sleep(1000); posted = (await rest("GET", `open_call?select=id,title,posted_by_id&title=eq.${encodeURIComponent(title)}`)).data[0]; }
     if (posted) made.calls.push(posted.id);

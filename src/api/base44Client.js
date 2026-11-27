@@ -139,6 +139,7 @@ function clearCacheOnIdentityChange(auth) {
     "restoreProfileArchive",
     // C8: AI event drafts.
     "reviewAiEvent",
+    "subscribeNewsletter",
     "organiserReviewAiEvent",
     "runAiEventCheck",
   ];

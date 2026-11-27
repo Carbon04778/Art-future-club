@@ -3,6 +3,7 @@ import { openConsentPreferences } from "@/components/ConsentBanner";
 import { Link } from 'react-router-dom';
 import SocialLinks from '@/components/SocialLinks';
 import { PAYMENTS_ENABLED } from "@/lib/featureLimits";
+import NewsletterSubscribe from "@/components/NewsletterSubscribe";
 
 const NAV_LINKS = [
   { to: "/artists", label: "Artists" },
@@ -29,6 +30,10 @@ const LEGAL_LINKS = [
 export default function SlimFooter() {
   return (
     <footer className="border-t border-border bg-background px-6 py-10 md:px-10">
+      {/* E1: the newsletter on every page with this footer. */}
+      <div className="mb-8 border-b border-border pb-8">
+        <NewsletterSubscribe variant="inline" source="footer" title="The Art Future Club newsletter" note="Exhibitions, open calls and stories from every chapter, in your inbox." />
+      </div>
       <div className="flex flex-wrap gap-x-5 gap-y-2 mb-6">
         {NAV_LINKS.map(({ to, label }) => (
           <Link key={to} to={to} className="font-mono-caps text-[11px] text-muted-foreground hover:text-primary transition-colors">

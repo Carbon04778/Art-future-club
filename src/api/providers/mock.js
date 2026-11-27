@@ -641,6 +641,12 @@ export const auth = {
     persist();
     return approve ? r.from_id : null;
   },
+  async subscribeNewsletter({ email, source }) {
+    if (table("NewsletterSubscriber").some((s) => s.email === email)) return { already: true };
+    table("NewsletterSubscriber").push({ id: uid(), email, consent: true, source, created_date: new Date().toISOString() });
+    persist();
+    return { already: false };
+  },
   async reviewAiEvent({ draftId, action, patch = {}, note = null }) {
     const d = table("AiEventDraft").find((x) => x.id === draftId);
     if (!d) throw new Error("This draft no longer exists.");

@@ -6,6 +6,7 @@ import EditorialArchive from '@/components/EditorialArchive';
 import CollectiveRegistry from '@/components/CollectiveRegistry';
 import ManifestoFooter from '@/components/ManifestoFooter';
 import TrendingSection from '@/components/TrendingSection';
+import NewsletterSubscribe from '@/components/NewsletterSubscribe';
 
 const HERO_IMAGE = '/images/AdobeStock_528827486.jpg';
 const PORTRAIT_1 = '/images/LandingpageJulieinterveiw.webp';
@@ -28,6 +29,12 @@ export default function Home() {
       />
       <TrendingSection />
       <CollectiveRegistry />
+      {/* E1: the home page is where most new people arrive. */}
+      <section className="px-6 py-16 md:px-10">
+        <div className="mx-auto max-w-3xl">
+          <NewsletterSubscribe source="home" />
+        </div>
+      </section>
       <ManifestoFooter />
     </>
   );

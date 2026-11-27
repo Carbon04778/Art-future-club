@@ -1,3 +1,4 @@
+import NewsletterSubscribe from "@/components/NewsletterSubscribe";
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -71,6 +72,9 @@ export default function OpenCalls() {
         <p className="font-mono-caps text-[11px] text-muted-foreground">AFC — Opportunities Board</p>
         <h1 className="mt-3 font-heading text-5xl font-medium tracking-[-0.02em] md:text-7xl">Open Calls</h1>
         <p className="mt-4 text-lg text-muted-foreground"><span className="text-primary">Residencies</span>, <span className="text-accent">grants</span>, <span className="text-highlight">fellowships</span> and calls for submissions.</p>
+        <div className="mt-8 border-l-2 border-primary pl-4">
+          <NewsletterSubscribe variant="inline" source="open-calls" title="Get new open calls by email" />
+        </div>
 
         {access === null && (
           <div className="mt-16 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>

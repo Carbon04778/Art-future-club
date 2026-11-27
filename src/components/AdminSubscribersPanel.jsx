@@ -1,3 +1,4 @@
+import { loadAll } from "@/lib/loadAll";
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Loader2, Search, Trash2, Check, Download } from "lucide-react";
@@ -20,7 +21,9 @@ export default function AdminSubscribersPanel() {
 
   const load = () => {
     setLoading(true);
-    base44.entities.NewsletterSubscriber.list("-created_date", 500)
+    // Every subscriber, a page at a time: the list passed 400 on 2026-11-27,
+    // and the old cap of 500 would have hidden the oldest without a word.
+    loadAll(base44.entities.NewsletterSubscriber, { sort: "-created_date" })
       .then(setSubscribers)
       .catch((e) => setError(String(e?.message || e)))
       .finally(() => setLoading(false));

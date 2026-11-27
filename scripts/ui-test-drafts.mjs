@@ -108,7 +108,7 @@ if (LIVE) {
     const back = await p.evaluate(() => ({ t: document.querySelector("form input[required]").value, b: document.querySelector("form textarea[required]").value }));
     R.ok("Later", "'Continue editing' brings back the title and text", back.t === title && /piece in progress/.test(back.b));
     await fill("form textarea[required]", "First paragraph of a piece in progress.\n\nAnd now it is finished.");
-    await p.evaluate(() => document.querySelector("form").requestSubmit());
+    await p.evaluate(() => [...document.querySelectorAll("form")].find((f) => !f.matches("[data-newsletter]")).requestSubmit());
     let pub = null;
     for (let i = 0; i < 20 && !pub?.published; i++) { await sleep(1000); pub = (await rows(`article?select=*&id=eq.${art.id}`))[0]; }
     R.ok("Publish", "Publish makes the same article live with the finished text", pub?.published === true && /now it is finished/.test(pub?.body || "") && (await rows(`article?select=id&title=eq.${encodeURIComponent(title)}`)).length === 1);

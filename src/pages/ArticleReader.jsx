@@ -120,7 +120,7 @@ export default function ArticleReader() {
         )}
         <ArticleBody article={article} />
         <div className="mt-16">
-          <NewsletterSubscribe />
+          <NewsletterSubscribe source="article" />
         </div>
       </div>
       <SlimFooter />

@@ -13,6 +13,7 @@ import { eventEnd, eventStart, eventStatus, formatPart, formatRange, formatTimes
 import { CHAPTER_ZONES } from "@/lib/aiEvents";
 import { loadAll } from "@/lib/loadAll";
 import EventDiscovery from "@/components/EventDiscovery";
+import NewsletterSubscribe from "@/components/NewsletterSubscribe";
 import { matchEvents, parseEventQuery } from "@/lib/eventSearch";
 
 const CHAPTERS = chapterFilterOptions("All");
@@ -101,6 +102,10 @@ export default function EventCalendar() {
         <p className="mt-4 text-lg text-muted-foreground">
           <span className="text-primary">Gatherings</span>, <span className="text-accent">exhibitions</span>, and <span className="text-highlight">happenings</span> across all chapters.
         </p>
+
+        <div className="mt-8 border-l-2 border-primary pl-4">
+          <NewsletterSubscribe variant="inline" source="events" title="Get new events by email" />
+        </div>
 
         <EventDiscovery user={user} events={events} query={query} setQuery={setQuery} parsed={parsed} near={near} setNear={setNear} count={filtered.length} />
 

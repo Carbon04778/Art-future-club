@@ -98,7 +98,8 @@ async function page(access, user) {
   // a refused save now says why instead of spinning forever
   [...c.querySelectorAll("button")].find((b) => /post opportunity/i.test(b.textContent)).click();
   await tick(120);
-  const form = c.querySelector("form");
+  // The newsletter box (E1) is also a form on this page.
+  const form = [...c.querySelectorAll("form")].find((f) => !f.matches("[data-newsletter]"));
   const fill = (el, v) => { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(el, v); el.dispatchEvent(new window.Event("input", { bubbles: true })); };
   const inputs = [...form.querySelectorAll("input[required]")];
   inputs.forEach((i, n) => fill(i, `x${n}`));

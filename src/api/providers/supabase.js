@@ -480,6 +480,17 @@ export const auth = {
     return data;
   },
 
+  /**
+   * Newsletter signup for anyone (E2). Inserts WITHOUT asking for the row
+   * back: the list is readable by admins only, so returning it made every
+   * visitor's signup fail. An address already on the list is not an error.
+   */
+  async subscribeNewsletter({ email, source }) {
+    const { error } = await client().from("newsletter_subscriber").insert({ email, consent: true, source });
+    if (!error) return { already: false };
+    if (error.code === "23505") return { already: true };
+    throw new Error(error.message);
+  },
   // C8 (034): every approval step is enforced inside the database.
   async reviewAiEvent({ draftId, action, patch = {}, note = null }) {
     const { data, error } = await client().rpc("ai_event_review", { p_draft: draftId, p_action: action, p_patch: patch, p_note: note });

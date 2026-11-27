@@ -1,6 +1,7 @@
 import React from "react";
 import ManifestoFooter from "@/components/ManifestoFooter";
 import { PAYMENTS_ENABLED } from "@/lib/featureLimits";
+import NewsletterSubscribe from "@/components/NewsletterSubscribe";
 
 export default function AboutUs() {
   return (
@@ -79,6 +80,8 @@ export default function AboutUs() {
               ))}
             </div>
           </div>
+
+          <NewsletterSubscribe source="about" />
 
           <div>
             <h2 className="font-heading text-2xl font-medium text-foreground mb-4">Contact</h2>
